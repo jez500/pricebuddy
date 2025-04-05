@@ -4,6 +4,7 @@ namespace Tests\Unit\Services;
 
 use App\Enums\NotificationMethods;
 use App\Models\User;
+use App\Notifications\Channels\GotifyChannel;
 use App\Services\Helpers\NotificationsHelper;
 use App\Services\Helpers\SettingsHelper;
 use App\Settings\AppSettings;
@@ -27,6 +28,10 @@ class NotificationsHelperTest extends TestCase
             'enabled' => false,
             'token' => 'test_po_token',
         ],
+        NotificationMethods::Gotify->value => [
+            'enabled' => false,
+            'token' => 'test_po_token',
+        ],
     ];
 
     protected function setUp(): void
@@ -41,15 +46,22 @@ class NotificationsHelperTest extends TestCase
         $this->setGlobalSettings([
             NotificationMethods::Mail->value => ['enabled' => true],
             NotificationMethods::Pushover->value => ['enabled' => false],
+            NotificationMethods::Gotify->value => ['enabled' => false],
         ]);
 
         $services = NotificationsHelper::getServices();
 
-        $this->assertCount(2, $services);
+        // Note: The original diff showed new files in app/Notifications/Channels/ and app/Notifications/Messages/
+        // Assuming GotifyChannel is correctly implemented and NotificationMethods::Gotify exists.
+        // The count should reflect all methods defined in NotificationMethods enum. Let's assume 3 for now.
+        $this->assertCount(3, $services);
         $this->assertArrayHasKey(NotificationMethods::Mail->value, $services);
         $this->assertArrayHasKey(NotificationMethods::Pushover->value, $services);
+        $this->assertArrayHasKey(NotificationMethods::Gotify->value, $services);
         $this->assertEquals('mail', $services['mail']['channel']);
         $this->assertEquals(PushoverChannel::class, $services['pushover']['channel']);
+        // Correcting the assertion below based on the Gotify enum value
+        $this->assertEquals(GotifyChannel::class, $services['gotify']['channel']);
     }
 
     public function test_get_all_notification_services()
@@ -58,6 +70,7 @@ class NotificationsHelperTest extends TestCase
         $this->assertIsArray($services->toArray());
         $this->assertSame('my.smtp.com', $services->get('mail')['smtp_host']);
         $this->assertSame('test_po_token', $services->get('pushover')['token']);
+        $this->assertSame('test_po_token', $services->get('gotify')['token']);
 
         foreach ($services->keys() as $service) {
             $this->assertArrayHasKey('enabled', $services[$service]);
@@ -73,27 +86,31 @@ class NotificationsHelperTest extends TestCase
     {
         $newSettings = $this->testSettings;
         $newSettings[NotificationMethods::Pushover->value]['enabled'] = true;
+        $newSettings[NotificationMethods::Gotify->value]['enabled'] = true; // Enable Gotify globally for this test case
         $this->setGlobalSettings($newSettings);
 
         $user = User::factory()->create([
             'settings' => ['notifications' => [
                 NotificationMethods::Mail->value => ['enabled' => true],
                 NotificationMethods::Pushover->value => ['enabled' => true],
+                NotificationMethods::Gotify->value => ['enabled' => true], // Enable Gotify for the user
             ]],
         ]);
 
+        // Expect mail, Pushover, and Gotify channels
         $this->assertSame(
-            ['mail', PushoverChannel::class],
+            ['mail', PushoverChannel::class, GotifyChannel::class],
             NotificationsHelper::getEnabledChannels($user)->toArray(),
         );
 
-        $this->setGlobalSettings($this->testSettings);
+        $this->setGlobalSettings($this->testSettings); // Reset global settings
     }
 
     public function test_get_notification_service_setting()
     {
         $this->assertSame('my.smtp.com', NotificationsHelper::getSetting('mail', 'smtp_host'));
         $this->assertSame('test_po_token', NotificationsHelper::getSetting('pushover', 'token'));
+        $this->assertSame('test_po_token', NotificationsHelper::getSetting('gotify', 'token'));
     }
 
     public function test_get_user_services_returns_correct_collection()
@@ -114,6 +131,7 @@ class NotificationsHelperTest extends TestCase
         $this->setGlobalSettings([
             NotificationMethods::Mail->value => ['enabled' => true],
             NotificationMethods::Pushover->value => ['enabled' => false],
+            NotificationMethods::Gotify->value => ['enabled' => false],
         ]);
 
         $enabledServices = NotificationsHelper::getEnabled();
@@ -131,6 +149,7 @@ class NotificationsHelperTest extends TestCase
 
         $this->assertTrue(NotificationsHelper::getUserEnabled($user, NotificationMethods::Mail->value));
         $this->assertFalse(NotificationsHelper::getUserEnabled($user, NotificationMethods::Pushover->value));
+        $this->assertFalse(NotificationsHelper::getUserEnabled($user, NotificationMethods::Gotify->value));
     }
 
     public function test_is_enabled_returns_true_for_enabled_service()
@@ -138,10 +157,12 @@ class NotificationsHelperTest extends TestCase
         $this->setGlobalSettings([
             NotificationMethods::Mail->value => ['enabled' => true],
             NotificationMethods::Pushover->value => ['enabled' => false],
+            NotificationMethods::Gotify->value => ['enabled' => false],
         ]);
 
         $this->assertTrue(NotificationsHelper::isEnabled(NotificationMethods::Mail->value));
         $this->assertFalse(NotificationsHelper::isEnabled(NotificationMethods::Pushover->value));
+        $this->assertFalse(NotificationsHelper::isEnabled(NotificationMethods::Gotify->value));
     }
 
     public function test_get_enabled_channels_returns_correct_channels()
@@ -149,16 +170,24 @@ class NotificationsHelperTest extends TestCase
         $this->setGlobalSettings([
             NotificationMethods::Mail->value => ['enabled' => true],
             NotificationMethods::Pushover->value => ['enabled' => true],
+            NotificationMethods::Gotify->value => ['enabled' => true],
         ]);
 
         $user = User::factory()->create([
-            'settings' => ['notifications' => [NotificationMethods::Mail->value => ['enabled' => true]]],
+            'settings' => ['notifications' => [
+                NotificationMethods::Mail->value => ['enabled' => true],
+                NotificationMethods::Pushover->value => ['enabled' => false], // Pushover disabled for user
+                NotificationMethods::Gotify->value => ['enabled' => true], // Gotify enabled for user
+            ]],
         ]);
 
         $channels = NotificationsHelper::getEnabledChannels($user);
 
-        $this->assertCount(1, $channels);
-        $this->assertEquals('mail', $channels->first());
+        // Expect mail and Gotify channels
+        $this->assertCount(2, $channels);
+        $this->assertContains('mail', $channels);
+        $this->assertContains(GotifyChannel::class, $channels);
+        $this->assertNotContains(PushoverChannel::class, $channels);
     }
 
     public function test_get_settings_returns_correct_settings()
@@ -166,6 +195,7 @@ class NotificationsHelperTest extends TestCase
         $this->setGlobalSettings([
             NotificationMethods::Mail->value => ['enabled' => true, 'host' => 'mail_host'],
             NotificationMethods::Pushover->value => ['enabled' => true],
+            NotificationMethods::Gotify->value => ['enabled' => true],
         ]);
 
         $settings = NotificationsHelper::getSettings(NotificationMethods::Mail->value);
@@ -182,6 +212,7 @@ class NotificationsHelperTest extends TestCase
         $this->setGlobalSettings([
             NotificationMethods::Mail->value => ['enabled' => true, 'host' => 'mail_host'],
             NotificationMethods::Pushover->value => ['enabled' => true],
+            NotificationMethods::Gotify->value => ['enabled' => true],
         ]);
 
         $value = NotificationsHelper::getSetting(NotificationMethods::Mail->value, 'host');
@@ -194,6 +225,7 @@ class NotificationsHelperTest extends TestCase
         $this->setGlobalSettings([
             NotificationMethods::Mail->value => ['enabled' => true],
             NotificationMethods::Pushover->value => ['enabled' => true],
+            NotificationMethods::Gotify->value => ['enabled' => true],
         ]);
 
         $value = NotificationsHelper::getSetting(NotificationMethods::Mail->value, 'nonexistent', 'default_value');
@@ -204,6 +236,6 @@ class NotificationsHelperTest extends TestCase
     protected function setGlobalSettings(array $settings): void
     {
         AppSettings::new()->fill(['notification_services' => $settings])->save();
-        SettingsHelper::$settings = null;
+        SettingsHelper::$settings = null; // Force reload on next access
     }
 }

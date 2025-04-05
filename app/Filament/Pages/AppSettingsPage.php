@@ -15,8 +15,12 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Pages\SettingsPage;
+use Filament\Forms\Components\Actions\Action;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\HtmlString;
+use App\Notifications\Messages\GotifyMessage;
+use Illuminate\Support\Facades\Http;
+use Filament\Notifications\Notification;
 
 class AppSettingsPage extends SettingsPage
 {
@@ -103,6 +107,7 @@ class AppSettingsPage extends SettingsPage
 
                 $this->getEmailSettings(),
                 $this->getPushoverSettings(),
+                $this->getGotifySettings(),
 
                 self::makeFormHeading('Integrations'),
 
@@ -166,6 +171,32 @@ class AppSettingsPage extends SettingsPage
         );
     }
 
+    protected function getGotifySettings(): Section
+    {
+        return self::makeSettingsSection(
+            'Gotify',
+            self::NOTIFICATION_SERVICES_KEY,
+            NotificationMethods::Gotify->value,
+            [
+                TextInput::make('url')
+                    ->label('Gotify server URL')
+                    ->placeholder('https://gotify.example.com')
+                    ->required(),
+                TextInput::make('token')
+                    ->label('Application token')
+                    ->required()
+                    ->password()
+                    ->suffixAction(
+                        Action::make('testGotify')
+                            ->label('Test')
+                            ->icon('heroicon-m-bell')
+                            ->action(fn () => $this->testGotifyNotification())
+                    ),
+            ],
+            __('Push notifications via Gotify')
+        );
+    }
+
     protected function getSearXngSettings(): Section
     {
         return self::makeSettingsSection(
@@ -186,6 +217,55 @@ class AppSettingsPage extends SettingsPage
             ],
             new HtmlString('Automatically search for additional products urls via <a href="https://searxng.org/" target="_blank">SearXng</a>')
         );
+    }
+
+    protected function testGotifyNotification(): void
+    {
+        $settings = $this->form->getState()['notification_services']['gotify'] ?? null;
+        
+        if (!$settings || empty($settings['url']) || empty($settings['token'])) {
+            Notification::make()
+                ->title('Error')
+                ->body('Please save your Gotify settings first')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        try {
+            $url = rtrim($settings['url'], '/').'/message?token='.$settings['token'];
+            
+            $response = Http::post($url, [
+                'title' => 'Test Notification',
+                'message' => 'This is a test notification from PriceBuddy',
+                'priority' => 5,
+                'extras' => [
+                    'client::notification' => [
+                        'click' => url('/'),
+                    ],
+                ],
+            ]);
+            
+            $response->throw();
+            
+            Notification::make()
+                ->title('Success')
+                ->body('Test notification sent successfully')
+                ->success()
+                ->send();
+        } catch (\Illuminate\Http\Client\RequestException $e) {
+            Notification::make()
+                ->title('Failed to send test notification')
+                ->body('HTTP Error: ' . $e->getMessage())
+                ->danger()
+                ->send();
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Failed to send test notification')
+                ->body('Error: ' . $e->getMessage())
+                ->danger()
+                ->send();
+        }
     }
 
     public static function getLocaleFormFields(string $settingsKey): array

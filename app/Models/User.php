@@ -71,6 +71,12 @@ class User extends Authenticatable implements FilamentUser
         return data_get($this->settings, 'notifications.pushover.user_key');
     }
 
+    public function routeNotificationForGotify()
+    {
+        $settings = data_get($this->settings, 'notifications.gotify');
+        return $settings && isset($settings['url'], $settings['token']) ? $settings : false;
+    }
+
     /**
      * All users can access panel.
      */

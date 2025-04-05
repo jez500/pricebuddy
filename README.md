@@ -20,7 +20,7 @@ retailers.
 * Support for SPA/Javascript rendered sites via [Scrapper](https://github.com/amerkurev/scrapper)
 * Tagging of products for better organization
 * Multi-user support, each user has their own products
-* Get notifications via the app, email or pushover when a product price changes to 
+* Get notifications via the app, email or pushover/gotify when a product price changes to 
   match your preferences
 * Light and dark mode & Mobile friendly
 * Integration with [SearXNG](https://github.com/searxng/searxng) to search for products

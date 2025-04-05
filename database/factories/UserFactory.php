@@ -42,4 +42,21 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    /**
+     * Configure Gotify notification settings.
+     */
+    public function withGotifySettings(string $url = 'https://gotify.example.com', string $token = 'test-token'): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'settings' => [
+                'notifications' => [
+                    'gotify' => [
+                        'url' => $url,
+                        'token' => $token,
+                    ]
+                ]
+            ]
+        ]);
+    }
 }

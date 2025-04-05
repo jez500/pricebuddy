@@ -2,6 +2,7 @@
 
 namespace App\Enums;
 
+use App\Notifications\Channels\GotifyChannel;
 use NotificationChannels\Pushover\PushoverChannel;
 
 enum NotificationMethods: string
@@ -11,11 +12,13 @@ enum NotificationMethods: string
     case Database = 'database';
 
     case Pushover = 'pushover';
+    case Gotify = 'gotify';
 
     public function getChannel(): string
     {
         return match ($this) {
             self::Pushover => PushoverChannel::class,
+            self::Gotify => GotifyChannel::class,
             default => $this->value,
         };
     }

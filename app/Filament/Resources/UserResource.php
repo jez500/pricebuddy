@@ -54,6 +54,7 @@ class UserResource extends Resource
                 self::makeFormHeading('Notification Settings'),
                 self::getEmailSettings(),
                 self::getPushoverSettings(),
+                self::getGotifySettings(),
             ]);
     }
 
@@ -117,6 +118,24 @@ class UserResource extends Resource
             [
                 Forms\Components\TextInput::make('user_key')
                     ->label('User Key')
+                    ->required(),
+            ]
+        );
+    }
+
+    protected static function getGotifySettings(): Section
+    {
+        return self::makeSettingsSection(
+            'Gotify',
+            'settings.notifications',
+            NotificationMethods::Gotify->value,
+            [
+                Forms\Components\TextInput::make('url')
+                    ->label('Gotify server URL')
+                    ->placeholder('https://gotify.example.com')
+                    ->required(),
+                Forms\Components\TextInput::make('token')
+                    ->label('Gotify token')
                     ->required(),
             ]
         );

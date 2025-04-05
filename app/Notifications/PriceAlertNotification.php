@@ -11,6 +11,7 @@ use Filament\Notifications\Notification as DatabaseNotification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Str;
+use App\Notifications\Messages\GotifyMessage;
 use NotificationChannels\Pushover\PushoverMessage;
 
 class PriceAlertNotification extends Notification
@@ -96,6 +97,14 @@ class PriceAlertNotification extends Notification
             ->url($this->getUrl(), $this->ctaText);
     }
 
+    public function toGotify($notifiable)
+    {
+        return GotifyMessage::create($this->getSummary())
+            ->title($this->getTitle())
+            ->url($this->getUrl())
+            ->priority(5);
+    }
+
     protected function getTitle(): string
     {
         return 'Price drop: '.$this->url->product_name_short.' ('.$this->url->latest_price_formatted.')';
@@ -109,6 +118,6 @@ class PriceAlertNotification extends Notification
 
     protected function getUrl(): string
     {
-        return url($this->url->product_url);
+        return $this->url->url;
     }
 }
