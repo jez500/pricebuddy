@@ -5,6 +5,8 @@ namespace App\Filament\Pages;
 use App\Enums\Icons;
 use App\Enums\IntegratedServices;
 use App\Enums\NotificationMethods;
+use App\Filament\Actions\Notifications\TestAppriseAction;
+use App\Filament\Actions\Notifications\TestGotifyAction;
 use App\Filament\Traits\FormHelperTrait;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\LocaleHelper;
@@ -103,6 +105,8 @@ class AppSettingsPage extends SettingsPage
 
                 $this->getEmailSettings(),
                 $this->getPushoverSettings(),
+                $this->getGotifySettings(),
+                $this->getAppriseSettings(),
 
                 self::makeFormHeading('Integrations'),
 
@@ -163,6 +167,53 @@ class AppSettingsPage extends SettingsPage
                     ->required(),
             ],
             __('Push notifications via Pushover')
+        );
+    }
+
+    protected function getGotifySettings(): Section
+    {
+        return self::makeSettingsSection(
+            'Gotify',
+            self::NOTIFICATION_SERVICES_KEY,
+            NotificationMethods::Gotify->value,
+            [
+                TextInput::make('url')
+                    ->label('Gotify server URL')
+                    ->placeholder('https://gotify.example.com')
+                    ->required(),
+                TextInput::make('token')
+                    ->label('Application token')
+                    ->required()
+                    ->password()
+                    ->suffixAction(
+                        TestGotifyAction::make()
+                            ->setSettings(fn () => $this->form->getState()['notification_services']['gotify'] ?? []),
+                    ),
+            ],
+            __('Push notifications via Gotify')
+        );
+    }
+
+    protected function getAppriseSettings(): Section
+    {
+        return self::makeSettingsSection(
+            'Apprise',
+            self::NOTIFICATION_SERVICES_KEY,
+            NotificationMethods::Apprise->value,
+            [
+                TextInput::make('url')
+                    ->label('Apprise API server URL')
+                    ->placeholder('https://apprise.example.com')
+                    ->required(),
+                TextInput::make('token')
+                    ->label('Configuration token')
+                    ->required()
+                    ->suffixAction(
+                        TestAppriseAction::make()
+                            ->setSettings(fn () => data_get($this->form->getState(), 'notification_services.apprise', [])),
+                    ),
+            ],
+            __('Push notifications via Apprise')
         );
     }
 

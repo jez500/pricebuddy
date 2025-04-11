@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\Product;
 use App\Models\Url;
 use App\Models\User;
+use App\Notifications\Messages\GenericNotificationMessage;
 use App\Services\Helpers\NotificationsHelper;
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification as DatabaseNotification;
@@ -96,6 +97,22 @@ class PriceAlertNotification extends Notification
             ->url($this->getUrl(), $this->ctaText);
     }
 
+    public function toGotify($notifiable)
+    {
+        return GenericNotificationMessage::create($this->getSummary())
+            ->title($this->getTitle())
+            ->url($this->getUrl())
+            ->priority(5);
+    }
+
+    public function toApprise($notifiable)
+    {
+        return GenericNotificationMessage::create($this->getSummary())
+            ->title($this->getTitle())
+            ->url($this->getUrl())
+            ->priority(5);
+    }
+
     protected function getTitle(): string
     {
         return 'Price drop: '.$this->url->product_name_short.' ('.$this->url->latest_price_formatted.')';
@@ -109,6 +126,6 @@ class PriceAlertNotification extends Notification
 
     protected function getUrl(): string
     {
-        return url($this->url->product_url);
+        return $this->url->buy_url;
     }
 }

@@ -48,8 +48,13 @@ to work, it must first be enabled, then the appropriate settings added.
 
 **Pushover** - Configure the Pushover settings for sending push notifications.
 
+**Gotify** - Configure the Gotify settings for sending and testing push notifications.
+
+**Apprise** - Configure the settings for sending notifications via Apprise.
+
 Note: these are global settings, each user must enable the notification method in their
-own account settings.
+own account settings. Depending on the notification method, they may also need to configure
+additional settings.
 
 ## Integrations
 

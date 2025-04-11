@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\Icons;
 use App\Enums\NotificationMethods;
 use App\Filament\Resources\UserResource\Pages;
 use App\Filament\Traits\FormHelperTrait;
@@ -54,6 +55,8 @@ class UserResource extends Resource
                 self::makeFormHeading('Notification Settings'),
                 self::getEmailSettings(),
                 self::getPushoverSettings(),
+                self::getGotifySettings(),
+                self::getAppriseSettings(),
             ]);
     }
 
@@ -111,13 +114,40 @@ class UserResource extends Resource
     protected static function getPushoverSettings(): Section
     {
         return self::makeSettingsSection(
-            'Pushover',
+            __('Pushover'),
             'settings.notifications',
             NotificationMethods::Pushover->value,
             [
                 Forms\Components\TextInput::make('user_key')
-                    ->label('User Key')
+                    ->label(__('User Key'))
                     ->required(),
+            ]
+        );
+    }
+
+    protected static function getGotifySettings(): Section
+    {
+        return self::makeSettingsSection(
+            __('Gotify'),
+            'settings.notifications',
+            NotificationMethods::Gotify->value,
+        );
+    }
+
+    protected static function getAppriseSettings(): Section
+    {
+        return self::makeSettingsSection(
+            __('Apprise'),
+            'settings.notifications',
+            NotificationMethods::Apprise->value,
+            [
+                Forms\Components\TextInput::make('tags')
+                    ->label(__('Override tags'))
+                    ->placeholder('tag1,tag2')
+                    ->hintIcon(Icons::Help->value, __('The default is "all". Leave blank for all tags. Separate multiple tags with a comma.')),
+                Forms\Components\TextInput::make('token')
+                    ->label(__('Override Config token'))
+                    ->hintIcon(Icons::Help->value, __('Leave blank for the default from settings.')),
             ]
         );
     }

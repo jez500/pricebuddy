@@ -25,7 +25,7 @@ class SettingsHelper
         }
     }
 
-    public static function getSetting(string $name, $default = null)
+    public static function getSetting(string $name, $default = null): mixed
     {
         try {
             return data_get(static::getSettings(), $name, $default);
@@ -36,10 +36,11 @@ class SettingsHelper
         }
     }
 
-    public static function setSetting(string $name, mixed $value)
+    public static function setSetting(string $name, mixed $value): void
     {
         $settings = static::getSettings();
         data_set($settings, $name, $value);
         AppSettings::new()->fill($settings)->save();
+        self::$settings = $settings;
     }
 }

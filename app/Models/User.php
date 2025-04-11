@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\NotificationMethods;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Filament\Panel\Concerns\HasNotifications;
@@ -66,9 +67,28 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(Product::class);
     }
 
+    /**
+     * Get notification setting(s) for a specific method.
+     */
+    public function getNotificationSettings(NotificationMethods $method, string $settingPath = '', mixed $default = null): mixed
+    {
+        return data_get(
+            $this->settings,
+            'notifications.'.$method->value.($settingPath ? '.'.$settingPath : ''),
+            $default
+        );
+    }
+
+    /**
+     * Set Pushover user key.
+     *
+     * @see https://github.com/laravel-notification-channels/pushover?tab=readme-ov-file#advanced-usage-and-configuration
+     *
+     * Other notification channels may implement user settings differently.
+     */
     public function routeNotificationForPushover()
     {
-        return data_get($this->settings, 'notifications.pushover.user_key');
+        return $this->getNotificationSettings(NotificationMethods::Pushover, 'user_key');
     }
 
     /**

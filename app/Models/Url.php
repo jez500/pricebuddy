@@ -104,7 +104,11 @@ class Url extends Model
     protected function latestPriceFormatted(): Attribute
     {
         return Attribute::make(
-            get: fn () => CurrencyHelper::toString($this->latestPrice()->first()->price ?? 0)
+            get: fn () => CurrencyHelper::toString(
+                $this->latestPrice()->first()->price ?? 0,
+                locale: $this->store?->locale,
+                iso: $this->store?->currency
+            )
         );
     }
 
