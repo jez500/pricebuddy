@@ -20,7 +20,8 @@ services:
             SCRAPER_BASE_URL: http://scraper:3000   # Url to Name of the scrapper service
             AFFILIATE_ENABLED: 'true'               # See https://pricebuddy.jez.me/support-project.html
         depends_on:
-            - database
+          database:
+            condition: service_healthy
         networks:
             - default
 
@@ -31,6 +32,11 @@ services:
             MYSQL_USER: pricebuddy
             MYSQL_PASSWORD: pric3buddy
             MYSQL_ROOT_PASSWORD: root
+        healthcheck:
+          test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u${DB_USER}", "-p${DB_PASSWORD}" ]
+          interval: 10s
+          timeout: 5s
+          retries: 5
         volumes:
             - database:/var/lib/mysql
         networks:
