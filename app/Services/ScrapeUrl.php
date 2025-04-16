@@ -170,7 +170,7 @@ class ScrapeUrl
 
     public function getStore(): ?Store
     {
-        $host = Uri::of($this->url)->host();
+        $host = strtolower(Uri::of($this->url)->host());
 
         return Store::query()->domainFilter($host)->oldest()->first();
     }
