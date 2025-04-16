@@ -48,12 +48,12 @@ class StoreFactory extends Factory
 
     public function forUrl(string $url): self
     {
-        $host = Uri::of($url)->host();
+        $host = strtolower(Uri::of($url)->host());
         $titleParts = explode('.', str_replace('www.', '', $host));
 
         return $this->state(fn (array $attributes) => [
             'name' => Str::title($titleParts[0] ?? $this->faker->word),
-            'domains' => ['domain' => Uri::of($url)->host()],
+            'domains' => ['domain' => strtolower(Uri::of($url)->host())],
         ]);
     }
 }
