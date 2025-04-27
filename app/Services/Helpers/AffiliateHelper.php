@@ -50,7 +50,7 @@ class AffiliateHelper
             return $url;
         }
 
-        $uri = $uri->withQuery($settings['query_params']);
+        $uri = $uri->withQueryIfMissing($settings['query_params']);
 
         return $uri->value();
     }

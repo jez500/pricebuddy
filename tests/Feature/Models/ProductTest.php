@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\Store;
 use App\Models\Url;
 use App\Models\User;
+use App\Services\Helpers\SettingsHelper;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
@@ -108,6 +109,8 @@ class ProductTest extends TestCase
 
     public function test_price_aggregates_for_lowest_priced_store()
     {
+        SettingsHelper::setSetting('default_locale_settings', ['locale' => 'en', 'currency' => 'USD']);
+
         $product = $this->createOneProductWithUrlAndPrices(prices: [50, 60, 70]);
 
         $aggregates = $product->price_aggregates;

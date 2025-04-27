@@ -18,7 +18,12 @@ use Psr\Log\LoggerInterface;
 
 class ScrapeUrl
 {
-    const SELECTOR_ATTR_DELIMITER = '|';
+    public const SELECTOR_ATTR_DELIMITER = '|';
+
+    /**
+     * For the title and image, limit the length.
+     */
+    public const MAX_STR_LENGTH = 1000;
 
     protected WebScraperInterface $webScraper;
 
@@ -178,6 +183,7 @@ class ScrapeUrl
         $method = match ($type) {
             'regex' => 'getRegex',
             'json' => 'getJson',
+            'xpath' => 'getXpath',
             default => 'getSelector'
         };
 

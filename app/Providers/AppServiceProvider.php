@@ -44,7 +44,8 @@ class AppServiceProvider extends ServiceProvider
             fn (): string => Blade::render(
                 '@vite([\'resources/scss/app.scss\', \'resources/js/app.js\'])'.
                 '@include(\'body.js-settings\')'.
-                '<link rel="manifest" href="/manifest.json">'
+                '<link rel="manifest" href="/manifest.json">'.
+                '<script src="/js/clipboard.js"></script>'
             ),
         );
 

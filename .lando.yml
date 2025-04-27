@@ -77,7 +77,9 @@ tooling:
   test:
     description: Run tests
     service: appserver
-    cmd: ./vendor/bin/pest -c /app/phpunit.xml
+    cmd:
+      - php artisan config:clear
+      - ./vendor/bin/pest -c /app/phpunit.xml
   seed:
     service: appserver
     description: Full db schema setup and seed of content for dev

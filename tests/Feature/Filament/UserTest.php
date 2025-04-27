@@ -80,12 +80,16 @@ class UserTest extends TestCase
 
         $this->assertFalse(NotificationsHelper::getUserEnabled($this->user, 'mail'));
         $this->assertFalse(NotificationsHelper::getUserEnabled($this->user, 'pushover'));
+        $this->assertFalse(NotificationsHelper::getUserEnabled($this->user, 'gotify'));
 
         Livewire::test(EditUser::class, $params)
             ->fillForm(array_merge($this->user->toArray(), [
                 'settings.notifications.mail.enabled' => true,
                 'settings.notifications.pushover.enabled' => true,
                 'settings.notifications.pushover.user_key' => 'po_token',
+                'settings.notifications.gotify.enabled' => true,
+                'settings.notifications.gotify.token' => 'po_token',
+                'settings.notifications.gotify.url' => 'http://gotify.example.com',
             ]))
             ->call('save')
             ->assertHasNoFormErrors();
@@ -94,11 +98,17 @@ class UserTest extends TestCase
 
         $this->assertTrue(NotificationsHelper::getUserEnabled($this->user, 'mail'));
         $this->assertTrue(NotificationsHelper::getUserEnabled($this->user, 'pushover'));
+        $this->assertTrue(NotificationsHelper::getUserEnabled($this->user, 'gotify'));
 
         $this->assertSame(
             'po_token',
             NotificationsHelper::getUserServices($this->user)->get('pushover')['user_key']
         );
+        $this->assertSame(
+            'po_token',
+            NotificationsHelper::getUserServices($this->user)->get('gotify')['token']
+        );
+
     }
 
     public function test_user_create()

@@ -42,4 +42,16 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    /**
+     * Configure notification settings.
+     */
+    public function withNotificationSettings(array $settings): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'settings' => [
+                'notifications' => $settings,
+            ],
+        ]);
+    }
 }

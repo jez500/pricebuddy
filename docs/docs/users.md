@@ -24,3 +24,12 @@ A user must opt in to notifications to receive them. This can be done by editing
 the user. Some notification methods may need additional configurations for them 
 to work.
 
+## Advanced
+
+### Creating a user via the CLI
+
+To create a user via the CLI, run the following command:
+
+```shell
+docker compose exec -it app php artisan make:filament-user
+```

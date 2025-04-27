@@ -7,9 +7,9 @@ use App\Models\Product;
 use App\Models\Store;
 use App\Models\Url;
 use App\Models\User;
+use App\Services\Helpers\CurrencyHelper;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Number;
 use Tests\TestCase;
 use Tests\Traits\ScraperTrait;
 
@@ -134,7 +134,7 @@ class UrlTest extends TestCase
         $url = Url::factory()->create();
         $price = Price::factory()->create(['url_id' => $url->id, 'price' => 100]);
 
-        $this->assertEquals(Number::currency(100), $url->latest_price_formatted);
+        $this->assertEquals(CurrencyHelper::toString(100), $url->latest_price_formatted);
     }
 
     public function test_average_price_returns_correct_value()
@@ -143,7 +143,7 @@ class UrlTest extends TestCase
         Price::factory()->create(['url_id' => $url->id, 'price' => 100]);
         Price::factory()->create(['url_id' => $url->id, 'price' => 200]);
 
-        $this->assertEquals(Number::currency(150), $url->average_price);
+        $this->assertEquals(CurrencyHelper::toString(150), $url->average_price);
     }
 
     public function test_affiliate_code_gets_added_to_url()

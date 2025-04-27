@@ -23,6 +23,10 @@ enum Icons: string
 
     case Add = 'heroicon-o-plus-circle';
 
+    case Share = 'heroicon-o-share';
+
+    case Import = 'heroicon-o-arrow-down-on-square';
+
     public static function getTrendIcon(?string $trend): string
     {
         return match ($trend) {

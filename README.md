@@ -20,7 +20,7 @@ retailers.
 * Support for SPA/Javascript rendered sites via [Scrapper](https://github.com/amerkurev/scrapper)
 * Tagging of products for better organization
 * Multi-user support, each user has their own products
-* Get notifications via the app, email or pushover when a product price changes to 
+* Get notifications via the app, email or pushover/gotify when a product price changes to 
   match your preferences
 * Light and dark mode & Mobile friendly
 * Integration with [SearXNG](https://github.com/searxng/searxng) to search for products
@@ -59,6 +59,14 @@ Easiest installation method is via docker-compose. Simply make a copy of
 Due to the complexity of the app and its dependencies, other installation methods 
 are not recommended but if you are that keen to not use docker, look through the 
 `docker/php.dockerfile` and `docker-compose.yml` to see what is needed.
+
+## Affiliate codes
+
+By default, affiliate codes are added to a [couple of stores](config/affiliates.php), 
+this supports development of the project. If you would rather not have affiliate codes 
+added, you can set `AFFILIATE_ENABLED=false` in your docker compose file or `.env` file. 
+If you do disable this, Maybe consider supporting the project in 
+[other ways](https://pricebuddy.jez.me//support-project.html).
 
 ## Cron / Background tasks
 

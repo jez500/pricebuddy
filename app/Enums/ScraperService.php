@@ -14,6 +14,11 @@ enum ScraperService: string implements HasColor, HasDescription, HasLabel
 
     case Api = BaseScraperService::Api->value;
 
+    public static function values(): array
+    {
+        return array_column(self::cases(), 'value');
+    }
+
     public function getLabel(): string
     {
         return match ($this) {

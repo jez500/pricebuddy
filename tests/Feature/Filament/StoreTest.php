@@ -51,12 +51,13 @@ class StoreTest extends TestCase
             ->set('data.domains', null)
             ->fillForm([
                 'name' => 'My new store',
-                'initials' => 'NS',
                 'domains' => [
                     ['domain' => 'example.test'],
                 ],
                 'settings.scraper_service' => ScraperService::Api->value,
                 'settings.scraper_service_settings' => "foo=bar\nbaz=qux",
+                'settings.locale_settings.locale' => 'fr_FR',
+                'settings.locale_settings.currency' => 'EUR',
             ])
             ->call('save')
             ->assertHasNoFormErrors();
@@ -71,6 +72,8 @@ class StoreTest extends TestCase
             'foo' => 'bar',
             'baz' => 'qux',
         ], $store->scraper_options);
+        $this->assertSame('fr_FR', $store->locale);
+        $this->assertSame('EUR', $store->currency);
     }
 
     public function test_store_create()

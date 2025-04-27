@@ -367,6 +367,8 @@ class Product extends Model
                     'price' => $urlHistory->last(),
                     'history' => $urlHistory->toArray(),
                     'last_scrape' => $lastScrapedTimestamp?->toDateTimeString(),
+                    'locale' => $store->locale,
+                    'currency' => $store->currency,
                 ];
             })
             ->sortBy('price')

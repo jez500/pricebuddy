@@ -12,6 +12,7 @@ class ListStores extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            StoreResource\Actions\ImportStoreAction::make(),
             StoreResource\Actions\CreateAction::make(),
         ];
     }

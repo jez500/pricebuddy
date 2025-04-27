@@ -21,6 +21,20 @@ is `10` seconds.
 **Max scrape attempts** - If the scraper fails to fetch the page, it will retry
 this amount of times. The default is `3` attempts.
 
+## Locale
+
+This is default locale settings for the app, it's primary use is for the scraper
+to know what format the currency is and what currency to use. This will be used
+as the default when creating a store and auto store creation.
+
+**Locale** - This should match the locale/language of the stores you are scraping.
+Eg. `en_US` for English (United States) or `fr_FR` for French.
+**Currency** - This should match the currency of the stores you are scraping.
+Eg. `USD` for US Dollars or `EUR` for Euros.
+
+NOTE: You can also override this per store, but mixing currencies on the same
+product results in incorrect price comparisons and aggregates.
+
 ## Logging
 
 **Log retention days** - The amount of days to keep logs for. The default is `30` days.
@@ -34,8 +48,13 @@ to work, it must first be enabled, then the appropriate settings added.
 
 **Pushover** - Configure the Pushover settings for sending push notifications.
 
+**Gotify** - Configure the Gotify settings for sending and testing push notifications.
+
+**Apprise** - Configure the settings for sending notifications via Apprise.
+
 Note: these are global settings, each user must enable the notification method in their
-own account settings.
+own account settings. Depending on the notification method, they may also need to configure
+additional settings.
 
 ## Integrations
 

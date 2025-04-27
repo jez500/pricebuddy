@@ -17,13 +17,20 @@ docker compose up -d
 Then visit `http://localhost:8080` in your browser. The default username is 
 `admin@example.com` and the default password is `admin`.
 
+NOTES:
+* You should look at the `docker-compose.yml` to ensure you are happy with the default
+  settings, ports, environment variables, etc.
+* If you are getting a 500 error, it is likely due to a missing `.env` file. You can
+  create an empty one next to the `docker-compose.yml` file with `touch .env`.
+
 ## Database
 
 The docker compose file includes a mysql database. You can use an external database if
 you prefer, see [Laravel documentation](https://laravel.com/docs/11.x/database#introduction)
 for supported databases. 
 
-Note `sqllite` is not supported due to the use of `json` columns.
+The docker image includes `mysql` and `pgsql` drivers. Note `sqllite` is not supported 
+due to the use of `json` columns.
 
 ## Persistent storage / volumes
 
@@ -36,6 +43,13 @@ You can refer to [.env.example](https://github.com/laravel/laravel/blob/11.x/.en
 file for the environment variables that can be set.
 
 If you just use the variables set in the docker compose file, you should be good to go.
+
+## Reverse proxy configuration
+
+If you are using a reverse proxy (eg nginx) to access the app, you may have issues with
+the CSS and JS not loading. This is due to the app not being able to determine the
+correct URL to use. You can fix this by setting the `APP_URL` and `ASSET_URL` environment
+variables to the correct URL.
 
 ## Debugging install
 

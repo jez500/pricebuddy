@@ -57,7 +57,11 @@ class InitDatabase extends Command
             );
 
             // @phpstan-ignore-next-line
-            if ($email = env('APP_USER_EMAIL') && $pass = env('APP_USER_PASSWORD')) {
+            $email = env('APP_USER_EMAIL');
+            // @phpstan-ignore-next-line
+            $pass = env('APP_USER_PASSWORD');
+            if ($email && $pass) {
+                $this->line('Creating new user with email: '.$email.' and password: '.$pass);
                 $this->components->task('Creating the default user', fn () => $this
                     ->callSilent('make:filament-user', [
                         // @phpstan-ignore-next-line

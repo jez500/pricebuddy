@@ -5,9 +5,9 @@ namespace App\Dto;
 use App\Enums\Trend;
 use App\Models\Price;
 use App\Models\Product;
+use App\Services\Helpers\CurrencyHelper;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Number;
 
 class PriceCacheDto
 {
@@ -27,6 +27,10 @@ class PriceCacheDto
 
     private ?Carbon $lastScrapeDate;
 
+    private string $locale;
+
+    private string $currency;
+
     public function __construct(
         float $price,
         ?int $storeId = null,
@@ -35,7 +39,9 @@ class PriceCacheDto
         ?string $url = null,
         string $trend = Trend::None->value,
         array $history = [],
-        ?string $lastScrape = null
+        ?string $lastScrape = null,
+        ?string $locale = null,
+        ?string $currency = null,
     ) {
         $this->storeId = $storeId;
         $this->storeName = $storeName;
@@ -45,6 +51,8 @@ class PriceCacheDto
         $this->price = $price;
         $this->history = $history;
         $this->lastScrapeDate = $lastScrape ? Carbon::parse($lastScrape) : null;
+        $this->locale = $locale ?? CurrencyHelper::getLocale();
+        $this->currency = $currency ?? CurrencyHelper::getCurrency();
     }
 
     // Getters
@@ -95,7 +103,7 @@ class PriceCacheDto
 
     public function getPriceFormatted(): string
     {
-        return Number::currency($this->getPrice());
+        return CurrencyHelper::toString($this->getPrice(), locale: $this->locale, iso: $this->currency);
     }
 
     public function getHistory(int $count = 365): Collection
@@ -108,9 +116,9 @@ class PriceCacheDto
         $history = $this->getHistory();
 
         return [
-            'avg' => Number::currency($history->avg()),
-            'min' => Number::currency($history->min()),
-            'max' => Number::currency($history->max()),
+            'avg' => CurrencyHelper::toString($history->avg(), locale: $this->locale, iso: $this->currency),
+            'min' => CurrencyHelper::toString($history->min(), locale: $this->locale, iso: $this->currency),
+            'max' => CurrencyHelper::toString($history->max(), locale: $this->locale, iso: $this->currency),
         ];
     }
 
@@ -148,7 +156,9 @@ class PriceCacheDto
             $data['url'] ?? null,
             $data['trend'] ?? Trend::None->value,
             $data['history'],
-            $data['last_scrape'] ?? null
+            $data['last_scrape'] ?? null,
+            $data['locale'] ?? null,
+            $data['currency'] ?? null
         );
     }
 
@@ -169,6 +179,8 @@ class PriceCacheDto
             'last_scrape' => $this->getLastScrapeDate(),
             'hours_since_last_scrape' => $this->getHoursSinceLastScrape(),
             'successful_last_scrape' => $this->isLastScrapeSuccessful(),
+            'locale' => $this->locale,
+            'currency' => $this->currency,
         ];
     }
 }

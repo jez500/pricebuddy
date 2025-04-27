@@ -30,6 +30,7 @@ export default defineUserConfig({
             '/settings',
             '/users',
             '/log-messages',
+            '/faqs',
         ],
     }),
 

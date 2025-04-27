@@ -88,7 +88,7 @@ If the html contained something like this:
 {"price": "10.00", "currency": "USD"}
 ```
 
-We could use the regex `~\"price\": \"(.*?)\~"` to extract the price. 
+We could use the regex `~\"price\": \"(.*?)\"~` to extract the price. 
 
 #### Tools for testing Regex
 
@@ -115,6 +115,19 @@ If your JSON looks like this:
 ```
 
 You would use the JSON Path `product.price` to extract the price.
+
+## Locale
+
+This is default locale settings for the store, the default can be set in 
+[Settings](/settings.html) but this will override that for this store.
+
+**Locale** - This should match the locale/language of the store.
+Eg. `en_US` for English (United States) or `fr_FR` for French.
+**Currency** - This should match the currency of the store.
+Eg. `USD` for US Dollars or `EUR` for Euros.
+
+NOTE: Mixing currencies on the same product results in incorrect price 
+comparisons and aggregates.
 
 ## Scraper service
 
@@ -159,3 +172,9 @@ Curl based HTTP request to get the page contents for performance reasons.
 
 If auto creation fails, try manually creating the store and using the API scraper or
 more custom strategies.
+
+## Sharing a store
+
+If you create a store and want to share it with others, you can export the store as
+JSON by clicking the "Share" button. You can then give this JSON to others and they
+can import it into their PriceBuddy instance.

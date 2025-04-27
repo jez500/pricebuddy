@@ -2,7 +2,7 @@
     use App\Dto\PriceCacheDto;
     use Filament\Support\Colors\Color;
 
-    if (empty($items) && is_callable($getState)) {
+    if (empty($items) && isset($getState) && is_callable($getState)) {
         $items = $getState();
     }
 @endphp

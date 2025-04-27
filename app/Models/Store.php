@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ScraperService;
+use App\Services\Helpers\CurrencyHelper;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -25,6 +26,8 @@ use Spatie\Sluggable\SlugOptions;
  * @property array $settings
  * @property string $scraper_service
  * @property array $scraper_options
+ * @property string $locale
+ * @property string $currency
  */
 class Store extends Model
 {
@@ -173,6 +176,20 @@ class Store extends Model
     {
         return Attribute::make(
             get: fn () => data_get($this->settings, 'test_url', ''),
+        );
+    }
+
+    public function locale(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => data_get($this->settings, 'locale_settings.locale', CurrencyHelper::getLocale()),
+        );
+    }
+
+    public function currency(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => data_get($this->settings, 'locale_settings.currency', CurrencyHelper::getCurrency()),
         );
     }
 

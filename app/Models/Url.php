@@ -13,7 +13,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Number;
 use Illuminate\Support\Str;
 
 /**
@@ -105,7 +104,11 @@ class Url extends Model
     protected function latestPriceFormatted(): Attribute
     {
         return Attribute::make(
-            get: fn () => Number::currency($this->latestPrice()->first()->price ?? 0)
+            get: fn () => CurrencyHelper::toString(
+                $this->latestPrice()->first()->price ?? 0,
+                locale: $this->store?->locale,
+                iso: $this->store?->currency
+            )
         );
     }
 
@@ -118,7 +121,7 @@ class Url extends Model
             get: function ($value) {
                 $avg = $this->prices()->avg('price') ?? 0;
 
-                return Number::currency(round($avg, 2));
+                return CurrencyHelper::toString(round($avg, 2));
             },
         );
     }
@@ -154,9 +157,11 @@ class Url extends Model
                 throw new AuthorizationException('User is required to create a product.');
             }
 
+            $image = data_get($scrape, 'image');
+
             $productId = Product::create([
-                'title' => data_get($scrape, 'title'),
-                'image' => data_get($scrape, 'image'),
+                'title' => Str::limit(data_get($scrape, 'title'), ScrapeUrl::MAX_STR_LENGTH),
+                'image' => strlen($image) < ScrapeUrl::MAX_STR_LENGTH ? $image : null,
                 'user_id' => $userId,
                 'favourite' => true,
             ])->id;
@@ -189,7 +194,7 @@ class Url extends Model
         }
 
         return $this->prices()->create([
-            'price' => CurrencyHelper::toFloat($price),
+            'price' => CurrencyHelper::toFloat($price, locale: $this->store?->locale, iso: $this->store?->currency),
             'store_id' => $this->store_id,
         ]);
     }

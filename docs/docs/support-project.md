@@ -19,6 +19,13 @@ My affiliate code will sneak its way into some store URLs. If you'd
 rather not have any affiliate codes added, no worries, just set 
 the environment variable `AFFILIATE_ENABLED=false`.
 
+You can also add your own affiliate codes, see the config file
+[here](https://github.com/jez500/pricebuddy/blob/main/config/affiliates.php)
+for the environment variables you can set.
+
+NOTE: If you add a URL that already has an affiliate code, PriceBuddy will
+NOT override it.
+
 ## Buy me a coffee
 
 If you want to support me directly, you can buy me a coffee. I love coffee,

@@ -16,6 +16,7 @@ class EditStore extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            StoreResource\Actions\ShareStoreAction::make(),
             Actions\Action::make('test')
                 ->url(fn () => StoreResource::getUrl('test', ['record' => $this->record]))
                 ->label('Test')->color('gray')

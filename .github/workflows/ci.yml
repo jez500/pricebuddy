@@ -37,7 +37,7 @@ jobs:
           php artisan key:generate
       -
         name: Check coding standards
-        run: vendor/bin/pint --test
+        run: vendor/bin/pint --test -vv
       -
         name: Static code analysis
         run: vendor/bin/phpstan analyse --memory-limit=1G

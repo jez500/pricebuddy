@@ -14,6 +14,7 @@ RUN apt update && apt install -y \
         libzip-dev \
         zlib1g-dev \
         libicu-dev \
+        libpq-dev \
         netcat-traditional \
         default-mysql-client \
         less \
@@ -22,7 +23,7 @@ RUN apt update && apt install -y \
 RUN docker-php-ext-install exif \
     && docker-php-ext-configure pcntl --enable-pcntl \
     && docker-php-ext-install pcntl posix \
-    && docker-php-ext-install mysqli pdo pdo_mysql \
+    && docker-php-ext-install mysqli pdo pdo_mysql pdo_pgsql \
     && docker-php-ext-install zip \
     && docker-php-ext-configure intl \
     && docker-php-ext-install intl

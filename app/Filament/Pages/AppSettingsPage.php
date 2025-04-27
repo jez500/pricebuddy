@@ -5,7 +5,11 @@ namespace App\Filament\Pages;
 use App\Enums\Icons;
 use App\Enums\IntegratedServices;
 use App\Enums\NotificationMethods;
+use App\Filament\Actions\Notifications\TestAppriseAction;
+use App\Filament\Actions\Notifications\TestGotifyAction;
 use App\Filament\Traits\FormHelperTrait;
+use App\Services\Helpers\CurrencyHelper;
+use App\Services\Helpers\LocaleHelper;
 use App\Settings\AppSettings;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
@@ -74,6 +78,11 @@ class AppSettingsPage extends SettingsPage
                             ->required(),
                     ]),
 
+                Section::make('Locale')
+                    ->description(__('Default region and locale settings'))
+                    ->columns(2)
+                    ->schema(self::getLocaleFormFields('default_locale_settings')),
+
                 Section::make('Logging')
                     ->description(__('Settings for logging'))
                     ->columns(2)
@@ -96,6 +105,8 @@ class AppSettingsPage extends SettingsPage
 
                 $this->getEmailSettings(),
                 $this->getPushoverSettings(),
+                $this->getGotifySettings(),
+                $this->getAppriseSettings(),
 
                 self::makeFormHeading('Integrations'),
 
@@ -159,6 +170,53 @@ class AppSettingsPage extends SettingsPage
         );
     }
 
+    protected function getGotifySettings(): Section
+    {
+        return self::makeSettingsSection(
+            'Gotify',
+            self::NOTIFICATION_SERVICES_KEY,
+            NotificationMethods::Gotify->value,
+            [
+                TextInput::make('url')
+                    ->label('Gotify server URL')
+                    ->placeholder('https://gotify.example.com')
+                    ->required(),
+                TextInput::make('token')
+                    ->label('Application token')
+                    ->required()
+                    ->password()
+                    ->suffixAction(
+                        TestGotifyAction::make()
+                            ->setSettings(fn () => $this->form->getState()['notification_services']['gotify'] ?? []),
+                    ),
+            ],
+            __('Push notifications via Gotify')
+        );
+    }
+
+    protected function getAppriseSettings(): Section
+    {
+        return self::makeSettingsSection(
+            'Apprise',
+            self::NOTIFICATION_SERVICES_KEY,
+            NotificationMethods::Apprise->value,
+            [
+                TextInput::make('url')
+                    ->label('Apprise API server URL')
+                    ->placeholder('https://apprise.example.com')
+                    ->required(),
+                TextInput::make('token')
+                    ->label('Configuration token')
+                    ->required()
+                    ->suffixAction(
+                        TestAppriseAction::make()
+                            ->setSettings(fn () => data_get($this->form->getState(), 'notification_services.apprise', [])),
+                    ),
+            ],
+            __('Push notifications via Apprise')
+        );
+    }
+
     protected function getSearXngSettings(): Section
     {
         return self::makeSettingsSection(
@@ -179,5 +237,25 @@ class AppSettingsPage extends SettingsPage
             ],
             new HtmlString('Automatically search for additional products urls via <a href="https://searxng.org/" target="_blank">SearXng</a>')
         );
+    }
+
+    public static function getLocaleFormFields(string $settingsKey): array
+    {
+        return [
+            Select::make($settingsKey.'.locale')
+                ->label('Locale')
+                ->searchable()
+                ->options(LocaleHelper::getAllLocalesAsOptions())
+                ->hintIcon(Icons::Help->value, 'Primarily used when extracting and displaying prices. Help translate this app on GitHub')
+                ->required()
+                ->default(CurrencyHelper::getLocale()),
+            Select::make($settingsKey.'.currency')
+                ->label('Currency')
+                ->searchable()
+                ->options(LocaleHelper::getAllCurrencyLocalesAsOptions())
+                ->hintIcon(Icons::Help->value, 'Default currency for extracting and displaying prices')
+                ->required()
+                ->default(CurrencyHelper::getCurrency()),
+        ];
     }
 }
