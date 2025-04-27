@@ -27,13 +27,15 @@ services:
 
     database:
         image: mysql:8.2
+        env_file:
+          - .env
         environment:
             MYSQL_DATABASE: pricebuddy
             MYSQL_USER: pricebuddy
             MYSQL_PASSWORD: pric3buddy
             MYSQL_ROOT_PASSWORD: root
         healthcheck:
-          test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u${DB_USER}", "-p${DB_PASSWORD}" ]
+          test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u${MYSQL_USER}", "-p${MYSQL_PASSWORD}" ]
           interval: 10s
           timeout: 5s
           retries: 5
