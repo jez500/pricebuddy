@@ -12,7 +12,7 @@ return new class extends Migration
     {
         if (DB::getDriverName() === 'pgsql') {
             DB::statement('ALTER TABLE notifications ALTER COLUMN data TYPE json USING data::json');
-       }
+        }
     }
 
     /**
@@ -22,6 +22,6 @@ return new class extends Migration
     {
         if (DB::getDriverName() === 'pgsql') {
             DB::statement('ALTER TABLE notifications ALTER COLUMN data TYPE text USING data::text');
-       }
+        }
     }
 };
