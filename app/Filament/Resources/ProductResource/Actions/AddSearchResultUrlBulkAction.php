@@ -69,7 +69,7 @@ class AddSearchResultUrlBulkAction extends BulkAction
 
                         if ($url) {
                             // Set the product image to the first url that has an image.
-                            $resultImage = data_get($url->toArray(), 'scrape.image');
+                            $resultImage = data_get($result->toArray(), 'image');
                             if (! empty($resultImage) && empty($image)) {
                                 $image = $resultImage;
                             }

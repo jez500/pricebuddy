@@ -3,7 +3,9 @@
 namespace Tests\Feature\Integrations\SearchXNG;
 
 use App\Enums\IntegratedServices;
+use App\Filament\Resources\ProductResource\Actions\AddSearchResultUrlBulkAction;
 use App\Filament\Resources\ProductResource\Widgets\CreateViaSearchForm;
+use App\Filament\Resources\ProductResource\Widgets\CreateViaSearchTable;
 use App\Jobs\CacheSearchResults;
 use App\Models\Product;
 use App\Models\UrlResearch;
@@ -78,6 +80,7 @@ class SearchResearchTest extends TestCase
 
     public function test_build_results()
     {
+        Product::all()->each(fn ($product) => $product->delete());
         $this->assertSame(0, UrlResearch::count());
 
         $service = $this->getSearchService();
@@ -96,6 +99,14 @@ class SearchResearchTest extends TestCase
         $this->assertSame(15, $log->where(fn ($row) => str_starts_with(strtolower($row['message']), 'no price found'))->count());
         $this->assertSame(8, $log->where(fn ($row) => str_starts_with(strtolower($row['message']), 'price found'))->count());
         $this->assertSame(1, $log->where(fn ($row) => str_starts_with(strtolower($row['message']), 'completed research for: air+pods'))->count());
+
+        $actionableResults = $resultModelsWithPrice->take(3);
+        Livewire::test(CreateViaSearchTable::class, ['searchQuery' => 'air+pods'])
+            ->callTableBulkAction(AddSearchResultUrlBulkAction::class, $actionableResults);
+
+        $product = Product::query()->where('title', 'air+pods')->first();
+        $this->assertStringEndsWith('.jpg', $product->image);
+        $this->assertSame(35.0, $product->current_price);
     }
 
     public function test_create_component_only_visible_if_enabled()

@@ -21,6 +21,7 @@ use Filament\Forms\Form;
 use Filament\Pages\SettingsPage;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Once;
 
 class AppSettingsPage extends SettingsPage
 {
@@ -45,6 +46,7 @@ class AppSettingsPage extends SettingsPage
         parent::save();
 
         Cache::flush();
+        Once::flush();
     }
 
     public function form(Form $form): Form
