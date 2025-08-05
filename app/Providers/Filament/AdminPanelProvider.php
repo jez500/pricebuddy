@@ -10,6 +10,7 @@ use Awcodes\FilamentQuickCreate\QuickCreatePlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\MenuItem;
 use Filament\Navigation\NavigationItem;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -22,12 +23,13 @@ use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use pxlrbt\FilamentSpotlight\SpotlightPlugin;
+use Rupadana\ApiService\ApiServicePlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
-    const PRIMARY_COLOR = Color::Teal;
+    public const array PRIMARY_COLOR = Color::Teal;
 
-    const DEFAULT_PAGINATION = [25, 50, 100, 'all'];
+    public const array DEFAULT_PAGINATION = [25, 50, 100, 'all'];
 
     public function panel(Panel $panel): Panel
     {
@@ -59,11 +61,18 @@ class AdminPanelProvider extends PanelProvider
                 // These get auto discovered, if not add manually.
             ])
             ->plugins([
+                ApiServicePlugin::make(),
                 SpotlightPlugin::make(),
                 QuickCreatePlugin::make()
                     ->excludes([
                         LogMessageResource::class,
                     ]),
+            ])
+            ->userMenuItems([
+                MenuItem::make()
+                    ->label('API tokens')
+                    ->icon('heroicon-o-key')
+                    ->url('/admin/tokens'),
             ])
             ->middleware([
                 EncryptCookies::class,
