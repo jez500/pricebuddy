@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class TagResource extends Resource
 {
+    public const string API_GROUP = 'Tag';
+
     protected static ?string $model = Tag::class;
 
     protected static ?int $navigationSort = 10;
