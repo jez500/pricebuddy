@@ -30,6 +30,7 @@
     },
     "require-dev": {
         "larastan/larastan": "^3.0",
+        "laravel/boost": "^1.1",
         "laravel/pail": "^1.2",
         "laravel/pint": "^1.19",
         "laravel/sail": "^1.26",
