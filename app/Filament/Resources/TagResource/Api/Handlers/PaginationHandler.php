@@ -8,6 +8,7 @@ use App\Filament\Traits\ApiHelperTrait;
 use Dedoc\Scramble\Attributes\Group;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Rupadana\ApiService\Http\Handlers;
+use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 
 #[Group(TagResource::API_GROUP)]
@@ -19,6 +20,41 @@ class PaginationHandler extends Handlers
 
     public static ?string $resource = TagResource::class;
 
+    public function getAllowedFields(): array
+    {
+        return [
+            'id',
+            'name',
+            'user_id',
+            'created_at',
+            'updated_at',
+        ];
+    }
+
+    public function getAllowedSorts(): array
+    {
+        return [
+            'id',
+            'name',
+            'created_at',
+            'updated_at',
+        ];
+    }
+
+    public function getAllowedFilters(): array
+    {
+        return [
+            AllowedFilter::exact('name'),
+        ];
+    }
+
+    public function getAllowedIncludes(): array
+    {
+        return [
+            'products',
+        ];
+    }
+
     /**
      * List of Tags
      *
@@ -26,7 +62,13 @@ class PaginationHandler extends Handlers
      */
     public function handler()
     {
-        $query = static::getEloquentQuery();
+        $query = static::getEloquentQuery()->where('user_id', auth()->id());
+
+        // Add search functionality
+        if (request()->has('search')) {
+            $searchTerm = request()->get('search');
+            $query = $query->where('name', 'like', "%{$searchTerm}%");
+        }
 
         $query = QueryBuilder::for($query)
             ->allowedFields($this->getAllowedFields())

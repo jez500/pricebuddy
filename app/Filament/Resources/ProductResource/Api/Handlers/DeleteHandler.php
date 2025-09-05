@@ -33,7 +33,7 @@ class DeleteHandler extends Handlers
     {
         $id = $request->route('id');
 
-        $model = static::getModel()::find($id);
+        $model = static::getModel()::where('id', $id)->where('user_id', auth()->id())->first();
 
         if (! $model) {
             return static::sendNotFoundResponse();
@@ -41,6 +41,6 @@ class DeleteHandler extends Handlers
 
         $model->delete();
 
-        return static::sendSuccessResponse($model, 'Successfully Delete Resource');
+        return response()->json([], 204);
     }
 }

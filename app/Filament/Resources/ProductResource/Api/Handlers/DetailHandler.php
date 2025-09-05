@@ -26,11 +26,12 @@ class DetailHandler extends Handlers
     {
         $id = $request->route('id');
 
-        $query = static::getEloquentQuery();
+        $query = static::getEloquentQuery()->where('user_id', auth()->id());
 
         $query = QueryBuilder::for(
             $query->where(static::getKeyName(), $id)
         )
+            ->allowedIncludes(['tags', 'user'])
             ->first();
 
         if (! $query) {

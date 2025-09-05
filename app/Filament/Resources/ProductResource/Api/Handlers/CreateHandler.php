@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ProductResource\Api\Handlers;
 
 use App\Filament\Resources\ProductResource;
 use App\Filament\Resources\ProductResource\Api\Requests\CreateProductRequest;
+use App\Filament\Resources\ProductResource\Api\Transformers\ProductTransformer;
 use Dedoc\Scramble\Attributes\Group;
 use Rupadana\ApiService\Http\Handlers;
 
@@ -37,6 +38,9 @@ class CreateHandler extends Handlers
 
         $model->save();
 
-        return static::sendSuccessResponse($model, 'Successfully Create Resource');
+        return response()->json([
+            'data' => new ProductTransformer($model),
+            'message' => 'Successfully Create Resource',
+        ], 201);
     }
 }

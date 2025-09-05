@@ -5,6 +5,7 @@ namespace App\Filament\Resources\StoreResource\Api\Handlers;
 use App\Actions\CreateStoreAction;
 use App\Filament\Resources\StoreResource;
 use App\Filament\Resources\StoreResource\Api\Requests\CreateStoreRequest;
+use App\Filament\Resources\StoreResource\Api\Transformers\StoreTransformer;
 use Dedoc\Scramble\Attributes\Group;
 use Rupadana\ApiService\Http\Handlers;
 
@@ -32,14 +33,15 @@ class CreateHandler extends Handlers
      */
     public function handler(CreateStoreRequest $request)
     {
-        $model = new (static::getModel());
-
         $values = $request->all();
         $values['user_id'] = $values['user_id'] ?? auth()->id();
 
         $action = new CreateStoreAction;
-        $action($values);
+        $model = $action($values);
 
-        return static::sendSuccessResponse($model, 'Successfully Create Resource');
+        return response()->json([
+            'data' => new StoreTransformer($model),
+            'message' => 'Successfully Create Resource',
+        ], 201);
     }
 }

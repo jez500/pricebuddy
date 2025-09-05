@@ -43,6 +43,7 @@ class Store extends Model
         'scrape_strategy',
         'settings',
         'notes',
+        'user_id',
     ];
 
     protected function casts(): array

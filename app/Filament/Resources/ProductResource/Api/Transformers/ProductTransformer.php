@@ -18,6 +18,17 @@ class ProductTransformer extends JsonResource
      */
     public function toArray($request)
     {
-        return $this->resource->toArray();
+        $data = $this->resource->toArray();
+
+        // Include relationships if they are loaded
+        if ($this->resource->relationLoaded('tags')) {
+            $data['tags'] = $this->resource->tags->toArray();
+        }
+
+        if ($this->resource->relationLoaded('user')) {
+            $data['user'] = $this->resource->user->toArray();
+        }
+
+        return $data;
     }
 }

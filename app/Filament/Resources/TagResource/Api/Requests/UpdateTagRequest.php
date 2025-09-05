@@ -22,7 +22,8 @@ class UpdateTagRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => CreateTagRequest::NAME_RULE,
+            'name' => 'sometimes|string|max:255|unique:tags,name,'.$this->route('id').',id,user_id,'.auth()->id(),
+            'user_id' => 'sometimes|exists:users,id|in:'.auth()->id(),
         ];
     }
 }

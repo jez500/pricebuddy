@@ -18,6 +18,21 @@ class StoreTransformer extends JsonResource
      */
     public function toArray($request)
     {
-        return $this->resource->toArray();
+        $data = $this->resource->toArray();
+
+        // Include relationships if they are loaded
+        if ($this->resource->relationLoaded('user')) {
+            $data['user'] = $this->resource->user->toArray();
+        }
+
+        if ($this->resource->relationLoaded('urls')) {
+            $data['urls'] = $this->resource->urls->toArray();
+        }
+
+        if ($this->resource->relationLoaded('products')) {
+            $data['products'] = $this->resource->products->toArray();
+        }
+
+        return $data;
     }
 }

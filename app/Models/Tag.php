@@ -14,6 +14,13 @@ class Tag extends Model
 
     protected $guarded = [];
 
+    public static function booted()
+    {
+        static::deleted(function (Tag $tag) {
+            $tag->products()->detach();
+        });
+    }
+
     public function products(): MorphToMany
     {
         return $this->morphedByMany(Product::class, 'taggable');

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\TagResource\Api\Handlers;
 
 use App\Filament\Resources\TagResource;
 use App\Filament\Resources\TagResource\Api\Requests\CreateTagRequest;
+use App\Filament\Resources\TagResource\Api\Transformers\TagTransformer;
 use Dedoc\Scramble\Attributes\Group;
 use Rupadana\ApiService\Http\Handlers;
 
@@ -40,6 +41,9 @@ class CreateHandler extends Handlers
 
         $model->save();
 
-        return static::sendSuccessResponse($model, 'Successfully Create Resource');
+        return response()->json([
+            'data' => new TagTransformer($model),
+            'message' => 'Successfully Create Resource',
+        ], 201);
     }
 }

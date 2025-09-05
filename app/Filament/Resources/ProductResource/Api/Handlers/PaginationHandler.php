@@ -19,6 +19,55 @@ class PaginationHandler extends Handlers
 
     public static ?string $resource = ProductResource::class;
 
+    public function getAllowedFields(): array
+    {
+        return [
+            'id',
+            'title',
+            'image',
+            'status',
+            'notify_price',
+            'notify_percent',
+            'favourite',
+            'only_official',
+            'weight',
+            'current_price',
+            'created_at',
+            'updated_at',
+        ];
+    }
+
+    public function getAllowedSorts(): array
+    {
+        return [
+            'id',
+            'title',
+            'status',
+            'notify_price',
+            'favourite',
+            'created_at',
+            'updated_at',
+        ];
+    }
+
+    public function getAllowedFilters(): array
+    {
+        return [
+            'status',
+            'favourite',
+            'only_official',
+        ];
+    }
+
+    public function getAllowedIncludes(): array
+    {
+        return [
+            'user',
+            'tags',
+            'urls',
+        ];
+    }
+
     /**
      * List of Products
      *
@@ -26,7 +75,7 @@ class PaginationHandler extends Handlers
      */
     public function handler()
     {
-        $query = static::getEloquentQuery();
+        $query = static::getEloquentQuery()->where('user_id', auth()->id());
 
         $query = QueryBuilder::for($query)
             ->allowedFields($this->getAllowedFields())
