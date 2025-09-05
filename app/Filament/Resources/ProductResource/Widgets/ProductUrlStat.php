@@ -15,6 +15,8 @@ class ProductUrlStat extends Stat
 
     public int $idx = 0;
 
+    protected int $priceHistoryLength = 182; // 6 mths.
+
     public function render(): View
     {
         return view('filament.pages.product.price-stat', $this->data());
@@ -33,7 +35,7 @@ class ProductUrlStat extends Stat
 
         parent::chart(
             $cache->getHistory()
-                ->values()->reverse()->take(10)
+                ->values()->reverse()->take($this->priceHistoryLength)
                 ->reverse()->values()->toArray()
         );
 
