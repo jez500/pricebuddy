@@ -18,6 +18,8 @@ Homestead.yaml
 auth.json
 npm-debug.log
 yarn-error.log
+*.sql
+*.sql.*
 /.fleet
 /.idea
 /.nova
@@ -26,3 +28,4 @@ yarn-error.log
 /packages
 /core
 /scratch
+.junie/mcp/mcp.json
