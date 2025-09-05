@@ -5,7 +5,7 @@
     <div
         style="height: {{ $height }}"
         id="{{ uniqid('chart-wrapper-'.$product->getKey().'-') }}"
-        ax-load
+        x-load
         x-data="pbChart({
             cachedData: {{ json_encode($cachedDatasets) }},
             options: @js($options),

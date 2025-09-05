@@ -50,6 +50,10 @@ export default function pbChart({ cachedData, options, type }) {
         },
 
         getChart: function () {
+            if (!this.$refs.canvas) {
+                return null
+            }
+
             return Chart.getChart(this.$refs.canvas)
         },
 
