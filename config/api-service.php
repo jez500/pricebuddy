@@ -9,7 +9,7 @@ return [
     ],
     'route' => [
         'panel_prefix' => false,
-        'use_resource_middlewares' => false,
+        'use_resource_middlewares' => true,
     ],
     'tenancy' => [
         'enabled' => false,
@@ -17,14 +17,13 @@ return [
     ],
     'login-rules' => [
         'email' => 'required|email',
-        'password' => 'required',
+        'password' => 'required|string',
     ],
     'login-middleware' => [
-        // Add any additional middleware you want to apply to the login route
+        'throttle:api',
     ],
     'logout-middleware' => [
         'auth:sanctum',
-        // Add any additional middleware you want to apply to the logout route
     ],
     'use-spatie-permission-middleware' => false,
 ];

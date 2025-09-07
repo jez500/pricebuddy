@@ -39,8 +39,10 @@ class UpdateHandler extends Handlers
             return static::sendNotFoundResponse();
         }
 
-        $model->fill($request->all());
+        $values = $request->validated();
+        unset($values['user_id']);
 
+        $model->fill($values);
         $model->save();
 
         return static::sendSuccessResponse($model, 'Successfully Update Resource');

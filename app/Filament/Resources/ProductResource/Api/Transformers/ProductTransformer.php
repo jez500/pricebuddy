@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\ProductResource\Api\Transformers;
 
+use App\Filament\Resources\TagResource\Api\Transformers\TagTransformer;
+use App\Http\Resources\UserResource;
 use App\Models\Product;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -22,11 +24,11 @@ class ProductTransformer extends JsonResource
 
         // Include relationships if they are loaded
         if ($this->resource->relationLoaded('tags')) {
-            $data['tags'] = $this->resource->tags->toArray();
+            $data['tags'] = TagTransformer::collection($this->resource->tags->makeHidden('pivot'));
         }
 
         if ($this->resource->relationLoaded('user')) {
-            $data['user'] = $this->resource->user->toArray();
+            $data['user'] = new UserResource($this->resource->user);
         }
 
         return $data;

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ProductResource\Api\Requests;
 
+use App\Enums\Statuses;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CreateProductRequest extends FormRequest
@@ -23,17 +24,16 @@ class CreateProductRequest extends FormRequest
     {
         return [
             'title' => 'required',
-            'image' => 'required',
-            'status' => 'required',
-            'weight' => 'required',
-            'current_price' => 'required|numeric',
-            'notify_price' => 'required|numeric',
-            'notify_percent' => 'required|numeric',
-            'favourite' => 'required',
-            'only_official' => 'required',
-            'price_cache' => 'required',
-            'ignored_urls' => 'required',
-            'user_id' => 'required',
+            'url' => 'required|url',
+            'product_id' => 'nullable|exists:products,id',
+            'image' => 'nullable|url',
+            'status' => 'sometimes|in:'.implode(',', array_keys(Statuses::values())),
+            'weight' => 'sometimes|numeric',
+            'notify_price' => 'sometimes|numeric',
+            'notify_percent' => 'sometimes|numeric',
+            'favourite' => 'sometimes|boolean',
+            'only_official' => 'nullable|boolean',
+            'create_store' => 'sometimes|boolean',
         ];
     }
 }

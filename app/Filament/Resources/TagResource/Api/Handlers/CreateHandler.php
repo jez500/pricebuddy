@@ -43,7 +43,7 @@ class CreateHandler extends Handlers
 
         return response()->json([
             'data' => new TagTransformer($model),
-            'message' => 'Successfully Create Resource',
+            'message' => 'Tag created',
         ], 201);
     }
 }

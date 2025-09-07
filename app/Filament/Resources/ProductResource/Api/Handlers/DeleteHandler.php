@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ProductResource\Api\Handlers;
 use App\Filament\Resources\ProductResource;
 use Dedoc\Scramble\Attributes\Group;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Rupadana\ApiService\Http\Handlers;
 
 #[Group(ProductResource::API_GROUP)]
@@ -38,6 +39,8 @@ class DeleteHandler extends Handlers
         if (! $model) {
             return static::sendNotFoundResponse();
         }
+
+        Gate::authorize('delete', $model);
 
         $model->delete();
 

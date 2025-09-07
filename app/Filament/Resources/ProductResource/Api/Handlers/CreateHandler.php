@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ProductResource\Api\Handlers;
 use App\Filament\Resources\ProductResource;
 use App\Filament\Resources\ProductResource\Api\Requests\CreateProductRequest;
 use App\Filament\Resources\ProductResource\Api\Transformers\ProductTransformer;
+use App\Models\Url;
 use Dedoc\Scramble\Attributes\Group;
 use Rupadana\ApiService\Http\Handlers;
 
@@ -32,15 +33,24 @@ class CreateHandler extends Handlers
      */
     public function handler(CreateProductRequest $request)
     {
-        $model = new (static::getModel());
+        $values = $request->validated();
 
-        $model->fill($request->all());
+        $urlModel = Url::createFromUrl(
+            url: data_get($values, 'url'),
+            productId: data_get($values, 'product_id'),
+            userId: auth()->id(),
+            createStore: data_get($values, 'create_store', false)
+        );
 
-        $model->save();
+        if ($urlModel) {
+            return response()->json([
+                'data' => new ProductTransformer($urlModel->product),
+                'message' => 'Product created',
+            ], 201);
+        }
 
         return response()->json([
-            'data' => new ProductTransformer($model),
-            'message' => 'Successfully Create Resource',
-        ], 201);
+            'message' => 'Unable to create product, check the logs',
+        ], 400);
     }
 }

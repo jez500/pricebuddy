@@ -105,7 +105,6 @@ class ProductApiTest extends TestCase
             'current_price' => 99.99,
             'price_cache' => [['price' => 99.99, 'date' => now()->toDateString()]],
             'ignored_urls' => ['https://example.com/ignored'],
-            'user_id' => $this->user->id,
         ];
 
         $response = $this->postJson('/api/products', $productData);
@@ -139,6 +138,41 @@ class ProductApiTest extends TestCase
         $this->assertDatabaseHas('products', [
             'title' => 'Test Product',
             'user_id' => $this->user->id,
+        ]);
+    }
+
+    public function test_cannot_spoof_user_id_when_creating_product(): void
+    {
+        $otherUser = User::factory()->create();
+
+        $productData = [
+            'title' => 'Test Product',
+            'image' => 'https://example.com/image.jpg',
+            'status' => 'p',
+            'notify_price' => 99.99,
+            'notify_percent' => 10.0,
+            'favourite' => true,
+            'only_official' => false,
+            'weight' => 100.0,
+            'current_price' => 99.99,
+            'price_cache' => [['price' => 99.99, 'date' => now()->toDateString()]],
+            'ignored_urls' => ['https://example.com/ignored'],
+            'user_id' => $otherUser->id, // Attempting to spoof ownership
+        ];
+
+        $response = $this->postJson('/api/products', $productData);
+
+        $response->assertCreated();
+
+        // The product should be created but with the authenticated user's ID, not the spoofed one
+        $this->assertDatabaseHas('products', [
+            'title' => 'Test Product',
+            'user_id' => $this->user->id, // Should be the authenticated user, not the other user
+        ]);
+
+        $this->assertDatabaseMissing('products', [
+            'title' => 'Test Product',
+            'user_id' => $otherUser->id, // Should not be created with the spoofed user_id
         ]);
     }
 

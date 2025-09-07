@@ -87,7 +87,7 @@ class StoreResource extends Resource
                     Forms\Components\Radio::make('settings.scraper_service')
                         ->options(ScraperService::class)
                         ->descriptions([
-                            ScraperService::Http->value => 'Faster and and less resource intensive. Use this for JSON strategy',
+                            ScraperService::Http->value => 'Faster and less resource intensive. Use this for JSON strategy',
                             ScraperService::Api->value => 'Slower but good for scraping JavaScript rendered pages',
                         ])
                         ->reactive()

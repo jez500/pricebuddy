@@ -14,9 +14,9 @@ class Tag extends Model
 
     protected $guarded = [];
 
-    public static function booted()
+    public static function booted(): void
     {
-        static::deleted(function (Tag $tag) {
+        static::deleting(function (Tag $tag) {
             $tag->products()->detach();
         });
     }

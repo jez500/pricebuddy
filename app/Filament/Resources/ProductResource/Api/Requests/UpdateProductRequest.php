@@ -33,7 +33,6 @@ class UpdateProductRequest extends FormRequest
             'only_official' => 'required',
             'price_cache' => 'required',
             'ignored_urls' => 'required',
-            'user_id' => 'required',
         ];
     }
 }

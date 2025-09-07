@@ -41,7 +41,7 @@ class CreateHandler extends Handlers
 
         return response()->json([
             'data' => new StoreTransformer($model),
-            'message' => 'Successfully Create Resource',
+            'message' => 'Store created',
         ], 201);
     }
 }

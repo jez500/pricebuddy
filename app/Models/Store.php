@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Spatie\Sluggable\HasSlug;
@@ -28,6 +29,9 @@ use Spatie\Sluggable\SlugOptions;
  * @property array $scraper_options
  * @property string $locale
  * @property string $currency
+ * @property Collection $urls
+ * @property Collection $products
+ * @property ?User $user
  */
 class Store extends Model
 {

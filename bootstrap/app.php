@@ -24,6 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('model:prune', ['--model' => [LogMessage::class]])->daily();
         // Prune search research results.
         $schedule->command('model:prune', ['--model' => [UrlResearch::class]])->daily();
+        // Prune expired Sanctum tokens
+        $schedule->command('sanctum:prune-expired', ['--hours' => 24])->daily();
     })
     ->withMiddleware(function (Middleware $middleware) {
         //

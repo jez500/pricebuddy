@@ -1,25 +1,44 @@
-/.phpunit.cache
-/node_modules
-/decs/node_modules
-/docs/public/node_modules
-/public/build
-/public/hot
-/public/storage
-/storage/*.key
-/storage/pail
-/vendor
+# Env
 .env
 .env.backup
 .env.production
-.phpactor.json
-.phpunit.result.cache
+
+# Storage
+/public/storage
+/storage/*.key
+/storage/pail
+
+# Deps
+/node_modules
+/decs/node_modules
+/docs/public/node_modules
+/vendor
+
+# Build
+npm-debug.log
+yarn-error.log
+/public/build
+/public/hot
 Homestead.json
 Homestead.yaml
 auth.json
-npm-debug.log
-yarn-error.log
+
+# Tests and CI
+/.phpunit.cache
+.phpunit.result.cache
+.phpactor.json
+
+# DB Dumps
 *.sql
 *.sql.*
+database/*.sqlite
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# IDE
 /.fleet
 /.idea
 /.nova
@@ -28,4 +47,7 @@ yarn-error.log
 /packages
 /core
 /scratch
+
+# AI
 .junie/mcp/mcp.json
+.output.txt
