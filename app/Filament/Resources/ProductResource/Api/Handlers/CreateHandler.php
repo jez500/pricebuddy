@@ -51,6 +51,6 @@ class CreateHandler extends Handlers
 
         return response()->json([
             'message' => 'Unable to create product, check the logs',
-        ], 400);
+        ], 422);
     }
 }

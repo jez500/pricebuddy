@@ -4,14 +4,17 @@ namespace Tests\Feature\Api;
 
 use App\Enums\Statuses;
 use App\Models\Product;
+use App\Models\Store;
 use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use Tests\Traits\ScraperTrait;
 
 class ProductApiTest extends TestCase
 {
     use RefreshDatabase;
+    use ScraperTrait;
 
     private User $user;
 
@@ -21,6 +24,11 @@ class ProductApiTest extends TestCase
         $this->user = User::factory()->create();
         $token = $this->user->createToken('test-token')->plainTextToken;
         $this->withHeaders(['Authorization' => 'Bearer '.$token]);
+
+        // Create a store for URL scraping
+        Store::factory()->create([
+            'domains' => [['domain' => 'example.com']],
+        ]);
     }
 
     public function test_can_list_products(): void
@@ -93,18 +101,11 @@ class ProductApiTest extends TestCase
 
     public function test_can_create_product(): void
     {
+        $this->mockScrape('$99.99', 'Test Product', 'https://example.com/image.jpg');
+
         $productData = [
             'title' => 'Test Product',
-            'image' => 'https://example.com/image.jpg',
-            'status' => 'p',
-            'notify_price' => 99.99,
-            'notify_percent' => 10.0,
-            'favourite' => true,
-            'only_official' => false,
-            'weight' => 100.0,
-            'current_price' => 99.99,
-            'price_cache' => [['price' => 99.99, 'date' => now()->toDateString()]],
-            'ignored_urls' => ['https://example.com/ignored'],
+            'url' => 'https://example.com/test-product',
         ];
 
         $response = $this->postJson('/api/products', $productData);
@@ -123,16 +124,13 @@ class ProductApiTest extends TestCase
                     'created_at',
                     'updated_at',
                 ],
+                'message',
             ])
             ->assertJson([
                 'data' => [
                     'title' => 'Test Product',
-                    'image' => 'https://example.com/image.jpg',
-                    'notify_price' => 99.99,
-                    'notify_percent' => 10.0,
-                    'favourite' => true,
-                    'only_official' => false,
                 ],
+                'message' => 'Product created',
             ]);
 
         $this->assertDatabaseHas('products', [
@@ -143,20 +141,13 @@ class ProductApiTest extends TestCase
 
     public function test_cannot_spoof_user_id_when_creating_product(): void
     {
+        $this->mockScrape('$99.99', 'Test Product', 'https://example.com/image.jpg');
+
         $otherUser = User::factory()->create();
 
         $productData = [
             'title' => 'Test Product',
-            'image' => 'https://example.com/image.jpg',
-            'status' => 'p',
-            'notify_price' => 99.99,
-            'notify_percent' => 10.0,
-            'favourite' => true,
-            'only_official' => false,
-            'weight' => 100.0,
-            'current_price' => 99.99,
-            'price_cache' => [['price' => 99.99, 'date' => now()->toDateString()]],
-            'ignored_urls' => ['https://example.com/ignored'],
+            'url' => 'https://example.com/test-product',
             'user_id' => $otherUser->id, // Attempting to spoof ownership
         ];
 
@@ -196,7 +187,7 @@ class ProductApiTest extends TestCase
         $updateData = [
             'title' => 'Updated Product Title',
             'image' => $product->image,
-            'status' => $product->status,
+            'status' => Statuses::Published->value,
             'notify_price' => 150.00,
             'notify_percent' => $product->notify_percent,
             'favourite' => false,
@@ -235,7 +226,7 @@ class ProductApiTest extends TestCase
         $updateData = [
             'title' => 'Hacked Product Title',
             'image' => $product->image,
-            'status' => $product->status,
+            'status' => Statuses::Published->value,
             'notify_price' => 150.00,
             'notify_percent' => $product->notify_percent,
             'favourite' => false,

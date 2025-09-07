@@ -27,7 +27,7 @@ class CreateProductRequest extends FormRequest
             'url' => 'required|url',
             'product_id' => 'nullable|exists:products,id',
             'image' => 'nullable|url',
-            'status' => 'sometimes|in:'.implode(',', array_keys(Statuses::values())),
+            'status' => 'sometimes|in:'.implode(',', Statuses::values()),
             'weight' => 'sometimes|numeric',
             'notify_price' => 'sometimes|numeric',
             'notify_percent' => 'sometimes|numeric',
