@@ -95,7 +95,7 @@ class StoreResource extends Resource
 
                     Forms\Components\Textarea::make('settings.scraper_service_settings')
                         ->label('Settings')
-                        ->hint(new HtmlString('One option per line. <a href="https://github.com/amerkurev/scrapper" target="_blank">Read docs</a>'))
+                        ->hint(new HtmlString('One option per line. <a href="https://github.com/jez500/seleniumbase-scrapper#api-endpoints" target="_blank">Read docs</a>'))
                         ->hidden(fn (Forms\Get $get) => $get('settings.scraper_service') !== ScraperService::Api->value)
                         ->rows(4)
                         ->placeholder("device=Desktop Firefox\nsleep=1000"),
