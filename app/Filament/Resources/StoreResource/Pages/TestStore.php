@@ -20,11 +20,13 @@ class TestStore extends EditRecord
 
     protected function getForms(): array
     {
+        $record = $this->getRecord();
+
         return [
             'form' => $this->form(static::getResource()::testForm(
                 $this->makeForm()
                     ->operation('test')
-                    ->model($this->getRecord())
+                    ->model($record)
                     ->statePath($this->getFormStatePath())
                     ->columns($this->hasInlineLabels() ? 1 : 2)
                     ->inlineLabel($this->hasInlineLabels())
@@ -44,10 +46,22 @@ class TestStore extends EditRecord
         $scrape = ScrapeUrl::new($url)->scrape(['store' => $store, 'use_cache' => false]);
 
         $store->update(['settings' => array_merge($store->settings, ['test_url' => $url])]);
+        $store->refresh();
 
         session()->put('test_scrape', $scrape);
 
         $this->redirect($this->getRedirectUrl());
+    }
+
+    public function mount(int|string $record): void
+    {
+        parent::mount($record);
+
+        $this->record->refresh();
+
+        $this->form->fill([
+            'test_url' => data_get($this->record->settings, 'test_url', ''),
+        ]);
     }
 
     public function getFormActions(): array
