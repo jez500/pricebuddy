@@ -60,7 +60,7 @@ class TestStore extends EditRecord
         $this->record->refresh();
 
         $this->form->fill([
-            'test_url' => data_get($this->record->settings, 'test_url', ''),
+            'test_url' => data_get($this->record, 'settings.test_url', ''),
         ]);
     }
 
