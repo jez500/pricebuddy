@@ -76,13 +76,14 @@ class PaginationHandler extends Handlers
     public function handler()
     {
         $query = static::getEloquentQuery()->where('user_id', auth()->id());
+        $perPage = min(max((int) $this->getPerPage(), 1), 100);
 
         $query = QueryBuilder::for($query)
             ->allowedFields($this->getAllowedFields())
             ->allowedSorts($this->getAllowedSorts())
             ->allowedFilters($this->getAllowedFilters())
             ->allowedIncludes($this->getAllowedIncludes())
-            ->paginate($this->getPerPage())
+            ->paginate($perPage)
             ->appends(request()->query());
 
         return ProductTransformer::collection($query);
