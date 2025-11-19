@@ -10,6 +10,7 @@ use App\Services\Helpers\CurrencyHelper;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -31,7 +32,8 @@ use Illuminate\Support\Str;
  * @property array $price_cache
  * @property string $average_price
  * @property string $trend
- * @property Collection $urls
+ * @property EloquentCollection<Url> $urls
+ * @property EloquentCollection<Tag> $tags
  * @property ?float $notify_price
  * @property ?float $notify_percent
  * @property ?User $user
@@ -424,7 +426,7 @@ class Product extends Model
     public function updatePrices(): bool
     {
         $successful = $this->urls
-            ->map(fn (Url $url) => $url->updatePrice())
+            ->map(fn (Url $url) => $url->updatePrice()) // @phpstan-ignore-line
             ->filter();
 
         $this->updatePriceCache();

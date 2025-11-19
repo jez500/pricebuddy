@@ -29,6 +29,7 @@ export default defineUserConfig({
             '/tags',
             '/settings',
             '/users',
+            '/api',
             '/log-messages',
             '/faqs',
         ],

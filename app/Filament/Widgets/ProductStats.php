@@ -39,7 +39,11 @@ class ProductStats extends Widget
             ->map(fn (Collection $products, string $tagName) => [
                 'heading' => $tagName,
                 'products' => $products,
+                'weight' => $products->first()->tags->count() > 0
+                    ? $products->first()->tags->max('weight')
+                    : 0,
             ])
+            ->sortBy('weight')
             ->toArray();
     }
 

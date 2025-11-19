@@ -6,6 +6,7 @@ use App\Services\AutoCreateStore;
 use App\Services\Helpers\AffiliateHelper;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\ScrapeUrl;
+use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -28,7 +29,10 @@ use Illuminate\Support\Str;
  * @property ?Store $store
  * @property ?Product $product
  * @property ?int $store_id
+ * @property ?int $product_id
  * @property Collection $prices
+ * @property Carbon $updated_at
+ * @property Carbon $created_at
  */
 class Url extends Model
 {
@@ -44,6 +48,14 @@ class Url extends Model
     }
 
     protected $guarded = [];
+
+    public function casts(): array
+    {
+        return [
+            'updated_at' => 'datetime',
+            'created_at' => 'datetime',
+        ];
+    }
 
     /***************************************************
      * Relationships.

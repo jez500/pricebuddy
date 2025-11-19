@@ -44,7 +44,7 @@ services:
             start_period: 1m
 
     scraper:
-        image: amerkurev/scrapper:latest
+        image: jez500/seleniumbase-scrapper:latest
         networks:
             - default
         ports:

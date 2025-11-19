@@ -17,7 +17,7 @@ retailers.
   and all the prices will be fetched from those urls daily
 * Visualise product price history with charts
 * Extract product information via CSS selectors, regular expressions or JSONPath
-* Support for SPA/Javascript rendered sites via [Scrapper](https://github.com/amerkurev/scrapper)
+* Support for SPA/Javascript rendered sites via [SeleniumBase Scrapper](https://github.com/jez500/seleniumbase-scrapper)
 * Tagging of products for better organization
 * Multi-user support, each user has their own products
 * Get notifications via the app, email or pushover/gotify when a product price changes to 

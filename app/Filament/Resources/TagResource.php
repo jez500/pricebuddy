@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class TagResource extends Resource
 {
+    public const string API_GROUP = 'Tag';
+
     protected static ?string $model = Tag::class;
 
     protected static ?int $navigationSort = 10;
@@ -30,6 +32,11 @@ class TagResource extends Resource
                         Forms\Components\TextInput::make('name')
                             ->label('Name')
                             ->required(),
+                        Forms\Components\TextInput::make('weight')
+                            ->label('Sort order')
+                            ->numeric()
+                            ->default(0)
+                            ->helperText('Lower values appear first. This will affect the order of product grouping on the homepage.'),
                     ]),
 
             ]);
@@ -49,8 +56,13 @@ class TagResource extends Resource
                         ->formatStateUsing(fn ($state) => $state.' products')
                         ->color('gray')
                         ->sortable(),
+                    Tables\Columns\TextColumn::make('weight')
+                        ->label(__('Sort order'))
+                        ->color('gray')
+                        ->sortable(),
                 ])->from('sm'),
             ])
+            ->defaultSort('weight')
             ->filters([
                 //
             ])

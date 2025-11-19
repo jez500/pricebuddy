@@ -20,7 +20,8 @@ Quickly identify trends and decide when to buy.
 ## Support for JS rendered sites
 
 A headless browser can be used to scrape sites that require Javascript to render 
-the page. This is done via [Scrapper](https://github.com/amerkurev/scrapper).
+the page. This is done via [SeleniumBase](https://seleniumbase.io/) running chrome
+in a docker container with a rest api.
 
 ## Organise your products
 

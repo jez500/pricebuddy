@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\Icons;
 use App\Enums\ScraperService;
+use App\Enums\ScraperStrategyType;
 use App\Filament\Pages\AppSettingsPage;
 use App\Filament\Resources\StoreResource\Pages\CreateStore;
 use App\Filament\Resources\StoreResource\Pages\EditStore;
@@ -30,11 +31,13 @@ use Illuminate\Support\HtmlString;
 
 class StoreResource extends Resource
 {
-    const DEFAULT_SELECTORS = [
+    public const array DEFAULT_SELECTORS = [
         'title' => 'meta[property=og:title]|content',
         'price' => 'meta[property=og:price:amount]|content',
         'image' => 'meta[property=og:image]|content',
     ];
+
+    public const string API_GROUP = 'Store';
 
     protected static ?string $model = Store::class;
 
@@ -84,7 +87,7 @@ class StoreResource extends Resource
                     Forms\Components\Radio::make('settings.scraper_service')
                         ->options(ScraperService::class)
                         ->descriptions([
-                            ScraperService::Http->value => 'Faster and and less resource intensive. Use this for JSON strategy',
+                            ScraperService::Http->value => 'Faster and less resource intensive. Use this for JSON strategy',
                             ScraperService::Api->value => 'Slower but good for scraping JavaScript rendered pages',
                         ])
                         ->reactive()
@@ -92,7 +95,7 @@ class StoreResource extends Resource
 
                     Forms\Components\Textarea::make('settings.scraper_service_settings')
                         ->label('Settings')
-                        ->hint(new HtmlString('One option per line. <a href="https://github.com/amerkurev/scrapper" target="_blank">Read docs</a>'))
+                        ->hint(new HtmlString('One option per line. <a href="https://github.com/jez500/seleniumbase-scrapper#api-endpoints" target="_blank">Read docs</a>'))
                         ->hidden(fn (Forms\Get $get) => $get('settings.scraper_service') !== ScraperService::Api->value)
                         ->rows(4)
                         ->placeholder("device=Desktop Firefox\nsleep=1000"),
@@ -196,27 +199,16 @@ class StoreResource extends Resource
         return [
             Forms\Components\Select::make($key.'.type')
                 ->label('Type')
-                ->options([
-                    'selector' => 'CSS Selector',
-                    'xpath' => 'XPath',
-                    'regex' => 'Regex',
-                    'json' => 'JSON path',
-                ])
+                ->options(ScraperStrategyType::class)
                 ->required()
-                ->default('selector')
+                ->default(ScraperStrategyType::Selector->value)
                 ->hintIcon(Icons::Help->value, 'How to get the value')
                 ->live(),
             TextInput::make($key.'.value')
                 ->label('Value')
                 ->default(self::DEFAULT_SELECTORS[$key])
                 ->required()
-                ->hintIcon(Icons::Help->value, fn (Forms\Get $get) => match ($get($key.'.type')) {
-                    'selector' => 'CSS selector to get the value. Use |attribute_name to get an attribute value instead of the element content',
-                    'xpath' => 'XPath expression to get the value. Use @attribute for attributes, text() for text content',
-                    'regex' => 'Regex pattern to get the value. Enclose the value in () to get the value',
-                    'json' => 'JSON path to get the value. Use dot notation to get nested values',
-                    default => ''
-                })
+                ->hintIcon(Icons::Help->value, fn (Forms\Get $get) => ScraperStrategyType::getValueHelp($get($key.'.type')))
                 ->live(),
             TextInput::make($key.'.prepend')
                 ->label('Prepend')

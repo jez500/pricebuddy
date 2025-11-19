@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Enums\Icons;
 use App\Enums\Statuses;
 use App\Filament\Resources\ProductResource\Actions\FetchBulkAction;
+use App\Filament\Resources\ProductResource\Api\Transformers\ProductTransformer;
 use App\Filament\Resources\ProductResource\Columns\ProductCardColumn;
 use App\Filament\Resources\ProductResource\Pages;
 use App\Models\Product;
@@ -37,6 +38,15 @@ class ProductResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-shopping-cart';
 
     protected static ?string $recordTitleAttribute = 'title';
+
+    protected static ?string $groupRouteName = 'products';
+
+    public const string API_GROUP = 'Products';
+
+    public static function getApiTransformer()
+    {
+        return ProductTransformer::class;
+    }
 
     public static function form(Form $form): Form
     {

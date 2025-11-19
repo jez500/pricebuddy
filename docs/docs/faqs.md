@@ -40,7 +40,7 @@ supports browser base scraping for this, but it is slower and more resource inte
 but may be the only option for some stores. You can change the scraper service in the
 store settings. 
 
-The browser based scraper has many settings available: [docs here](https://github.com/amerkurev/scrapper).
+The browser based scraper has many settings available: [docs here](https://github.com/jez500/seleniumbase-scrapper).
 Consider adjusting timeouts, sleep settings, etc. In extreme cases you could use user
 defined JavaScript to extract the price (you would need to mount the scripts in the
 scrapper container and reference them in the store settings).
