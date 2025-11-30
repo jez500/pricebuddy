@@ -1,13 +1,36 @@
 .pb-expandable-stat {
+    position: relative;
+
     &__top {
         display: flex;
         align-items: stretch;
     }
 
     &__actions {
+        display: flex;
+
         > a,
         > button {
             width: auto;
+        }
+
+        .fi-btn {
+            min-height: 2rem;
+            flex-grow: 1;
+            flex-shrink: 1;
+            flex-basis: 35%;
+
+            .fi-btn-label {
+                display: none;
+            }
+
+            &:hover {
+                flex-basis: 40%;
+
+                .fi-btn-label {
+                    display: block;
+                }
+            }
         }
     }
 
@@ -21,6 +44,9 @@
     &__context {
         align-content: stretch;
         align-items: stretch;
+        position: absolute;
+        top: 0;
+        right: 0;
     }
 
     &__context-button {
@@ -28,8 +54,19 @@
         border-radius: 0 0.75rem 0.75rem 0;
         display: flex;
         justify-content: center;
-        align-items: center;
-        align-content: stretch;
+        align-items: end;
+        align-content: end;
+        padding-bottom: .75rem;
+
+        &.collapsed {
+            svg {
+                transform: rotate(180deg);
+            }
+        }
+
+        &:hover {
+            border-color: inherit;
+        }
     }
 
     canvas.h-6 {

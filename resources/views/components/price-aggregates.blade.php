@@ -4,7 +4,7 @@
     $hideTrend ?? $hideTrend = false;
 @endphp
 <div
-    class="mt-1 py-2 px-4 gap-2 flex border-t border-t-gray-200 dark:border-t-gray-800"
+    class="py-2 px-4 gap-2 flex"
     @style([
         get_color_css_variables(
             Trend::getColor($trend),

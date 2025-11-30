@@ -16,7 +16,7 @@
         <canvas
             role="img"
             aria-label="Price history chart for {{ $product->name ?? 'product' }}"
-            class="absolute inset-0 top-1 bottom-1"
+            class="absolute inset-0 top-1 bottom-1 rounded-br-lg"
             x-ref="canvas"
             id="{{ uniqid('chart-canvas-'.$product->getKey().'-') }}"
         ></canvas>
