@@ -35,6 +35,15 @@ class ProductSeeder extends Seeder
             'tag' => 'Tech',
         ],
         [
+            'title' => 'Logitech MX Master 3S',
+            'urls' => [
+                'https://www.amazon.com.au/Logitech-Master-Performance-Ultra-Fast-Scrolling/dp/B0FNV6GP6K' => ['149', '149', '149', '135', '149', '95', '95'],
+                'https://www.jbhifi.com.au/products/logitech-mx-master-3s-performance-wireless-mouse-graphite' => ['169', '169', '149', '149', '169', '169', '169'],
+            ],
+            'image' => 'https://m.media-amazon.com/images/I/61GKl6jshFL._AC_SL1500_.jpg',
+            'tag' => 'Tech',
+        ],
+        [
             'title' => 'Paper towels',
             'urls' => [
                 'https://www.amazon.com.au/Bounty-Select-Towels-Triple-Sheets/dp/B08V4D8YBC' => ['45', '45', '42', '42', '39'],

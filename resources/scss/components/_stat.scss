@@ -22,11 +22,10 @@
 
             .fi-btn-label {
                 display: none;
+                white-space: nowrap;
             }
 
             &:hover {
-                flex-basis: 40%;
-
                 .fi-btn-label {
                     display: block;
                 }
