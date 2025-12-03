@@ -14,11 +14,11 @@ it('has correct values', function () {
 });
 
 it('returns correct labels', function () {
-    expect(ProductSourceType::DealsSite->getLabel())->toBe('Deals Site');
+    expect(ProductSourceType::DealsSite->getLabel())->toBe('Deals Site (Aggregator)');
     expect(ProductSourceType::OnlineStore->getLabel())->toBe('Online Store');
 });
 
 it('returns correct descriptions', function () {
-    expect(ProductSourceType::DealsSite->getDescription())->toBe('Site that aggregates deals/links (e.g., OzBargain)');
-    expect(ProductSourceType::OnlineStore->getDescription())->toBe('Site that sells products directly (e.g., Amazon)');
+    expect(ProductSourceType::DealsSite->getDescription())->toBe('Site that aggregates deals/links (e.g. OzBargain)');
+    expect(ProductSourceType::OnlineStore->getDescription())->toBe('Site that sells products directly (e.g. Amazon)');
 });

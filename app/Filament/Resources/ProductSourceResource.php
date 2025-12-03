@@ -8,8 +8,10 @@ use App\Enums\ProductSourceType;
 use App\Filament\Concerns\HasScraperTrait;
 use App\Filament\Resources\ProductSourceResource\Pages;
 use App\Models\ProductSource;
+use App\Rules\ContainsSearchTermPlaceholder;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -33,11 +35,18 @@ class ProductSourceResource extends Resource
                         ->maxLength(255),
                     Forms\Components\TextInput::make('search_url')
                         ->required()
+                        ->rules([new ContainsSearchTermPlaceholder])
                         ->hintIcon(Icons::Help->value, 'The URL to search for products, substitute :search_term for the search term'),
                     Forms\Components\Select::make('type')
                         ->options(ProductSourceType::class)
                         ->hintIcon(Icons::Help->value, 'A deals site aggregates products from multiple sites, an online store sells products')
-                        ->required(),
+                        ->required()
+                        ->live(),
+                    Forms\Components\Select::make('store_id')
+                        ->label('Associated Store')
+                        ->relationship('store', 'name')
+                        ->visible(fn (Get $get) => $get('type') === ProductSourceType::OnlineStore->value)
+                        ->helperText('Link to existing store for scraping product pages'),
                     Forms\Components\Select::make('status')
                         ->required()
                         ->options(ProductSourceStatus::class)
@@ -75,7 +84,8 @@ class ProductSourceResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('slug')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('type')
@@ -97,8 +107,12 @@ class ProductSourceResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('name')
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('status')
+                    ->options(ProductSourceStatus::class),
+                Tables\Filters\SelectFilter::make('type')
+                    ->options(ProductSourceType::class),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
