@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Dto\ProductResearchUrlDto;
 use App\Enums\Icons;
+use App\Models\ProductSource;
 use App\Models\Store;
 use App\Models\UrlResearch;
 use App\Services\Helpers\IntegrationHelper;
@@ -11,6 +12,7 @@ use Exception;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Throwable;
 
 class SearchService
 {
@@ -54,6 +56,7 @@ class SearchService
             $this
                 ->setIsComplete(false)
                 ->setInProgress(true)
+                ->getProductSourceResults()
                 ->getRawResults()
                 ->filterResults()
                 ->normalizeStructure()
@@ -103,6 +106,22 @@ class SearchService
         return data_get(self::getSettings(), 'max_pages', self::DEFAULT_MAX_PAGES);
     }
 
+    public function getProductSourceResults(): self
+    {
+        $sources = ProductSource::query()->enabled()->take(100)->get();
+
+        $this->log(__('Using :count product sources'), ['count' => $sources->count()]);
+
+        $sources->each(function ($source) {
+            /** @var ProductSource $source */
+            $results = $source->search($this->searchQuery);
+            $this->log(__('Found :count results via '.$source->name, ['count' => $this->results->count()]));
+            $this->results = $this->results->merge($results);
+        });
+
+        return $this;
+    }
+
     public function getRawResults(): self
     {
         $this->log('Fetching raw search results');
@@ -114,26 +133,36 @@ class SearchService
             // Merge page results, cache if not already cached.
             $results = array_merge(
                 $results,
-                Cache::remember(
-                    $this->getCacheKey('results', $this->searchQuery).':page-'.$page,
-                    now()->addMinutes(self::CACHE_TTL_MINS),
-                    fn () => Http::timeout(10)
-                        ->get($this->getSearchUrl(), [
-                            'format' => 'json',
-                            'q' => $this->searchQuery,
-                            'pageno' => $page,
-                        ])
-                        ->throw()
-                        ->json('results', [])
-                )
+                $this->getRawResultsForPage($page)
             );
         }
 
-        $this->results = collect($results);
+        $this->results = $this->results->merge($results);
 
-        $this->log(__('Found :count results', ['count' => $this->results->count()]));
+        $this->log(__('Found :count results via SearchXNG', ['count' => count($results)]));
 
         return $this;
+    }
+
+    protected function getRawResultsForPage(int $page): array
+    {
+        try {
+            return Cache::remember(
+                $this->getCacheKey('results', $this->searchQuery).':page-'.$page,
+                now()->addMinutes(self::CACHE_TTL_MINS),
+                fn () => Http::timeout(10)
+                    ->get($this->getSearchUrl(), [
+                        'format' => 'json',
+                        'q' => $this->searchQuery,
+                        'pageno' => $page,
+                    ])
+                    ->throw()
+                    ->json('results', []));
+        } catch (Throwable $e) {
+            $this->log(__('Error fetching results via SearchXNG: '.$e->getMessage()));
+        }
+
+        return [];
     }
 
     public function flushRawResultsCache(int $page = 1): self
@@ -147,12 +176,20 @@ class SearchService
     public function filterResults(): self
     {
         $this->log('Filtering incompatible results');
+        $usedUrls = [];
 
-        $this->results = $this->results->filter(function ($result) {
-            $extension = pathinfo(data_get($result, 'url'), PATHINFO_EXTENSION);
+        $this->results = $this->results->filter(function ($result) use (&$usedUrls) {
+            $url = data_get($result, 'url');
+
+            if (in_array($url, $usedUrls)) {
+                return false;
+            }
+
+            $usedUrls[] = $url;
+            $extension = pathinfo($url, PATHINFO_EXTENSION);
 
             return empty($extension) || ! in_array($extension, $this->ignoredExtensions);
-        });
+        })->values();
 
         return $this;
     }
