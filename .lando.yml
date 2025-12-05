@@ -120,7 +120,7 @@ services:
   tests_db:
     type: laravel-mysql
     creds:
-      user: laravel
+      user: root
       password: laravel
       database: laravel
   phpmyadmin:

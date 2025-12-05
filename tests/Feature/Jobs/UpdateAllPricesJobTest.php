@@ -13,13 +13,20 @@ class UpdateAllPricesJobTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Product::all()->each(fn ($product) => $product->delete());
+    }
+
     public function test_job_calls_price_fetcher_service_with_product_ids()
     {
         $user = User::factory()->create();
         $products = Product::factory()->count(3)->create(['user_id' => $user->id]);
         $productIds = $products->pluck('id')->toArray();
 
-        $mockService = $this->mock(PriceFetcherService::class, function ($mock) use ($productIds, $products) {
+        $this->mock(PriceFetcherService::class, function ($mock) use ($productIds, $products) {
             $mock->shouldReceive('setLogging')
                 ->once()
                 ->with(true)

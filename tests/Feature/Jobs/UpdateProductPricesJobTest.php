@@ -15,6 +15,12 @@ class UpdateProductPricesJobTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Http::fake();
+    }
+
     public function test_job_updates_product_prices()
     {
         $user = User::factory()->create();
@@ -36,8 +42,6 @@ class UpdateProductPricesJobTest extends TestCase
 
     public function test_job_logs_when_logging_enabled()
     {
-        Http::fake();
-
         $user = User::factory()->create();
         $product = Product::factory()->create(['user_id' => $user->id, 'title' => 'Test Product']);
 
@@ -72,7 +76,6 @@ class UpdateProductPricesJobTest extends TestCase
 
     public function test_job_does_not_send_notification_on_success()
     {
-        Http::fake();
         Notification::fake();
 
         $user = User::factory()->create();

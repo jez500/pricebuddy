@@ -281,21 +281,8 @@ class ProductSourceResourceTest extends TestCase
 
     public function test_can_submit_search_query()
     {
-        Http::fake([
-            'example.com/*' => Http::response(
-                View::make('tests.product-source-search-page', [
-                    'products' => [
-                        ['title' => 'Laptop', 'url' => 'https://example.com/laptop'],
-                        ['title' => 'Laptop', 'url' => 'https://example.com/laptop'],
-                    ],
-                ])->render()
-            ),
-        ]);
-
         $this->actingAs($this->user);
-        $source = ProductSource::factory()->create([
-            'search_url' => 'https://example.com/search?q=:search_term',
-        ]);
+        $source = $this->createProductSource();
 
         Livewire::test(ProductSourceResource\Pages\SearchProductSource::class, ['record' => $source->getRouteKey()])
             ->fillForm([
@@ -308,7 +295,7 @@ class ProductSourceResourceTest extends TestCase
     public function test_table_has_search_action()
     {
         $this->actingAs($this->user);
-        $source = ProductSource::factory()->create();
+        $this->createProductSource();
 
         Livewire::test(ProductSourceResource\Pages\ListProductSources::class)
             ->assertTableActionExists('search');
@@ -317,7 +304,7 @@ class ProductSourceResourceTest extends TestCase
     public function test_search_query_is_set_from_route_parameter()
     {
         $this->actingAs($this->user);
-        $source = ProductSource::factory()->create();
+        $source = $this->createProductSource();
 
         $response = $this->get(ProductSourceResource::getUrl('search', ['record' => $source, 'search' => 'laptop']));
 
@@ -333,5 +320,23 @@ class ProductSourceResourceTest extends TestCase
         Livewire::test(ProductSourceResource\Pages\SearchProductSource::class, ['record' => $source->getRouteKey()])
             ->assertSet('showLog', false)
             ->assertSet('searchQuery', null);
+    }
+
+    protected function createProductSource(string $domain = 'example.com', array $attributes = []): ProductSource
+    {
+        Http::fake([
+            $domain.'/*' => Http::response(
+                View::make('tests.product-source-search-page', [
+                    'products' => [
+                        ['title' => 'Laptop1', 'url' => 'https://'.$domain.'/laptop1'],
+                        ['title' => 'Laptop2', 'url' => 'https://'.$domain.'/laptop2'],
+                    ],
+                ])->render()
+            ),
+        ]);
+
+        return ProductSource::factory()->create(array_merge([
+            'search_url' => 'https://'.$domain.'/search?q=:search_term',
+        ], $attributes));
     }
 }
