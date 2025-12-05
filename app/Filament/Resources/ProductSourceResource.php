@@ -115,6 +115,10 @@ class ProductSourceResource extends Resource
                     ->options(ProductSourceType::class),
             ])
             ->actions([
+                Tables\Actions\Action::make('search')
+                    ->label('Search')
+                    ->icon('heroicon-o-magnifying-glass')
+                    ->url(fn (ProductSource $record): string => self::getUrl('search', ['record' => $record])),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
@@ -137,6 +141,7 @@ class ProductSourceResource extends Resource
             'index' => Pages\ListProductSources::route('/'),
             'create' => Pages\CreateProductSource::route('/create'),
             'edit' => Pages\EditProductSource::route('/{record}/edit'),
+            'search' => Pages\SearchProductSource::route('/{record}/search/{search?}'),
         ];
     }
 }

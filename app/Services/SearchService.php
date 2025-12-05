@@ -30,6 +30,8 @@ class SearchService
 
     public ?string $searchQuery = null;
 
+    protected ?ProductSource $productSource = null;
+
     protected bool $useLaravelLog = false;
 
     protected array $ignoredExtensions = ['pdf', 'doc', 'xls', 'ppt'];
@@ -45,6 +47,13 @@ class SearchService
         return resolve(static::class, ['query' => $query]);
     }
 
+    public function setProductSource(?ProductSource $productSource): self
+    {
+        $this->productSource = $productSource;
+
+        return $this;
+    }
+
     public function build(string $searchQuery): self
     {
         $this->searchQuery = $searchQuery;
@@ -53,11 +62,17 @@ class SearchService
         $this->log('Starting research for: '.$searchQuery);
 
         try {
-            $this
+            $builder = $this
                 ->setIsComplete(false)
                 ->setInProgress(true)
-                ->getProductSourceResults()
-                ->getRawResults()
+                ->getProductSourceResults();
+
+            // Only call getRawResults() if no specific product source is set
+            if (! $this->productSource) {
+                $builder->getRawResults();
+            }
+
+            $builder
                 ->filterResults()
                 ->normalizeStructure()
                 ->addStores()
@@ -108,12 +123,17 @@ class SearchService
 
     public function getProductSourceResults(): self
     {
-        $sources = ProductSource::query()->enabled()->take(100)->get();
+        // If a specific product source is set, use only that one
+        if ($this->productSource) {
+            $sources = collect([$this->productSource]);
+        } else {
+            $sources = ProductSource::query()->enabled()->take(100)->get();
+        }
 
         $this->log(__('Using :count product sources'), ['count' => $sources->count()]);
 
         $sources->each(function ($source) {
-            /** @var  ProductSource $source */
+            /** @var ProductSource $source */
             $results = $source->search($this->searchQuery);
             $this->log(__('Found :count results via :source', ['count' => $results->count(), 'source' => $source->name]));
             $this->results = $this->results->merge($results);

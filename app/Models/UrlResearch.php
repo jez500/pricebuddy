@@ -53,13 +53,28 @@ class UrlResearch extends Model
         return $this->belongsTo(Store::class);
     }
 
-    public function scopeSearchQuery(Builder $query, string $searchQuery): Builder
+    public function scopeSearchQuery(Builder $query, ?string $searchQuery, ?ProductSource $productSource = null): Builder
     {
-        $urls = SearchService::new($searchQuery)
-            ->getProductSourceResults()
-            ->getRawResults()
-            ->getResults()
-            ->pluck('url');
+        if (empty($searchQuery)) {
+            return $query->whereRaw('1 = 0'); // Return no results
+        }
+
+        $service = SearchService::new($searchQuery);
+
+        // If a specific product source is provided, filter by it
+        if ($productSource) {
+            $service->setProductSource($productSource);
+        }
+
+        $urls = $service
+            ->getProductSourceResults();
+
+        // Only call getRawResults if not filtering by specific source
+        if (! $productSource) {
+            $urls->getRawResults();
+        }
+
+        $urls = $urls->getResults()->pluck('url');
 
         return $query->whereIn('url', $urls);
     }

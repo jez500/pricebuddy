@@ -97,7 +97,7 @@ class AddSearchResultUrlBulkAction extends BulkAction
         $this->deselectRecordsAfterCompletion();
     }
 
-    public function withSearchQuery(string $searchQuery): self
+    public function withSearchQuery(?string $searchQuery): self
     {
         $this->searchQuery = $searchQuery;
 

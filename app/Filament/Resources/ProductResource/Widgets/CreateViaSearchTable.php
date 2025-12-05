@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ProductResource\Widgets;
 
 use App\Filament\Resources\ProductResource\Actions\AddSearchResultUrlBulkAction;
 use App\Models\Product;
+use App\Models\ProductSource;
 use App\Models\UrlResearch;
 use App\Providers\Filament\AdminPanelProvider;
 use App\Services\Helpers\CurrencyHelper;
@@ -34,6 +35,8 @@ class CreateViaSearchTable extends BaseWidget
 
     public ?Product $product = null;
 
+    public ?ProductSource $productSource = null;
+
     public static function canView(): bool
     {
         return true;
@@ -44,15 +47,20 @@ class CreateViaSearchTable extends BaseWidget
         $settings = IntegrationHelper::getSearchSettings();
         $prefix = data_get($settings, 'search_prefix');
 
+        $query = UrlResearch::query();
+
+        if (!empty($this->searchQuery)) {
+            $query->searchQuery($this->searchQuery, $this->productSource);
+        }
+
+        $query->orderByRaw('ISNULL(price), price ASC')
+            ->orderByDesc('store_id')
+            ->orderByDesc('id');
+
         return $table
             ->heading('Search results for "'.e(($prefix ? $prefix.' ' : '').$this->searchQuery).'"')
             ->description('Select the results you want to add to '.($this->product ? '"'.$this->product->title.'"' : 'a new product'))
-            ->query(
-                UrlResearch::query()->searchQuery($this->searchQuery)
-                    ->orderByRaw('ISNULL(price), price ASC')
-                    ->orderByDesc('store_id')
-                    ->orderByDesc('id')
-            )
+            ->query($query)
             ->columns(self::tableColumns())
             ->recordClasses(fn (UrlResearch $record) => empty($record->price) ? 'opacity-50' : '')
             ->filters([
