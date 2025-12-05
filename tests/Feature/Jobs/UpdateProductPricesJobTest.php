@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\User;
 use App\Notifications\ScrapeFailNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -35,6 +36,8 @@ class UpdateProductPricesJobTest extends TestCase
 
     public function test_job_logs_when_logging_enabled()
     {
+        Http::fake();
+
         $user = User::factory()->create();
         $product = Product::factory()->create(['user_id' => $user->id, 'title' => 'Test Product']);
 
@@ -69,6 +72,7 @@ class UpdateProductPricesJobTest extends TestCase
 
     public function test_job_does_not_send_notification_on_success()
     {
+        Http::fake();
         Notification::fake();
 
         $user = User::factory()->create();
