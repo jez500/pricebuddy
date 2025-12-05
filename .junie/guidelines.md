@@ -502,12 +502,6 @@ Lando provides many helper methods to make development easier and to interact wi
   wanted to install a dependency you would run `lando npm install package-name` instead of `npm install package-name`.
 </laravel-boost-guidelines>
 
-### If lando command fails try running ssh
-eg.
-```
-ssh dev "cd ~/sites/price-buddy; /home/jez/.lando/bin/lando artisan test --coverage"
-```
-
 === .ai/general-preferences rules ===
 
 ## Approach to tasks

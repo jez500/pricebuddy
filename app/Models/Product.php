@@ -340,11 +340,15 @@ class Product extends Model
         $urls = Url::findMany($history->keys());
 
         return $urls
+            ->filter(function ($url) {
+                // Filter out URLs without a store (e.g., during deletion)
+                return $url->store !== null;
+            })
             ->map(function ($url) use ($history): array {
                 /** @var Url $url */
                 /** @var Collection $urlHistory */
                 $urlHistory = $history->get($url->getKey());
-                /** @var ?Store $store */
+                /** @var Store $store */
                 $store = $url->store;
 
                 // Get last scraped price.

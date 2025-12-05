@@ -55,7 +55,7 @@
                 :class="expanded ? 'items-end' : 'collapsed items-start'"
                 @click="expanded = !expanded"
             >
-                <x-filament::icon icon="heroicon-s-chevron-up" class="h-5 w-5"/>
+                <x-filament::icon x-bind:icon="expanded ? 'heroicon-s-chevron-up' : 'heroicon-s-chevron-down'" class="h-5 w-5"/>
             </button>
         </div>
     </div>

@@ -134,9 +134,13 @@ class SearchService
 
         $sources->each(function ($source) {
             /** @var ProductSource $source */
-            $results = $source->search($this->searchQuery);
-            $this->log(__('Found :count results via :source', ['count' => $results->count(), 'source' => $source->name]));
-            $this->results = $this->results->merge($results);
+            try {
+                $results = $source->search($this->searchQuery);
+                $this->log(__('Found :count results via :source', ['count' => $results->count(), 'source' => $source->name]));
+                $this->results = $this->results->merge($results);
+            } catch (Throwable $e) {
+                $this->log(__('Error searching via :source: :error', ['source' => $source->name, 'error' => $e->getMessage()]));
+            }
         });
 
         return $this;
@@ -179,7 +183,7 @@ class SearchService
                     ->throw()
                     ->json('results', []));
         } catch (Throwable $e) {
-            $this->log(__('Error fetching results via SearchXNG: '.$e->getMessage()));
+            $this->log(__('Error fetching results via SearchXNG: :error', ['error' => $e->getMessage()]));
         }
 
         return [];
@@ -284,7 +288,7 @@ class SearchService
                         $this->replaceLastLogEntry(__('No Price found ":title" (:domain)', $logArgs), ['icon' => Icons::Warning->value]);
                     }
                 } catch (Exception $e) {
-                    $this->log(__('Failed for ":title": '.$e->getMessage(), $logArgs), ['subtitle' => $result['url']]);
+                    $this->log(__('Failed for ":title": :error', array_merge($logArgs, ['error' => $e->getMessage()])), ['subtitle' => $result['url']]);
                 }
 
                 $result['execution_time'] = (microtime(true) - $timeStart);

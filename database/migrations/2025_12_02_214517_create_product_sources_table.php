@@ -25,6 +25,7 @@ return new class extends Migration
             $table->json('settings')->nullable();
             $table->string('status')->default(ProductSourceStatus::Active->value);
             $table->foreignIdFor(User::class)->nullable()->constrained()->nullOnDelete();
+            $table->integer('weight')->default(0);
             $table->text('notes')->nullable();
             $table->timestamps();
         });

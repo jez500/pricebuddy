@@ -71,7 +71,7 @@ class UrlResearch extends Model
 
         // Only call getRawResults if not filtering by specific source
         if (! $productSource) {
-            $urls->getRawResults();
+            $urls = $urls->getRawResults();
         }
 
         $urls = $urls->getResults()->pluck('url');

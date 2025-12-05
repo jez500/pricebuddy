@@ -88,7 +88,7 @@ Extracts the product title from each item.
 #### 3. Product URL (Inside list container)
 Extracts the product/deal URL from each item.
 
-**Example(Extracting the link text)***:
+**Example(Extracting the link text)**:
 ```json
 {
   "type": "selector",

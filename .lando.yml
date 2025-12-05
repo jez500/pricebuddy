@@ -63,7 +63,7 @@ tooling:
     cmd: rm /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini && pkill -USR2 php || true
     user: root
   coverage-on:
-    description: Enable xdebug for php.
+    description: Enable code coverage for php.
     service: appserver
     cmd: cp /app/docker/php/debug/docker-php-ext-xdebug-coverage.ini /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini && pkill -USR2 php || true
     user: root

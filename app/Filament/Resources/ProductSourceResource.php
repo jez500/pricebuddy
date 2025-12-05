@@ -107,9 +107,6 @@ class ProductSourceResource extends Resource
                         ->grow(false)
                         ->sortable(),
                 ])->from('sm'),
-                Split::make([
-
-                ]),
             ])
             ->recordUrl(fn (ProductSource $record): string => self::getUrl('search', ['record' => $record]))
             ->defaultSort('name')

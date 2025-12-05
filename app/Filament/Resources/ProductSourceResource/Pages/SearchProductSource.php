@@ -19,6 +19,9 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Contracts\Support\Htmlable;
 
+/**
+ * @method ProductSource getRecord()
+ */
 class SearchProductSource extends EditRecord
 {
     protected static string $resource = ProductSourceResource::class;
@@ -155,7 +158,7 @@ class SearchProductSource extends EditRecord
         if ($this->searchQuery && ! $this->isComplete) {
             $this->progressLog[] = ['message' => __('Refreshing progress for ":query"', ['query' => $this->searchQuery]), 'timestamp' => now()];
 
-            $service = SearchService::new($this->searchQuery);
+            $service = SearchService::new($this->searchQuery)->setProductSource($this->getRecord());
             $this->progressLog = $service->getLog();
             $this->inProgress = $service->getInProgress();
             $this->isComplete = $service->getIsComplete();
@@ -205,7 +208,7 @@ class SearchProductSource extends EditRecord
             return [];
         }
 
-        $service = SearchService::new($this->searchQuery);
+        $service = SearchService::new($this->searchQuery)->setProductSource($this->getRecord());
         if (! $service->getIsComplete()) {
             return [];
         }
