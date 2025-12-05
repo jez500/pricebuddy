@@ -40,5 +40,10 @@ php artisan route:cache
 php artisan event:cache
 php artisan buddy:regenerate-price-cache
 
+# Install xdebug if running in Lando environment
+if [ ! -z "${LANDO_INFO}" ]; then
+    pecl install xdebug && docker-php-ext-enable xdebug
+fi
+
 # Start supervisor that handles cron and apache.
 supervisord -c /etc/supervisor/conf.d/supervisord.conf

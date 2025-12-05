@@ -9,6 +9,8 @@ use App\Models\ProductSource;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\View;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -279,6 +281,17 @@ class ProductSourceResourceTest extends TestCase
 
     public function test_can_submit_search_query()
     {
+        Http::fake([
+            'example.com/*' => Http::response(
+                View::make('tests.product-source-search-page', [
+                    'products' => [
+                        ['title' => 'Laptop', 'url' => 'https://example.com/laptop'],
+                        ['title' => 'Laptop', 'url' => 'https://example.com/laptop'],
+                    ],
+                ])->render()
+            ),
+        ]);
+
         $this->actingAs($this->user);
         $source = ProductSource::factory()->create([
             'search_url' => 'https://example.com/search?q=:search_term',
