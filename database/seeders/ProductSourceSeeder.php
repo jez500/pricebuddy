@@ -24,15 +24,15 @@ class ProductSourceSeeder extends Seeder
             'extraction_strategy' => [
                 'list_container' => [
                     'type' => 'selector',
-                    'value' => '.node.node-ozbdeal',
+                    'value' => '!.search-results dt.title',
                 ],
                 'product_title' => [
                     'type' => 'selector',
-                    'value' => 'h2.title a',
+                    'value' => 'img|alt',
                 ],
                 'product_url' => [
-                    'type' => 'selector',
-                    'value' => 'h2.title a|href',
+                    'type' => 'regex',
+                    'value' => '~title="Link:\s*(https?:\/\/[^"]+)"~',
                 ],
             ],
             'settings' => [

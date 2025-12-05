@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ProductSourceResource\Pages;
 
+use App\Enums\Icons;
 use App\Filament\Resources\ProductSourceResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
@@ -13,7 +14,9 @@ class ListProductSources extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->color('gray')
+                ->icon(Icons::Add->value),
         ];
     }
 }

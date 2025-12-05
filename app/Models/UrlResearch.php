@@ -55,7 +55,11 @@ class UrlResearch extends Model
 
     public function scopeSearchQuery(Builder $query, string $searchQuery): Builder
     {
-        $urls = SearchService::new($searchQuery)->getRawResults()->getResults()->pluck('url');
+        $urls = SearchService::new($searchQuery)
+            ->getProductSourceResults()
+            ->getRawResults()
+            ->getResults()
+            ->pluck('url');
 
         return $query->whereIn('url', $urls);
     }

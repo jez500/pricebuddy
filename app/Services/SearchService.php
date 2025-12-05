@@ -113,9 +113,9 @@ class SearchService
         $this->log(__('Using :count product sources'), ['count' => $sources->count()]);
 
         $sources->each(function ($source) {
-            /** @var ProductSource $source */
+            /** @var  ProductSource $source */
             $results = $source->search($this->searchQuery);
-            $this->log(__('Found :count results via '.$source->name, ['count' => $this->results->count()]));
+            $this->log(__('Found :count results via :source', ['count' => $results->count(), 'source' => $source->name]));
             $this->results = $this->results->merge($results);
         });
 

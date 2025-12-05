@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ProductSourceStatus;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
@@ -22,7 +23,7 @@ return new class extends Migration
             $table->foreignIdFor(Store::class)->nullable()->constrained()->nullOnDelete();
             $table->json('extraction_strategy');
             $table->json('settings')->nullable();
-            $table->string('status')->default('active');
+            $table->string('status')->default(ProductSourceStatus::Active->value);
             $table->foreignIdFor(User::class)->nullable()->constrained()->nullOnDelete();
             $table->text('notes')->nullable();
             $table->timestamps();
