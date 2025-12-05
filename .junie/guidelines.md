@@ -510,7 +510,7 @@ Lando provides many helper methods to make development easier and to interact wi
   to make one if it doesn't exist.
 * After each major task, provide evidence of the test passing.
 * If the playwright mcp is available, use it! the base url is `http://price-buddy.lndo.site/admin`, you can
-  create an admin user with the UserSeder, default is email: `test@test.com`, password: `password`. Important for:
+  default is email: `test@test.com`, password: `password`. If user doesn't exist, seed UserSeder. Important for:
     * Debugging
     * Task completion evidence
     * Base line testing

@@ -4,7 +4,6 @@ namespace App\Filament\Resources\ProductSourceResource\Api\Handlers;
 
 use App\Filament\Resources\ProductSourceResource;
 use App\Filament\Resources\ProductSourceResource\Api\Transformers\ProductSourceResultsTransformer;
-use App\Filament\Resources\ProductSourceResource\Api\Transformers\ProductSourceTransformer;
 use App\Models\ProductSource;
 use Dedoc\Scramble\Attributes\Group;
 use Illuminate\Http\JsonResponse;
@@ -28,7 +27,6 @@ class SearchAllHandler extends Handlers
     public function handler(Request $request)
     {
 
-
         $searchQuery = $request->route('query');
 
         $query = static::getEloquentQuery()->enabled();
@@ -39,10 +37,6 @@ class SearchAllHandler extends Handlers
             ->allowedIncludes(['store', 'user'])
             ->take(100)
             ->get();
-
-        if (! $query) {
-            return static::sendNotFoundResponse();
-        }
 
         $results = collect();
         $query->each(function ($source) use (&$results, $searchQuery) {

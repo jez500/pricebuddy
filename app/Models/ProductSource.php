@@ -18,6 +18,8 @@ use Spatie\Sluggable\SlugOptions;
  * @property string $name
  * @property string $search_url
  * @property string $scraper_service
+ * @property string $type_label
+ * @property ?ProductSourceType $type
  */
 class ProductSource extends Model
 {
@@ -86,5 +88,10 @@ class ProductSource extends Model
     public function scopeEnabled(Builder $query): Builder
     {
         return $query->status(ProductSourceStatus::Active);
+    }
+
+    public function getTypeLabelAttribute(): string
+    {
+        return $this->type?->getLabel() ?? '';
     }
 }

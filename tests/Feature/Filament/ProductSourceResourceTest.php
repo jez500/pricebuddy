@@ -218,22 +218,6 @@ class ProductSourceResourceTest extends TestCase
             ->assertCanNotSeeTableRecords([$source2]);
     }
 
-    public function test_can_search_by_slug()
-    {
-        $this->actingAs($this->user);
-        $source1 = ProductSource::factory()->create([
-            'name' => 'Test Store',
-        ]);
-        $source2 = ProductSource::factory()->create([
-            'name' => 'Another Store',
-        ]);
-
-        Livewire::test(ProductSourceResource\Pages\ListProductSources::class)
-            ->searchTable('test-store')
-            ->assertCanSeeTableRecords([$source1])
-            ->assertCanNotSeeTableRecords([$source2]);
-    }
-
     public function test_can_sort_by_name()
     {
         $this->actingAs($this->user);
@@ -279,9 +263,62 @@ class ProductSourceResourceTest extends TestCase
         Livewire::test(ProductSourceResource\Pages\ListProductSources::class)
             ->assertCanSeeTableRecords([$source])
             ->assertTableColumnExists('name')
-            ->assertTableColumnExists('slug')
-            ->assertTableColumnExists('type')
             ->assertTableColumnExists('store.name')
-            ->assertTableColumnExists('status');
+            ->assertTableColumnExists('status')
+            ->assertTableColumnExists('user.name');
+    }
+
+    public function test_can_render_search_page()
+    {
+        $this->actingAs($this->user);
+        $source = ProductSource::factory()->create();
+
+        $this->get(ProductSourceResource::getUrl('search', ['record' => $source]))
+            ->assertSuccessful();
+    }
+
+    public function test_can_submit_search_query()
+    {
+        $this->actingAs($this->user);
+        $source = ProductSource::factory()->create([
+            'search_url' => 'https://example.com/search?q=:search_term',
+        ]);
+
+        Livewire::test(ProductSourceResource\Pages\SearchProductSource::class, ['record' => $source->getRouteKey()])
+            ->fillForm([
+                'search_query' => 'laptop',
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+    }
+
+    public function test_table_has_search_action()
+    {
+        $this->actingAs($this->user);
+        $source = ProductSource::factory()->create();
+
+        Livewire::test(ProductSourceResource\Pages\ListProductSources::class)
+            ->assertTableActionExists('search');
+    }
+
+    public function test_search_query_is_set_from_route_parameter()
+    {
+        $this->actingAs($this->user);
+        $source = ProductSource::factory()->create();
+
+        $response = $this->get(ProductSourceResource::getUrl('search', ['record' => $source, 'search' => 'laptop']));
+
+        $response->assertSuccessful()
+            ->assertSeeLivewire(ProductSourceResource\Pages\SearchProductSource::class);
+    }
+
+    public function test_show_log_is_false_when_no_search_query()
+    {
+        $this->actingAs($this->user);
+        $source = ProductSource::factory()->create();
+
+        Livewire::test(ProductSourceResource\Pages\SearchProductSource::class, ['record' => $source->getRouteKey()])
+            ->assertSet('showLog', false)
+            ->assertSet('searchQuery', null);
     }
 }

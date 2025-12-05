@@ -5,7 +5,6 @@ namespace App\Filament\Resources\ProductResource\Widgets;
 use App\Enums\Icons;
 use App\Jobs\CacheSearchResults;
 use App\Models\Product;
-use App\Models\ProductSource;
 use App\Services\Helpers\IntegrationHelper;
 use App\Services\SearchService;
 use Carbon\Carbon;
@@ -61,8 +60,7 @@ class CreateViaSearchForm extends Widget implements HasForms
 
     public static function canView(): bool
     {
-        return IntegrationHelper::isSearchEnabled()
-            || ProductSource::query()->enabled()->count() > 0;
+        return SearchService::canSearch();
     }
 
     public function mount(): void

@@ -35,6 +35,8 @@ enum Icons: string
 
     case ElipsisHorizontal = 'heroicon-o-ellipsis-horizontal';
 
+    case Search = 'heroicon-m-magnifying-glass';
+
     public static function getTrendIcon(?string $trend): string
     {
         return match ($trend) {

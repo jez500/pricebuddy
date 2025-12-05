@@ -2,8 +2,6 @@
 
 namespace App\Filament\Resources\ProductSourceResource\Api\Transformers;
 
-use App\Http\Resources\UserResource;
-use App\Models\ProductSource;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
@@ -24,7 +22,7 @@ class ProductSourceResultsTransformer extends JsonResource
             'title' => (string) data_get($this->resource, 'title'),
             'url' => (string) data_get($this->resource, 'url'),
             'source' => $this->when(isset($this->resource['source']), data_get($this->resource, 'source')),
-            'source_id' => $this->when(isset($this->resource['source_id']), data_get($this->resource, 'source_id'))
+            'source_id' => $this->when(isset($this->resource['source_id']), data_get($this->resource, 'source_id')),
         ];
     }
 }

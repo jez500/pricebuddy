@@ -17,6 +17,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Contracts\Support\Htmlable;
 
 class SearchProductSource extends EditRecord
 {
@@ -30,6 +31,8 @@ class SearchProductSource extends EditRecord
 
     public array $progressLog = [];
 
+    public bool $showLog = false;
+
     public false|string $inProgress = false;
 
     public false|string $isComplete = false;
@@ -37,6 +40,11 @@ class SearchProductSource extends EditRecord
     protected $listeners = [
         'refreshProgress' => 'refreshProgress',
     ];
+
+    public function getTitle(): string|Htmlable
+    {
+        return __('Search :source', ['source' => $this->record->name ?? 'Product Source']);
+    }
 
     public function mount(int|string $record): void
     {
@@ -98,8 +106,12 @@ class SearchProductSource extends EditRecord
             return;
         }
 
+        $this->showLog = ! empty($this->searchQuery);
+
         // Avoid empty log
-        $this->progressLog[] = ['message' => __('Preparing to search'), 'timestamp' => now()];
+        if (empty($this->progressLog)) {
+            $this->progressLog[] = ['message' => __('Preparing to search'), 'timestamp' => now()];
+        }
 
         /** @var ProductSource $source */
         $source = $this->getRecord();
@@ -193,8 +205,13 @@ class SearchProductSource extends EditRecord
             return [];
         }
 
+        $service = SearchService::new($this->searchQuery);
+        if (! $service->getIsComplete()) {
+            return [];
+        }
+
         return [
-            CreateViaSearchTable::class,
+            CreateViaSearchTable::make(['searchQuery' => $this->searchQuery, 'productSource' => $this->getRecord()]),
         ];
     }
 

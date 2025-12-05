@@ -49,7 +49,7 @@ class CreateViaSearchTable extends BaseWidget
 
         $query = UrlResearch::query();
 
-        if (!empty($this->searchQuery)) {
+        if (! empty($this->searchQuery)) {
             $query->searchQuery($this->searchQuery, $this->productSource);
         }
 

@@ -34,7 +34,7 @@ class SearchService
 
     protected bool $useLaravelLog = false;
 
-    protected array $ignoredExtensions = ['pdf', 'doc', 'xls', 'ppt'];
+    protected array $ignoredExtensions = ['pdf', 'doc', 'xls', 'ppt', 'jpg', 'png', 'jpeg'];
 
     public function __construct(?string $query = null)
     {
@@ -418,5 +418,11 @@ class SearchService
         Cache::delete($this->getLogKey());
 
         return $this;
+    }
+
+    public static function canSearch(): bool
+    {
+        return IntegrationHelper::isSearchEnabled()
+            || ProductSource::query()->enabled()->count() > 0;
     }
 }

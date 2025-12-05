@@ -13,7 +13,9 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Resources\Resource;
+use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
+use Filament\Tables\Columns\Layout\Split;
 use Filament\Tables\Table;
 
 class ProductSourceResource extends Resource
@@ -21,6 +23,10 @@ class ProductSourceResource extends Resource
     use HasScraperTrait;
 
     protected static ?string $model = ProductSource::class;
+
+    protected static ?string $navigationLabel = 'Source';
+
+    protected static ?int $navigationSort = 60;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
@@ -83,30 +89,29 @@ class ProductSourceResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')
-                    ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('slug')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('type')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('store.name')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('status')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('user.name')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                Split::make([
+                    Tables\Columns\TextColumn::make('name')
+                        ->searchable()
+                        ->weight(FontWeight::Bold)
+                        ->description(fn (ProductSource $record) => $record->type_label)
+                        ->sortable(),
+                    Tables\Columns\TextColumn::make('store.name')
+                        ->grow(false)
+                        ->extraAttributes(['class' => 'min-w-36 md:flex md:justify-start pr-4'])
+                        ->sortable(),
+                    Tables\Columns\TextColumn::make('status')
+                        ->grow(false)
+                        ->badge()
+                        ->searchable(),
+                    Tables\Columns\TextColumn::make('user.name')
+                        ->grow(false)
+                        ->sortable(),
+                ])->from('sm'),
+                Split::make([
+
+                ]),
             ])
+            ->recordUrl(fn (ProductSource $record): string => self::getUrl('search', ['record' => $record]))
             ->defaultSort('name')
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
