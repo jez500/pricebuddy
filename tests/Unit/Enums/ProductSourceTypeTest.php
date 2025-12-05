@@ -1,24 +1,36 @@
 <?php
 
+namespace Tests\Unit\Enums;
+
 use App\Enums\ProductSourceType;
+use PHPUnit\Framework\TestCase;
 
-it('has correct cases', function () {
-    expect(ProductSourceType::cases())->toHaveCount(2);
-    expect(ProductSourceType::DealsSite)->toBeInstanceOf(ProductSourceType::class);
-    expect(ProductSourceType::OnlineStore)->toBeInstanceOf(ProductSourceType::class);
-});
+class ProductSourceTypeTest extends TestCase
+{
+    public function test_has_correct_cases(): void
+    {
+        $cases = ProductSourceType::cases();
 
-it('has correct values', function () {
-    expect(ProductSourceType::DealsSite->value)->toBe('deals_site');
-    expect(ProductSourceType::OnlineStore->value)->toBe('online_store');
-});
+        $this->assertCount(2, $cases);
+        $this->assertInstanceOf(ProductSourceType::class, ProductSourceType::DealsSite);
+        $this->assertInstanceOf(ProductSourceType::class, ProductSourceType::OnlineStore);
+    }
 
-it('returns correct labels', function () {
-    expect(ProductSourceType::DealsSite->getLabel())->toBe('Deals Site (Aggregator)');
-    expect(ProductSourceType::OnlineStore->getLabel())->toBe('Online Store');
-});
+    public function test_has_correct_values(): void
+    {
+        $this->assertSame('deals_site', ProductSourceType::DealsSite->value);
+        $this->assertSame('online_store', ProductSourceType::OnlineStore->value);
+    }
 
-it('returns correct descriptions', function () {
-    expect(ProductSourceType::DealsSite->getDescription())->toBe('Site that aggregates deals/links (e.g. OzBargain)');
-    expect(ProductSourceType::OnlineStore->getDescription())->toBe('Site that sells products directly (e.g. Amazon)');
-});
+    public function test_returns_correct_labels(): void
+    {
+        $this->assertSame('Deals Site (Aggregator)', ProductSourceType::DealsSite->getLabel());
+        $this->assertSame('Online Store', ProductSourceType::OnlineStore->getLabel());
+    }
+
+    public function test_returns_correct_descriptions(): void
+    {
+        $this->assertSame('Site that aggregates deals/links (e.g. OzBargain)', ProductSourceType::DealsSite->getDescription());
+        $this->assertSame('Site that sells products directly (e.g. Amazon)', ProductSourceType::OnlineStore->getDescription());
+    }
+}

@@ -1,28 +1,40 @@
 <?php
 
+namespace Tests\Unit\Enums;
+
 use App\Enums\ProductSourceStatus;
+use PHPUnit\Framework\TestCase;
 
-it('has correct cases', function () {
-    expect(ProductSourceStatus::cases())->toHaveCount(3);
-    expect(ProductSourceStatus::Active)->toBeInstanceOf(ProductSourceStatus::class);
-    expect(ProductSourceStatus::Inactive)->toBeInstanceOf(ProductSourceStatus::class);
-    expect(ProductSourceStatus::Draft)->toBeInstanceOf(ProductSourceStatus::class);
-});
+class ProductSourceStatusTest extends TestCase
+{
+    public function test_has_correct_cases(): void
+    {
+        $cases = ProductSourceStatus::cases();
 
-it('has correct values', function () {
-    expect(ProductSourceStatus::Active->value)->toBe('active');
-    expect(ProductSourceStatus::Inactive->value)->toBe('inactive');
-    expect(ProductSourceStatus::Draft->value)->toBe('draft');
-});
+        $this->assertCount(3, $cases);
+        $this->assertInstanceOf(ProductSourceStatus::class, ProductSourceStatus::Active);
+        $this->assertInstanceOf(ProductSourceStatus::class, ProductSourceStatus::Inactive);
+        $this->assertInstanceOf(ProductSourceStatus::class, ProductSourceStatus::Draft);
+    }
 
-it('returns correct labels', function () {
-    expect(ProductSourceStatus::Active->getLabel())->toBe('Active');
-    expect(ProductSourceStatus::Inactive->getLabel())->toBe('Inactive');
-    expect(ProductSourceStatus::Draft->getLabel())->toBe('Draft');
-});
+    public function test_has_correct_values(): void
+    {
+        $this->assertSame('active', ProductSourceStatus::Active->value);
+        $this->assertSame('inactive', ProductSourceStatus::Inactive->value);
+        $this->assertSame('draft', ProductSourceStatus::Draft->value);
+    }
 
-it('returns correct colors', function () {
-    expect(ProductSourceStatus::Active->getColor())->toBe('success');
-    expect(ProductSourceStatus::Inactive->getColor())->toBe('danger');
-    expect(ProductSourceStatus::Draft->getColor())->toBe('gray');
-});
+    public function test_returns_correct_labels(): void
+    {
+        $this->assertSame('Active', ProductSourceStatus::Active->getLabel());
+        $this->assertSame('Inactive', ProductSourceStatus::Inactive->getLabel());
+        $this->assertSame('Draft', ProductSourceStatus::Draft->getLabel());
+    }
+
+    public function test_returns_correct_colors(): void
+    {
+        $this->assertSame('success', ProductSourceStatus::Active->getColor());
+        $this->assertSame('danger', ProductSourceStatus::Inactive->getColor());
+        $this->assertSame('gray', ProductSourceStatus::Draft->getColor());
+    }
+}
