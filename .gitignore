@@ -7,6 +7,8 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/framework
+/storage/logs
 
 # Deps
 /node_modules
