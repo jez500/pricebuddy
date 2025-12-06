@@ -48,6 +48,14 @@ class ProductSourcePolicy
     }
 
     /**
+     * Search via a product source.
+     */
+    public function search(User $user, ProductSource $productSource): bool
+    {
+        return $this->userOwnsProductSource($user, $productSource);
+    }
+
+    /**
      * Determine whether the user can restore the model.
      */
     public function restore(User $user, ProductSource $productSource): bool

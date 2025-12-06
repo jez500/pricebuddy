@@ -9,6 +9,13 @@ class CreateProductSource extends CreateRecord
 {
     protected static string $resource = ProductSourceResource::class;
 
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $data['user_id'] = auth()->id();
+
+        return $data;
+    }
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('search', ['record' => $this->record]);
