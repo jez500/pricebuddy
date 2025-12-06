@@ -1,2 +1,36 @@
+.fi-body .fi-btn {
+    &.fi-color-danger, &.fi-btn-color-gray {
+        @apply bg-white;
+        @apply shadow-sm;
+        @apply ring-1;
+        @apply ring-gray-950/5;
+        @apply border-white/5;
+        @apply text-gray-500;
+
+        &:hover {
+            @apply bg-gray-200/20;
+        }
+    }
+
+    &.fi-color-danger {
+        .fi-btn-label, svg {
+            @apply text-custom-400 !important;
+        }
+    }
+
+    .dark & {
+        &.fi-color-danger, &.fi-btn-color-gray {
+            @apply bg-gray-900;
+            @apply ring-white/10;
 
 
+            .fi-btn-label, svg {
+                @apply text-gray-300;
+            }
+
+            &:hover {
+                @apply bg-gray-200/10;
+            }
+        }
+    }
+}

@@ -22,6 +22,11 @@ class TagResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-tag';
 
+    public static function getWeightHelperText(): string
+    {
+        return __('Lower values appear first. This will affect the order of product grouping on the homepage.');
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -36,7 +41,7 @@ class TagResource extends Resource
                             ->label('Sort order')
                             ->numeric()
                             ->default(0)
-                            ->helperText('Lower values appear first. This will affect the order of product grouping on the homepage.'),
+                            ->helperText(self::getWeightHelperText()),
                     ]),
 
             ]);

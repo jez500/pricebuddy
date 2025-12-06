@@ -1,7 +1,7 @@
 @php
     /** @var App\Models\Product $record */
-    use App\Services\Helpers\IntegrationHelper;
-    $searchEnabled = IntegrationHelper::isSearchEnabled();
+    use App\Services\SearchService;
+    $searchEnabled = SearchService::canSearch();
     $activeTab = ($searchEnabled && request()->get('searchQuery')) ? 'search' : 'overview';
 @endphp
 <x-filament-panels::page class="fi-dashboard-page product-view" xmlns:x-filament="http://www.w3.org/1999/html">

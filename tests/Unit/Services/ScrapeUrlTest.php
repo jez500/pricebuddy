@@ -24,6 +24,8 @@ class ScrapeUrlTest extends TestCase
     {
         parent::setUp();
 
+        $this->artisan('cache:clear');
+
         Store::query()->delete();
 
         $this->store = Store::factory()->createOne([

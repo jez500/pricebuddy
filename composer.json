@@ -38,7 +38,8 @@
         "nunomaduro/collision": "^8.1",
         "pestphp/pest": "^3.7",
         "pestphp/pest-plugin-livewire": "^3.0",
-        "phpunit/phpunit": "^11.0.1"
+        "phpunit/phpunit": "^11.0.1",
+        "spatie/pest-plugin-snapshots": "^2.2"
     },
     "autoload": {
         "psr-4": {

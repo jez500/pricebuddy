@@ -43,6 +43,7 @@ class AddUrlAction extends Action
         $this->keyBindings(['mod+a']);
 
         $this->action(function (array $data, Product $record): void {
+
             /** @var Product $product */
             $product = $this->record;
 

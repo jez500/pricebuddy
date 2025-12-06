@@ -62,9 +62,18 @@ class Store extends Model
     public static function booted()
     {
         static::deleted(function (Store $store) {
-            $store->urls()->delete();
-            $store->products()
-                ->each(fn (Product $product) => $product->updatePriceCache());
+            // Get all products before deleting URLs (since products() relationship uses URLs).
+            $products = Product::whereIn('id', function ($query) use ($store) {
+                $query->select('product_id')
+                    ->from('urls')
+                    ->where('store_id', $store->id);
+            })->get();
+
+            // Delete URLs individually to trigger model events (which cascade delete prices).
+            $store->urls->each->delete();
+
+            // Update price cache for all affected products.
+            $products->each(fn (Product $product) => $product->updatePriceCache());
         });
     }
 

@@ -14,7 +14,7 @@
 >
     <div class="flex">
         <div
-            class="flex-1 bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10 rounded-b-xl"
+            class="flex-1 bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10 rounded-r-xl"
             :class="expanded ? 'rounded-bl-none' : ''"
         >
             <a class="flex gap-2" href="{{ $product->view_url }}">
@@ -44,21 +44,21 @@
                 </div>
             </a>
 
-            <div class="bg-custom-400/10 hover:bg-custom-400/20">
+            <div class="bg-custom-400/10 hover:bg-custom-400/20 rounded-br overflow-hidden">
                 <x-range-chart :product="$product" height="40px"/>
             </div>
 
         </div>
         <div class="pb-expandable-stat__context">
             <button
-                class="pb-expandable-stat__context-button h-full opacity-50 hover:opacity-100"
-                :class="expanded ? 'rotate-180' : 'collapsed'"
+                class="pb-expandable-stat__context-button h-full opacity-50 hover:opacity-100 py-3 bg-gray-100 dark:bg-gray-950 rounded-xl border dark:border-gray-500 border-neutral-500/50 dark:hover:border-neutral-700 border-t-0 border-r-0 rounded-tl-none rounded-br-none"
+                :class="expanded ? 'items-end' : 'collapsed items-start'"
                 @click="expanded = !expanded"
             >
-                <x-filament::icon icon="heroicon-s-chevron-down" class="h-5 w-5"/>
+                <x-filament::icon icon="heroicon-s-chevron-up" class="h-5 w-5"/>
             </button>
         </div>
     </div>
 
-    <x-product-card-detail :product="$product" class="rounded-bl-xl"/>
+    @livewire('product-card-detail', ['product' => $product], key('product-card-detail-'.$product->id))
 </div>

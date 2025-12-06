@@ -7,6 +7,7 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/logs
 
 # Deps
 /node_modules
@@ -50,4 +51,5 @@ database/*.sqlite
 
 # AI
 .junie/mcp/mcp.json
+.junie/guidelines.local.md
 .output.txt

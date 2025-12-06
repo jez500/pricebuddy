@@ -18,12 +18,14 @@ use Psr\Log\LoggerInterface;
 
 class ScrapeUrl
 {
-    public const SELECTOR_ATTR_DELIMITER = '|';
+    public const string SELECTOR_ATTR_DELIMITER = '|';
+
+    public const string SELECTOR_HTML_PREFIX = '!';
 
     /**
      * For the title and image, limit the length.
      */
-    public const MAX_STR_LENGTH = 1000;
+    public const int MAX_STR_LENGTH = 1000;
 
     protected WebScraperInterface $webScraper;
 
@@ -211,12 +213,7 @@ class ScrapeUrl
         $type = data_get($options, 'type');
         $value = data_get($options, 'value');
 
-        $method = match ($type) {
-            'regex' => 'getRegex',
-            'json' => 'getJson',
-            'xpath' => 'getXpath',
-            default => 'getSelector'
-        };
+        $method = self::getMethodFromType($type);
 
         $value = match ($type) {
             'selector' => self::parseSelector($value),
@@ -240,8 +237,26 @@ class ScrapeUrl
         return null;
     }
 
+    public static function getMethodFromType(string $type): string
+    {
+        return match ($type) {
+            'regex' => 'getRegex',
+            'json' => 'getJson',
+            'xpath' => 'getXpath',
+            default => 'getSelector'
+        };
+    }
+
     public static function parseSelector(string $selector): array
     {
+        // If starts with exclamation !, return unsanitized HTML.
+        if (str_starts_with($selector, self::SELECTOR_HTML_PREFIX)) {
+            $selector = substr($selector, 1) ?: '';
+
+            return [$selector, 'html'];
+        }
+
+        // If contains a pipe | extract attribute.
         if (! str_contains($selector, self::SELECTOR_ATTR_DELIMITER)) {
             return [$selector, 'text'];
         }

@@ -46,6 +46,7 @@ use Illuminate\Support\Str;
  * @property bool $is_last_scrape_successful
  * @property bool $is_notified_price
  * @property Carbon $created_at
+ * @property string $first_scrape_date
  */
 class Product extends Model
 {
@@ -298,6 +299,16 @@ class Product extends Model
             : [];
     }
 
+    public function getFirstScrapeDateAttribute(): string
+    {
+        return $this->getPriceCache()
+            ->map(fn (PriceCacheDto $price) => $price->getFirstDate())
+            ->unique()
+            ->values()
+            ->sort()
+            ->first() ?? $this->created_at->toDateTimeString();
+    }
+
     /***************************************************
      * Helpers.
      **************************************************/
@@ -340,11 +351,15 @@ class Product extends Model
         $urls = Url::findMany($history->keys());
 
         return $urls
+            ->filter(function ($url) {
+                // Filter out URLs without a store (e.g., during deletion)
+                return $url->store !== null;
+            })
             ->map(function ($url) use ($history): array {
                 /** @var Url $url */
                 /** @var Collection $urlHistory */
                 $urlHistory = $history->get($url->getKey());
-                /** @var ?Store $store */
+                /** @var Store $store */
                 $store = $url->store;
 
                 // Get last scraped price.

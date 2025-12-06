@@ -13,4 +13,5 @@ parameters:
     ignoreErrors:
         - '#Call to an undefined .*method Illuminate\\Database\\Eloquent\\Builder.*currentUser\(\)#'
         - '#Call to an undefined .*method Illuminate\\Database\\Eloquent\\Builder.*lowestPriceInDays\(\)#'
+        - '#Call to an undefined .*method Illuminate\\Database\\Eloquent\\Builder.*status\(\)#'
         - '#Call to an undefined .*method Illuminate\\Contracts\\Database\\Eloquent\\Builder.*setFilters\(\)#'
