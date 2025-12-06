@@ -26,6 +26,7 @@ export default defineUserConfig({
             '/installation',
             '/stores',
             '/products',
+            '/product-sources',
             '/tags',
             '/settings',
             '/users',
