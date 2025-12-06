@@ -17,7 +17,6 @@ use Filament\Forms;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Support\Colors\Color;
@@ -143,11 +142,10 @@ class ProductResource extends Resource
                             ->default(auth()->id()),
                     ])
                     ->createOptionUsing(fn (array $data) => Tag::create($data)->id)
-                    ->getOptionLabelsUsing(fn (array $values): array =>
-                        Tag::whereIn('id', $values)
-                            ->where('user_id', auth()->id())
-                            ->pluck('name', 'id')
-                            ->toArray()
+                    ->getOptionLabelsUsing(fn (array $values): array => Tag::whereIn('id', $values)
+                        ->where('user_id', auth()->id())
+                        ->pluck('name', 'id')
+                        ->toArray()
                     )
                     ->placeholder('Search tags or create new...')
                     ->noSearchResultsMessage('No tags found'),
