@@ -5,11 +5,14 @@ namespace Tests\Unit\Services;
 use App\Enums\ScraperService;
 use App\Models\Store;
 use App\Services\AutoCreateStore;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class AutoCreateStoreTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected string $testUrl = 'http://example.com?product=1';
 
     protected string $html = '';

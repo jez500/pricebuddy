@@ -3,8 +3,8 @@
 * Favour TDD when completing tasks, usually a test class exists for the task already, assume you have
   to make one if it doesn't exist.
 * After each major task, provide evidence of the test passing.
-* If the playwright mcp is available, use it! the base url is `http://price-buddy.lndo.site/admin`, you can
-  default is email: `test@test.com`, password: `password`. If user doesn't exist, seed UserSeder. Important for:
+* If the playwright mcp is available, use it! the base url is `http://price-buddy.lndo.site/admin`, login
+  email: `test@test.com`, password: `password`. If user doesn't exist, seed UserSeder. Important for:
   * Debugging
   * Task completion evidence
   * Base line testing
