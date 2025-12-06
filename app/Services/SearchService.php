@@ -127,7 +127,7 @@ class SearchService
         if ($this->productSource) {
             $sources = collect([$this->productSource]);
         } else {
-            $sources = ProductSource::query()->enabled()->take(100)->get();
+            $sources = ProductSource::userScopedQuery()->get();
         }
 
         $this->log(__('Using :count product sources'), ['count' => $sources->count()]);
@@ -426,7 +426,6 @@ class SearchService
 
     public static function canSearch(): bool
     {
-        return IntegrationHelper::isSearchEnabled()
-            || ProductSource::query()->enabled()->count() > 0;
+        return once(fn () => IntegrationHelper::isSearchEnabled() || ProductSource::userScopedQuery()->count() > 0);
     }
 }

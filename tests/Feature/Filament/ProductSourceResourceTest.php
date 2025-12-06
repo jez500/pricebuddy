@@ -18,7 +18,7 @@ class ProductSourceResourceTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected User $user;
+    protected ?User $user;
 
     protected function setUp(): void
     {
@@ -177,10 +177,10 @@ class ProductSourceResourceTest extends TestCase
     public function test_can_filter_by_status()
     {
         $this->actingAs($this->user);
-        $activeSource = ProductSource::factory()->create([
+        $activeSource = ProductSource::factory()->user($this->user)->create([
             'status' => ProductSourceStatus::Active,
         ]);
-        $inactiveSource = ProductSource::factory()->create([
+        $inactiveSource = ProductSource::factory()->user($this->user)->create([
             'status' => ProductSourceStatus::Inactive,
         ]);
 
@@ -194,8 +194,8 @@ class ProductSourceResourceTest extends TestCase
     public function test_can_filter_by_type()
     {
         $this->actingAs($this->user);
-        $dealsSource = ProductSource::factory()->dealsSite()->create();
-        $storeSource = ProductSource::factory()->onlineStore()->create();
+        $dealsSource = ProductSource::factory()->dealsSite()->user($this->user)->create();
+        $storeSource = ProductSource::factory()->onlineStore()->user($this->user)->create();
 
         Livewire::test(ProductSourceResource\Pages\ListProductSources::class)
             ->assertCanSeeTableRecords([$dealsSource, $storeSource])
@@ -207,10 +207,10 @@ class ProductSourceResourceTest extends TestCase
     public function test_can_search_by_name()
     {
         $this->actingAs($this->user);
-        $source1 = ProductSource::factory()->create([
+        $source1 = ProductSource::factory()->user($this->user)->create([
             'name' => 'Amazon Store',
         ]);
-        $source2 = ProductSource::factory()->create([
+        $source2 = ProductSource::factory()->user($this->user)->create([
             'name' => 'eBay Deals',
         ]);
 
@@ -223,10 +223,10 @@ class ProductSourceResourceTest extends TestCase
     public function test_can_sort_by_name()
     {
         $this->actingAs($this->user);
-        $sourceA = ProductSource::factory()->create([
+        $sourceA = ProductSource::factory()->user($this->user)->create([
             'name' => 'A Store',
         ]);
-        $sourceZ = ProductSource::factory()->create([
+        $sourceZ = ProductSource::factory()->user($this->user)->create([
             'name' => 'Z Store',
         ]);
 
@@ -240,7 +240,7 @@ class ProductSourceResourceTest extends TestCase
     public function test_can_bulk_delete_product_sources()
     {
         $this->actingAs($this->user);
-        $sources = ProductSource::factory()->count(3)->create();
+        $sources = ProductSource::factory()->count(3)->user($this->user)->create();
 
         Livewire::test(ProductSourceResource\Pages\ListProductSources::class)
             ->callTableBulkAction('delete', $sources);
@@ -254,7 +254,7 @@ class ProductSourceResourceTest extends TestCase
     {
         $this->actingAs($this->user);
         $store = Store::factory()->create(['name' => 'Test Store']);
-        $source = ProductSource::factory()->create([
+        $source = ProductSource::factory()->user($this->user)->create([
             'name' => 'Test Source',
             'slug' => 'test-source',
             'type' => ProductSourceType::OnlineStore,
@@ -334,6 +334,10 @@ class ProductSourceResourceTest extends TestCase
                 ])->render()
             ),
         ]);
+
+        if (empty($attributes['user_id']) && $this->user) {
+            $attributes['user_id'] = $this->user->getKey();
+        }
 
         return ProductSource::factory()->create(array_merge([
             'search_url' => 'https://'.$domain.'/search?q=:search_term',

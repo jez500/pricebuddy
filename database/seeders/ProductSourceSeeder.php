@@ -6,6 +6,7 @@ use App\Enums\ProductSourceStatus;
 use App\Enums\ProductSourceType;
 use App\Models\ProductSource;
 use App\Models\Store;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class ProductSourceSeeder extends Seeder
@@ -15,6 +16,8 @@ class ProductSourceSeeder extends Seeder
      */
     public function run(): void
     {
+        $uid = User::query()->oldest()->first()?->getKey() ?? User::factory()->create()->getKey();
+
         // OzBargain (Deals Site)
         ProductSource::create([
             'name' => 'OzBargain',
@@ -38,6 +41,7 @@ class ProductSourceSeeder extends Seeder
             'settings' => [
                 'scraper_service' => 'http',
             ],
+            'user_id' => $uid,
         ]);
 
         // Amazon AU (Online Store) - only create if an Amazon store exists
@@ -46,7 +50,7 @@ class ProductSourceSeeder extends Seeder
             ProductSource::create([
                 'name' => 'Amazon Australia',
                 'type' => ProductSourceType::OnlineStore,
-                'status' => ProductSourceStatus::Active,
+                'status' => ProductSourceStatus::Draft,
                 'store_id' => $amazonStore->id,
                 'search_url' => 'https://www.amazon.com.au/s?k=:search_term',
                 'extraction_strategy' => [
@@ -70,6 +74,7 @@ class ProductSourceSeeder extends Seeder
                 'settings' => [
                     'scraper_service' => 'http',
                 ],
+                'user_id' => $uid,
             ]);
         }
     }

@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Enums\ProductSourceStatus;
 use App\Enums\ProductSourceType;
 use App\Models\Store;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -45,6 +46,13 @@ class ProductSourceFactory extends Factory
             'user_id' => null,
             'notes' => fake()->optional()->paragraph(),
         ];
+    }
+
+    public function user(User|int $user): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'user_id' => is_int($user) ? $user : $user->getKey(),
+        ]);
     }
 
     public function dealsSite(): static

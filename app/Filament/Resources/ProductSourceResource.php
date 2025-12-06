@@ -17,6 +17,7 @@ use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
 use Filament\Tables\Columns\Layout\Split;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class ProductSourceResource extends Resource
 {
@@ -52,11 +53,17 @@ class ProductSourceResource extends Resource
                         ->label('Associated Store')
                         ->relationship('store', 'name')
                         ->visible(fn (Get $get) => $get('type') === ProductSourceType::OnlineStore->value)
-                        ->helperText('Link to existing store for scraping product pages'),
+                        ->hintIcon(Icons::Help->value, 'Link to existing store for scraping product pages'),
                     Forms\Components\Select::make('status')
                         ->required()
                         ->options(ProductSourceStatus::class)
                         ->default(ProductSourceStatus::Active),
+                    Forms\Components\Select::make('weight')
+                        ->label('Priority order')
+                        ->hintIcon(Icons::Help->value, 'The lower the number, the higher priority')
+                        ->default('0')
+                        ->options(collect(range(-50, 50))->mapWithKeys(fn ($value) => [strval($value) => strval($value)])->all()),
+
                 ])->columns(2)
                     ->description(__('A product source is a website that you can use to search for products'))
                     ->live(),
@@ -127,7 +134,10 @@ class ProductSourceResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->modifyQueryUsing(function (Builder $query) {
+                $query->currentUser()->with(['store']);
+            });
     }
 
     public static function getRelations(): array

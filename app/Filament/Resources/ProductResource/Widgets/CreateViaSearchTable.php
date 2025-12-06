@@ -47,13 +47,9 @@ class CreateViaSearchTable extends BaseWidget
         $settings = IntegrationHelper::getSearchSettings();
         $prefix = data_get($settings, 'search_prefix');
 
-        $query = UrlResearch::query();
-
-        if (! empty($this->searchQuery)) {
-            $query->searchQuery($this->searchQuery, $this->productSource);
-        }
-
-        $query->orderByRaw('ISNULL(price), price ASC')
+        $query = UrlResearch::query()
+            ->searchQuery($this->searchQuery, $this->productSource)
+            ->orderByRaw('ISNULL(price), price ASC')
             ->orderByDesc('store_id')
             ->orderByDesc('id');
 

@@ -136,7 +136,7 @@ class ProductResource extends Resource
                             ->label('Sort weight')
                             ->numeric()
                             ->default(0)
-                            ->helperText('Lower = appears higher on homepage'),
+                            ->helperText(TagResource::getWeightHelperText()),
 
                         Hidden::make('user_id')
                             ->default(auth()->id()),

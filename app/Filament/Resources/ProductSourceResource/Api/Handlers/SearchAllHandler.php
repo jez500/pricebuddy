@@ -27,16 +27,12 @@ class SearchAllHandler extends Handlers
      */
     public function handler(Request $request)
     {
-
         $searchQuery = $request->route('query');
 
-        $query = static::getEloquentQuery()->enabled();
-
         $query = QueryBuilder::for(
-            $query
+            ProductSource::userScopedQuery()
         )
             ->allowedIncludes(['store', 'user'])
-            ->take(100)
             ->get();
 
         $results = collect();
