@@ -3,8 +3,9 @@
 use App\Models\ProductSource;
 use App\Services\ProductSourceSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
-uses(RefreshDatabase::class);
+uses(RefreshDatabase::class, TestCase::class);
 
 it('replaces search_term placeholder in url', function () {
     $source = ProductSource::factory()->make([
