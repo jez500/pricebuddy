@@ -29,7 +29,7 @@ class SearchHandler extends Handlers
         $id = $request->route('id');
         $searchQuery = $request->route('query');
 
-        $query = static::getEloquentQuery(); // ->where('user_id', auth()->id());
+        $query = static::getEloquentQuery()->where('user_id', auth()->id());
 
         $query = QueryBuilder::for(
             $query->where(static::getKeyName(), $id)
