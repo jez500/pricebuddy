@@ -45,7 +45,7 @@ jobs:
         name: Run Testsuite
         run: |
           sed -i -e 's/tests_db/mysql/g' phpunit.xml
-          php artisan test -p
+          php -d memory_limit=512M artisan test -p
 
   docker_build_push:
     if: startsWith(github.ref, 'refs/tags/v')
