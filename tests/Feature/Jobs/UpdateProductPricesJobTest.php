@@ -24,7 +24,7 @@ class UpdateProductPricesJobTest extends TestCase
     public function test_job_updates_product_prices()
     {
         $user = User::factory()->create();
-        $product = Product::factory()->create(['user_id' => $user->id]);
+        $dbProduct = Product::factory()->create(['user_id' => $user->id])->refresh();
 
         // Mock the updatePrices method to return true
         $product = $this->partialMock(Product::class, function ($mock) {

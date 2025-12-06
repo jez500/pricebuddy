@@ -259,7 +259,6 @@ class ProductResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc') // Note: This is duplicated, consider removing one
             ->modifyQueryUsing(function (Builder $query) {
                 $query->currentUser()->with(['tags']);
             })

@@ -61,7 +61,7 @@ class ProductSourceResource extends Resource
                     Forms\Components\Select::make('weight')
                         ->label('Priority order')
                         ->hintIcon(Icons::Help->value, 'The lower the number, the higher priority')
-                        ->default('0')
+                        ->default(0)
                         ->options(collect(range(-50, 50))->mapWithKeys(fn ($value) => [strval($value) => strval($value)])->all()),
 
                 ])->columns(2)

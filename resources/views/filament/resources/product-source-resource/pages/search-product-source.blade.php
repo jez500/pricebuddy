@@ -1,7 +1,7 @@
 @php
     $searchLogKey = $searchQuery.':'.count($progressLog).':'.data_get(collect($progressLog)->last(), 'timestamp').':'.($isComplete ? $isComplete : 'not complete');
     $resultsKey = $searchQuery.':'.count($progressLog).($isComplete ? $isComplete : 'not complete');
-    $footerWidgetData = array_merge($this->getFooterWidgetsData(), ['searchQuery' => $searchQuery])
+    $footerWidgetData = array_merge($this->getFooterWidgetsData(), ['searchQuery' => $searchQuery]);
 @endphp
 
 <x-filament-panels::page>

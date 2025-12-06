@@ -104,10 +104,12 @@
                 <div class="mb-2">
                     @include('components.icon-badge', [
                         'hoverText' => __('Last scrape successful was :hours hours ago', [
-                            'hours' => round($priceCache->getHoursSinceLastScrape(), 2) ?? 'never'
+                            'hours' => $priceCache->getHoursSinceLastScrape() !== null
+                                ? round($priceCache->getHoursSinceLastScrape(), 2)
+                                : 'never'
                         ]),
                         'label' => __('Last scrape '.ceil($priceCache->getHoursSinceLastScrape()).'hrs ago'),
-                         'color' => 'warning',
+                        'color' => 'warning',
                     ])
                 </div>
             @endif

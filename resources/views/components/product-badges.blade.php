@@ -2,7 +2,7 @@
     $product = $product ?? $getRecord();
 @endphp
 @if (! $product->is_last_scrape_successful || $product->is_notified_price)
-    <div {{ $attributes }} class="inline-flex gap-2 mt-1">
+    <div {{ $attributes->merge(['class' => 'inline-flex gap-2 mt-1']) }}>
         @if (! $product->is_last_scrape_successful)
             <div class="mt-1">
                 @include('components.icon-badge', [

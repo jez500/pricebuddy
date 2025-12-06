@@ -352,7 +352,7 @@ class ProductSourceResourceTest extends TestCase
 
         $params = ['record' => $source->getRouteKey()];
 
-        Livewire::test(ProductSourceResource\Pages\EditProductSource::class, $params)
+        $this->get(ProductSourceResource::getUrl('edit', $params))
             ->assertForbidden();
 
         $this->assertDatabaseHas('product_sources', ['id' => $source->id]);

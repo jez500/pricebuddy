@@ -7,7 +7,7 @@
     @if (isset($products))
         <ul>
             @foreach ($products as $product)
-                <li><h3><a href="{{ data_get($product, 'title') }}">{{ data_get($product, 'title') }}</a></h3></li>
+                <li><h3><a href="{{ data_get($product, 'url') }}">{{ data_get($product, 'title') }}</a></h3></li>
             @endforeach
         </ul>
     @endif

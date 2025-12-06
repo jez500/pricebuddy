@@ -77,7 +77,7 @@ class ProductSource extends Model
 
     public function getScraperServiceAttribute(): string
     {
-        return data_get($this->attributes, 'settings.scraper_service', ScraperService::Http->value);
+        return data_get($this->settings, 'scraper_service', ScraperService::Http->value);
     }
 
     public function getTypeLabelAttribute(): string

@@ -426,6 +426,6 @@ class SearchService
 
     public static function canSearch(): bool
     {
-        return once(fn () => IntegrationHelper::isSearchEnabled() || ProductSource::userScopedQuery()->count() > 0);
+        return IntegrationHelper::isSearchEnabled() || ProductSource::userScopedQuery()->count() > 0;
     }
 }

@@ -88,6 +88,8 @@ class ProductCardDetail extends Component implements HasActions, HasForms
             ->color('danger')
             ->outlined(false)
             ->requiresConfirmation(true)
+            ->hidden(fn () => auth()->user()->cannot('delete', $this->product))
+            ->authorize('delete', $this->product)
             ->action(function () {
                 $this->product->delete();
 
