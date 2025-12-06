@@ -113,6 +113,42 @@ class ProductSourceResourceTest extends TestCase
         ]);
     }
 
+    public function test_user_id_is_populated_when_creating_product_source()
+    {
+        $this->actingAs($this->user);
+
+        $newData = [
+            'name' => 'Test Product Source',
+            'type' => ProductSourceType::DealsSite->value,
+            'status' => ProductSourceStatus::Active->value,
+            'search_url' => 'https://example.com/search?q=:search_term',
+            'extraction_strategy' => [
+                'list_container' => [
+                    'type' => 'selector',
+                    'value' => '.item',
+                ],
+                'product_title' => [
+                    'type' => 'selector',
+                    'value' => 'h2',
+                ],
+                'product_url' => [
+                    'type' => 'selector',
+                    'value' => 'a|href',
+                ],
+            ],
+        ];
+
+        Livewire::test(ProductSourceResource\Pages\CreateProductSource::class)
+            ->fillForm($newData)
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->assertDatabaseHas('product_sources', [
+            'name' => 'Test Product Source',
+            'user_id' => $this->user->id,
+        ]);
+    }
+
     public function test_validates_search_url_contains_placeholder()
     {
         $this->actingAs($this->user);
