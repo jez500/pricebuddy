@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use App\Enums\NotificationMethods;
 use App\Models\Product;
+use App\Models\ProductSource;
 use App\Policies\ProductPolicy;
+use App\Policies\ProductSourcePolicy;
 use App\Services\Helpers\NotificationsHelper;
 use App\Services\Helpers\QueueHelper;
 use App\Services\Helpers\SettingsHelper;
@@ -35,6 +37,7 @@ class AppServiceProvider extends ServiceProvider
     protected function registerPolicies(): void
     {
         Gate::policy(Product::class, ProductPolicy::class);
+        Gate::policy(ProductSource::class, ProductSourcePolicy::class);
     }
 
     protected function registerFilamentSettings(): void

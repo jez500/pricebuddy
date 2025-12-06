@@ -147,7 +147,7 @@ class ProductSourceResourceTest extends TestCase
     public function test_can_edit_product_source()
     {
         $this->actingAs($this->user);
-        $source = ProductSource::factory()->create();
+        $source = ProductSource::factory()->user($this->user)->create();
 
         $params = ['record' => $source->getRouteKey()];
 
@@ -164,7 +164,7 @@ class ProductSourceResourceTest extends TestCase
     public function test_can_delete_product_source()
     {
         $this->actingAs($this->user);
-        $source = ProductSource::factory()->create();
+        $source = ProductSource::factory()->user($this->user)->create();
 
         $params = ['record' => $source->getRouteKey()];
 
@@ -273,7 +273,7 @@ class ProductSourceResourceTest extends TestCase
     public function test_can_render_search_page()
     {
         $this->actingAs($this->user);
-        $source = ProductSource::factory()->create();
+        $source = ProductSource::factory()->user($this->user)->create();
 
         $this->get(ProductSourceResource::getUrl('search', ['record' => $source]))
             ->assertSuccessful();
@@ -315,11 +315,70 @@ class ProductSourceResourceTest extends TestCase
     public function test_show_log_is_false_when_no_search_query()
     {
         $this->actingAs($this->user);
-        $source = ProductSource::factory()->create();
+        $source = ProductSource::factory()->user($this->user)->create();
 
         Livewire::test(ProductSourceResource\Pages\SearchProductSource::class, ['record' => $source->getRouteKey()])
             ->assertSet('showLog', false)
             ->assertSet('searchQuery', null);
+    }
+
+    public function test_cannot_view_other_users_product_source()
+    {
+        $this->actingAs($this->user);
+        $otherUser = User::factory()->create();
+        $source = ProductSource::factory()->user($otherUser)->create();
+
+        $this->get(ProductSourceResource::getUrl('edit', ['record' => $source]))
+            ->assertForbidden();
+    }
+
+    public function test_cannot_edit_other_users_product_source()
+    {
+        $this->actingAs($this->user);
+        $otherUser = User::factory()->create();
+        $source = ProductSource::factory()->user($otherUser)->create();
+
+        $params = ['record' => $source->getRouteKey()];
+
+        Livewire::test(ProductSourceResource\Pages\EditProductSource::class, $params)
+            ->assertForbidden();
+    }
+
+    public function test_cannot_delete_other_users_product_source()
+    {
+        $this->actingAs($this->user);
+        $otherUser = User::factory()->create();
+        $source = ProductSource::factory()->user($otherUser)->create();
+
+        $params = ['record' => $source->getRouteKey()];
+
+        Livewire::test(ProductSourceResource\Pages\EditProductSource::class, $params)
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('product_sources', ['id' => $source->id]);
+    }
+
+    public function test_cannot_access_other_users_search_page()
+    {
+        $this->actingAs($this->user);
+        $otherUser = User::factory()->create();
+        $source = ProductSource::factory()->user($otherUser)->create();
+
+        $this->get(ProductSourceResource::getUrl('search', ['record' => $source]))
+            ->assertForbidden();
+    }
+
+    public function test_list_page_only_shows_own_product_sources()
+    {
+        $this->actingAs($this->user);
+        $otherUser = User::factory()->create();
+
+        $ownSource = ProductSource::factory()->user($this->user)->create();
+        $otherSource = ProductSource::factory()->user($otherUser)->create();
+
+        Livewire::test(ProductSourceResource\Pages\ListProductSources::class)
+            ->assertCanSeeTableRecords([$ownSource])
+            ->assertCanNotSeeTableRecords([$otherSource]);
     }
 
     protected function createProductSource(string $domain = 'example.com', array $attributes = []): ProductSource

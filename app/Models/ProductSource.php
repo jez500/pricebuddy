@@ -21,6 +21,7 @@ use Spatie\Sluggable\SlugOptions;
  * @property string $scraper_service
  * @property string $type_label
  * @property ?ProductSourceType $type
+ * @property ?int $user_id
  */
 class ProductSource extends Model
 {

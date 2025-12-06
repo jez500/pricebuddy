@@ -272,8 +272,8 @@ class ProductSourceApiTest extends TestCase
 
         $response = $this->deleteJson("/api/product-sources/{$source->id}");
 
-        $response->assertForbidden();
-        // ProductSource deletion might be restricted - keeping the record
+        $response->assertNoContent();
+        $this->assertDatabaseMissing('product_sources', ['id' => $source->id]);
     }
 
     public function test_cannot_delete_other_users_product_source(): void
