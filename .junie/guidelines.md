@@ -519,9 +519,15 @@ Lando provides many helper methods to make development easier and to interact wi
 ## Post task completion
 
 * Run `lando phpcs-fix && lando phpcs` to fix any coding standards issues and run a phpstan analysis.
+* Run all tests in parallel `lando artisan test --parallel`
 
 ## Documentation
 
 * Documentation files for this project are found in `ls docs/docs/*.md` (from project root)
 * You should consult these docs if you require more context about the project and its functionality
 * You should check if the documentation needs creating or updating after completing major tasks
+
+## Environment preferences
+
+* If a `guidelines.local.md` file exists use it! It may contain instructions for running
+  commands in this environment.
