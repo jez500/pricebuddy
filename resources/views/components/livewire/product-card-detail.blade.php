@@ -32,7 +32,7 @@
             {{ $this->deleteAction }}
         </div>
 
-        @include('components.price-aggregates', ['aggregates' => $product->price_aggregates, 'trend' => $product->trend])
+        @include('components.price-aggregates', ['aggregates' => $product->price_aggregates, 'trend' => $product->trend, 'age' => $product->first_scrape_date])
     </div>
 
     <x-filament-actions::modals />

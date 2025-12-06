@@ -46,6 +46,7 @@ use Illuminate\Support\Str;
  * @property bool $is_last_scrape_successful
  * @property bool $is_notified_price
  * @property Carbon $created_at
+ * @property string $first_scrape_date
  */
 class Product extends Model
 {
@@ -296,6 +297,16 @@ class Product extends Model
                 'fetch' => route(BaseAction::ROUTE_NAMESPACE.'products.fetch', $this, false),
             ]
             : [];
+    }
+
+    public function getFirstScrapeDateAttribute(): string
+    {
+        return $this->getPriceCache()
+            ->map(fn (PriceCacheDto $price) => $price->getFirstDate())
+            ->unique()
+            ->values()
+            ->sort()
+            ->first() ?? $this->created_at->toDateTimeString();
     }
 
     /***************************************************

@@ -99,12 +99,12 @@
     </div>
 
     @if (! $priceCache->isLastScrapeSuccessful() || $priceCache->matchesNotification($product))
-        <div class="mt-2 pb-4">
+        <div class="mt-2 pb-4 inline-flex gap-2">
             @if (! $priceCache->isLastScrapeSuccessful())
                 <div class="mb-2">
                     @include('components.icon-badge', [
                         'hoverText' => __('Last scrape successful was :hours hours ago', [
-                            'hours' => $priceCache->getHoursSinceLastScrape() ?? 'never'
+                            'hours' => round($priceCache->getHoursSinceLastScrape(), 2) ?? 'never'
                         ]),
                         'label' => __('Last scrape '.ceil($priceCache->getHoursSinceLastScrape()).'hrs ago'),
                          'color' => 'warning',
@@ -184,7 +184,7 @@
     </{!! $tag !!}>
     <div class="pb-expandable-stat__context">
         <button
-            class="pb-expandable-stat__context-button h-full opacity-50 hover:opacity-100"
+            class="pb-expandable-stat__context-button h-full opacity-50 hover:opacity-100 py-3 bg-gray-100 dark:bg-gray-950 rounded-xl border dark:border-gray-500 border-neutral-500/50 dark:hover:border-neutral-700 border-t-0 border-r-0 rounded-tl-none rounded-br-none collapsed items-start"
             :class="expanded ? 'rotate-180' : 'collapsed'"
             @click="expanded = !expanded"
         >
@@ -203,6 +203,7 @@
             'aggregates' => $priceCache->getAggregateFormatted(),
             'trend' => $priceCache->getTrend(),
             'hideTrend' => true,
+            'age' => $priceCache->getFirstDate(),
         ])
     </div>
 
