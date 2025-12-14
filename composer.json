@@ -22,6 +22,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
         "moneyphp/money": "^3.3",
+        "phiki/phiki": "^2.0",
         "pxlrbt/filament-spotlight": "^1.3",
         "rupadana/filament-api-service": "^3.4",
         "spatie/laravel-sluggable": "^3.7",

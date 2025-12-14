@@ -121,6 +121,18 @@ class ProductSource extends Model
         return $this->getSearchService()->search($query);
     }
 
+    public function searchDebugData(string $query, int $itemsCount = 5): array
+    {
+        $service = $this->getSearchService();
+
+        return [
+            'html' => $service->getHtml($query),
+            'items' => $service->search($query)->take($itemsCount)->toArray(),
+            'source' => $this->name,
+            'id' => $this->getKey(),
+        ];
+    }
+
     public static function userScopedQuery(?User $user = null, int $max = 100, bool $enabledOnly = true): Builder
     {
         /** @var ?User $user */
