@@ -13,5 +13,8 @@ abstract class TestCase extends BaseTestCase
 
         // Prevent issues with test variables no being used.
         Artisan::call('config:clear');
+
+        // Ensure we're always using the test database.
+        config()->set('database.connections.mariadb.host', 'tests_db');
     }
 }
