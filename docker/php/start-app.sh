@@ -22,8 +22,8 @@ php artisan storage:link
 php artisan config:clear
 php artisan optimize:clear
 
-# wait for the database t
-while ! nc ${DB_HOST:-database} ${DB_PORT:-3306}; do
+# wait for the database to be available
+while ! nc -z ${DB_HOST:-database} ${DB_PORT:-3306}; do
   >&2 echo "Database unavailable - sleeping"
   sleep 1
 done
