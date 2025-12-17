@@ -44,6 +44,33 @@ class ProductSourceSeeder extends Seeder
             'user_id' => $uid,
         ]);
 
+        // Static ice (Deals Site)
+        ProductSource::create([
+            'name' => 'Static Ice',
+            'type' => ProductSourceType::DealsSite,
+            'status' => ProductSourceStatus::Active,
+            'search_url' => 'https://www.staticice.com.au/cgi-bin/search.cgi?q=:search_term&spos=3',
+            'extraction_strategy' => [
+                'list_container' => [
+                    'type' => 'selector',
+                    'value' => '!tr[valign="top"]',
+                ],
+                'product_title' => [
+                    'type' => 'selector',
+                    'value' => 'td[valign="bottom"]',
+                ],
+                'product_url' => [
+                    'type' => 'regex',
+                    'value' => '~(?:\?|&|&amp;)newurl=([^&]+)~',
+                    'decode_url' => true,
+                ],
+            ],
+            'settings' => [
+                'scraper_service' => 'http',
+            ],
+            'user_id' => $uid,
+        ]);
+
         // Amazon AU (Online Store) - only create if an Amazon store exists
         $amazonStore = Store::where('name', 'like', '%Amazon%')->first();
         if ($amazonStore) {

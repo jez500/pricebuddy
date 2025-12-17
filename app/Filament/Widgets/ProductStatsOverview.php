@@ -6,6 +6,7 @@ use App\Dto\PriceCacheDto;
 use App\Models\Product;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Str;
 
 class ProductStatsOverview extends BaseWidget
 {
@@ -42,7 +43,7 @@ class ProductStatsOverview extends BaseWidget
                 /** @var PriceCacheDto $lowest */
                 $lowest = $product->getPriceCache()->first();
 
-                return Stat::make($product->title(40), $lowest->getPriceFormatted())
+                return Stat::make(Str::limit($product->title, 40), $lowest->getPriceFormatted())
                     ->description($lowest->getTrendText())
                     ->descriptionIcon($lowest->getTrendIcon())
                     ->chart(

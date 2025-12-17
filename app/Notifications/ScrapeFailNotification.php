@@ -8,6 +8,7 @@ use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification as DatabaseNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Str;
 
 class ScrapeFailNotification extends Notification
 {
@@ -35,7 +36,7 @@ class ScrapeFailNotification extends Notification
     {
         return DatabaseNotification::make()
             ->title('Error scraping product urls')
-            ->body($this->product->title(100))
+            ->body(Str::limit($this->product->title, 100))
             ->status('warning')
             ->actions([
                 Action::make('view')

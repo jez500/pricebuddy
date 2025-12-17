@@ -7,6 +7,7 @@ use App\Enums\Statuses;
 use App\Enums\Trend;
 use App\Filament\Actions\BaseAction;
 use App\Services\Helpers\CurrencyHelper;
+use App\Services\ScrapeUrl;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -231,7 +232,7 @@ class Product extends Model
     public function titleShort(): Attribute
     {
         return Attribute::make(
-            get: fn () => $this->title(20)
+            get: fn () => Str::limit($this->title, 20)
         );
     }
 
@@ -307,6 +308,28 @@ class Product extends Model
             ->values()
             ->sort()
             ->first() ?? $this->created_at->toDateTimeString();
+    }
+
+    /**
+     * Truncate long titles.
+     */
+    public function title(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($v) => ScrapeUrl::preSaveTruncate($v),
+            set: fn ($v) => ScrapeUrl::preSaveTruncate($v)
+        );
+    }
+
+    /**
+     * Replace long images with null.
+     */
+    public function image(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($v) => $v,
+            set: fn ($v) => ScrapeUrl::preSaveMaxLength($v)
+        );
     }
 
     /***************************************************
@@ -536,10 +559,5 @@ class Product extends Model
         }
 
         return false;
-    }
-
-    public function title(int $length = 1000): string
-    {
-        return Str::limit($this->title, $length);
     }
 }
