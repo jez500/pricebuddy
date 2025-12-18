@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Setup the environment file if it doesn't exist.
+# Setup the environment file if it doesn't exist
 if [ ! -f ".env" ] ||  ! grep -q . ".env" ; then
     cp .env.example .env
     php artisan key:generate --force
@@ -20,18 +20,20 @@ mkdir -p storage/framework/sessions \
 # Setup storage and clear caches
 php artisan storage:link
 php artisan config:clear
-php artisan optimize:clear
 
-# wait for the database to be available
+# Wait for the database to be available
 while ! nc -z ${DB_HOST:-database} ${DB_PORT:-3306}; do
   >&2 echo "Database unavailable - sleeping"
   sleep 1
 done
 
-# Run migrations and seed the database if required.
+# Optimize clear once DB ready
+php artisan optimize:clear
+
+# Run migrations and seed the database if required
 php artisan buddy:init-db
 
-# Cache it all.
+# Cache it all
 php artisan cache:clear
 php artisan optimize
 php artisan icons:cache
@@ -45,5 +47,5 @@ if [ ! -z "${LANDO_INFO}" ]; then
     pecl install xdebug && docker-php-ext-enable xdebug
 fi
 
-# Start supervisor that handles cron and apache.
+# Start supervisor that handles cron and apache
 supervisord -c /etc/supervisor/conf.d/supervisord.conf
