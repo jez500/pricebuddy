@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\ProductSource;
 use App\Services\SearchService;
 use Exception;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -51,7 +52,8 @@ class CacheSearchResults implements ShouldQueue
         try {
             // If a product source ID is provided, set it on the search service
             if ($this->productSourceId) {
-                $productSource = \App\Models\ProductSource::find($this->productSourceId);
+                $productSource = ProductSource::find($this->productSourceId);
+
                 if ($productSource) {
                     $this->searchService->setProductSource($productSource);
                 }

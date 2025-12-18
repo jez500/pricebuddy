@@ -19,7 +19,6 @@ class ProductSourceScrapeDebugWidget extends Widget
     public static function canView(): bool
     {
         return true;
-        // return session()->has('test_scrape');
     }
 
     protected function getViewData(): array

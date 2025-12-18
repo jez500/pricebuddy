@@ -14,6 +14,8 @@ class ProductSourceSearchService
 {
     protected LoggerInterface $logger;
 
+    protected ?string $htmlMemoryCache = null;
+
     public bool $logErrors = true;
 
     protected array $keys = [
@@ -64,9 +66,19 @@ class ProductSourceSearchService
         }
     }
 
-    public function getHtml(string $query): string
+    public function getHtml(string $query): ?string
     {
-        return $this->makeScraper($query)->get()->getBody();
+        if (is_null($this->htmlMemoryCache)) {
+            // We cache the body response for 5 minutes to prevent multiple scrapes.
+            $this->htmlMemoryCache = cache()
+                ->remember(
+                    'product_source_search:html:'.md5($this->source->search_url.':'.$query),
+                    now()->addMinutes(5),
+                    fn () => $this->makeScraper($query)->get()->getBody()
+                );
+        }
+
+        return $this->htmlMemoryCache;
     }
 
     public function getList(string $query): Collection
@@ -118,13 +130,12 @@ class ProductSourceSearchService
         return collect();
     }
 
-    protected function scrapeUrl(WebScraperInterface $scraper, array $strategy): string
+    protected function scrapeUrl(WebScraperInterface $scraper, array $strategy): ?string
     {
         $url = $this->scrapeOption($scraper, $strategy['product_url'])->first();
 
         if (! empty($strategy['product_url']['url_decode'])) {
             $url = urldecode($url);
-
         }
 
         return $url;

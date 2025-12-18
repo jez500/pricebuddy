@@ -117,7 +117,6 @@ class SearchProductSource extends EditRecord
             $this->progressLog[] = ['message' => __('Preparing to search'), 'timestamp' => now()];
         }
 
-        /** @var ProductSource $source */
         $source = $this->getRecord();
 
         $service = SearchService::new($this->searchQuery)->setProductSource($source);
@@ -218,7 +217,7 @@ class SearchProductSource extends EditRecord
             $widgets[] = CreateViaSearchTable::make($params);
         }
 
-        if ($service->getInProgress()) {
+        if ($service->getInProgress() || $service->getIsComplete()) {
             $widgets[] = ProductSourceScrapeDebugWidget::make($params);
         }
 

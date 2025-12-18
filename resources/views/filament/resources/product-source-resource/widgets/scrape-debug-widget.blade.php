@@ -3,8 +3,13 @@
     use Illuminate\Support\Str;
 @endphp
 <x-filament-widgets::widget>
-    <div>
-        <div>
+    <div x-data="{ showDebug: false }" id="source-debug">
+        <div :class="{'hidden': showDebug}" class="my-4">
+            <x-filament::button color="gray" class="py-2" @click="showDebug = true; setTimeout(() => document.getElementById('source-debug').scrollIntoView(), 250)">
+                Debugging information
+            </x-filament::button>
+        </div>
+        <div :class="{'hidden': !showDebug}">
             @if (empty($scrape))
                 <p class="my-6">{{ __('Unable to find any data, check source settings') }}</p>
             @else
