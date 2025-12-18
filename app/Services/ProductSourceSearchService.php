@@ -72,7 +72,7 @@ class ProductSourceSearchService
             // We cache the body response for 5 minutes to prevent multiple scrapes.
             $this->htmlMemoryCache = cache()
                 ->remember(
-                    'product_source_search:html:'.md5($this->source->search_url.':'.$query),
+                    'product_source_search:html:'.md5($this->source->updated_at.':'.$query),
                     now()->addMinutes(5),
                     fn () => $this->makeScraper($query)->get()->getBody()
                 );

@@ -22,6 +22,7 @@ use Spatie\Sluggable\SlugOptions;
  * @property string $type_label
  * @property ?ProductSourceType $type
  * @property ?int $user_id
+ * @property string $updated_at
  */
 class ProductSource extends Model
 {
