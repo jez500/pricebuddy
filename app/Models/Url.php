@@ -172,7 +172,7 @@ class Url extends Model
             $image = data_get($scrape, 'image');
 
             $productId = Product::create([
-                'title' => Str::limit(data_get($scrape, 'title'), ScrapeUrl::MAX_STR_LENGTH),
+                'title' => data_get($scrape, 'title'),
                 'image' => strlen($image) < ScrapeUrl::MAX_STR_LENGTH ? $image : null,
                 'user_id' => $userId,
                 'favourite' => true,

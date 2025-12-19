@@ -89,3 +89,14 @@
 
 
 
+.phiki { // language-html github-dark
+    padding: 1rem;
+    border-radius: .5rem;
+    overflow-y: auto;
+    font-size: .9em;
+
+    .github-dark & {
+        border: 1px solid #555;
+    }
+
+}

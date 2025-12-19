@@ -6,9 +6,11 @@ use App\Jobs\UpdateProductPricesJob;
 use App\Models\Product;
 use App\Models\User;
 use App\Notifications\ScrapeFailNotification;
+use App\Settings\AppSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Sleep;
 use Tests\TestCase;
 
 class UpdateProductPricesJobTest extends TestCase
@@ -19,12 +21,14 @@ class UpdateProductPricesJobTest extends TestCase
     {
         parent::setUp();
         Http::fake();
+        Sleep::fake();
     }
 
     public function test_job_updates_product_prices()
     {
         $user = User::factory()->create();
         $dbProduct = Product::factory()->create(['user_id' => $user->id])->refresh();
+        $expectedSleep = AppSettings::new()->sleep_seconds_between_scrape;
 
         // Mock the updatePrices method to return true
         $product = $this->partialMock(Product::class, function ($mock) {
@@ -38,6 +42,12 @@ class UpdateProductPricesJobTest extends TestCase
         $job->handle();
 
         $this->assertTrue(true); // Job executed without error
+
+        // Test sleep between scrape.
+        $this->assertGreaterThan(0, $expectedSleep);
+        Sleep::assertSequence([
+            Sleep::for($expectedSleep)->seconds(),
+        ]);
     }
 
     public function test_job_logs_when_logging_enabled()

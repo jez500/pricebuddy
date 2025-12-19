@@ -9,6 +9,7 @@ use App\Settings\AppSettings;
 use Exception;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Support\Uri;
 use Jez500\WebScraperForLaravel\Exceptions\DomSelectorException;
 use Jez500\WebScraperForLaravel\Facades\WebScraper;
@@ -313,5 +314,23 @@ class ScrapeUrl
         $this->scraperConnectTimeout = $scraperConnectTimeout;
 
         return $this;
+    }
+
+    /**
+     * If a scraped field is greater than the max length, return null. This protects the db
+     * against incorrect and long strings for url or image, both can't be cropped.
+     */
+    public static function preSaveMaxLength(?string $value): ?string
+    {
+        return $value && strlen($value) < self::MAX_STR_LENGTH ? $value : null;
+    }
+
+    /**
+     * For fields that can be truncated, truncate them, eg title attribute. Like preSaveMaxLength,
+     * protect the db from long strings.
+     */
+    public static function preSaveTruncate(?string $value): ?string
+    {
+        return Str::limit($value, self::MAX_STR_LENGTH);
     }
 }

@@ -139,7 +139,11 @@ class SearchService
                 $this->log(__('Found :count results via :source', ['count' => $results->count(), 'source' => $source->name]));
                 $this->results = $this->results->merge($results);
             } catch (Throwable $e) {
-                $this->log(__('Error searching via :source: :error', ['source' => $source->name, 'error' => $e->getMessage()]));
+                $msg = __('Error searching via :source', ['source' => $source->name]);
+                $this->log($msg);
+                logger()->error($msg.'. Error: '.$e->getMessage(), [
+                    'backtrace' => $e->getTraceAsString(),
+                ]);
             }
         });
 

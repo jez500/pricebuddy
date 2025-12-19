@@ -333,6 +333,46 @@ class ProductTest extends TestCase
         $this->assertTrue($product->shouldNotifyOnPrice(new Price(['price' => 5])));
     }
 
+    public function test_title_mutator_truncates_long_strings()
+    {
+        $shortTitle = 'Short Product Title';
+        $product = Product::factory()->createOne(['title' => $shortTitle]);
+        $this->assertEquals($shortTitle, $product->title);
+
+        // String exactly 1024 characters should be truncated
+        $longTitle = str_repeat('a', 1024);
+        $product = Product::factory()->createOne(['title' => $longTitle]);
+        $this->assertLessThan(1024, strlen($product->title));
+        $this->assertStringEndsWith('...', $product->title);
+
+        // String over 1024 characters should be truncated
+        $veryLongTitle = str_repeat('b', 2000);
+        $product = Product::factory()->createOne(['title' => $veryLongTitle]);
+        $this->assertLessThan(1024, strlen($product->title));
+        $this->assertStringEndsWith('...', $product->title);
+    }
+
+    public function test_image_mutator_sets_null_for_long_strings()
+    {
+        $shortImage = 'https://example.com/image.jpg';
+        $product = Product::factory()->createOne(['image' => $shortImage]);
+        $this->assertEquals($shortImage, $product->image);
+
+        // String exactly 1024 characters should be set to null
+        $longImage = 'https://example.com/'.str_repeat('a', 1004);
+        $product = Product::factory()->createOne(['image' => $longImage]);
+        $this->assertNull($product->image);
+
+        // String over 1024 characters should be set to null
+        $veryLongImage = 'https://example.com/'.str_repeat('b', 2000);
+        $product = Product::factory()->createOne(['image' => $veryLongImage]);
+        $this->assertNull($product->image);
+
+        // Null value should remain null
+        $product = Product::factory()->createOne(['image' => null]);
+        $this->assertNull($product->image);
+    }
+
     protected function createOneProductWithUrlAndPrices(string $url = self::DEFAULT_URL, array $prices = [10, 15, 20], array $attrs = []): Product
     {
         return Product::factory()

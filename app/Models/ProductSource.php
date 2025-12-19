@@ -22,6 +22,7 @@ use Spatie\Sluggable\SlugOptions;
  * @property string $type_label
  * @property ?ProductSourceType $type
  * @property ?int $user_id
+ * @property string $updated_at
  */
 class ProductSource extends Model
 {
@@ -119,6 +120,18 @@ class ProductSource extends Model
     public function search(string $query): Collection
     {
         return $this->getSearchService()->search($query);
+    }
+
+    public function searchDebugData(string $query, int $itemsCount = 5): array
+    {
+        $service = $this->getSearchService();
+
+        return [
+            'html' => $service->getHtml($query),
+            'items' => $service->search($query)->take($itemsCount)->toArray(),
+            'source' => $this->name,
+            'id' => $this->getKey(),
+        ];
     }
 
     public static function userScopedQuery(?User $user = null, int $max = 100, bool $enabledOnly = true): Builder

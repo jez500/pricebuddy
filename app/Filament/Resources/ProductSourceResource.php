@@ -77,6 +77,11 @@ class ProductSourceResource extends Resource
                     ])->description('Title within the search result item'),
                     Forms\Components\Section::make('Product url')->schema([
                         Forms\Components\Group::make(self::makeStrategyInput('product_url'))->columns(2),
+                        Forms\Components\Toggle::make('product_url.url_decode')
+                            ->label('Decode URL')
+                            ->columns(2)
+                            ->hintIcon(Icons::Help->value, 'Useful if the url is extracted url parameters')
+                            ->default(false),
                     ])->description('Product URL within the search result item'),
                 ])
                     ->columnSpanFull()

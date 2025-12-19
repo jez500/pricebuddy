@@ -6,6 +6,7 @@ use App\Enums\Icons;
 use App\Filament\Actions\BaseAction;
 use App\Filament\Resources\ProductResource\Widgets\CreateViaSearchTable;
 use App\Filament\Resources\ProductSourceResource;
+use App\Filament\Resources\ProductSourceResource\Widgets\ProductSourceScrapeDebugWidget;
 use App\Jobs\CacheSearchResults;
 use App\Models\ProductSource;
 use App\Services\SearchService;
@@ -116,7 +117,6 @@ class SearchProductSource extends EditRecord
             $this->progressLog[] = ['message' => __('Preparing to search'), 'timestamp' => now()];
         }
 
-        /** @var ProductSource $source */
         $source = $this->getRecord();
 
         $service = SearchService::new($this->searchQuery)->setProductSource($source);
@@ -209,13 +209,19 @@ class SearchProductSource extends EditRecord
         }
 
         $service = SearchService::new($this->searchQuery)->setProductSource($this->getRecord());
-        if (! $service->getIsComplete()) {
-            return [];
+        $params = ['searchQuery' => $this->searchQuery, 'productSource' => $this->getRecord()];
+
+        $widgets = [];
+
+        if ($service->getIsComplete()) {
+            $widgets[] = CreateViaSearchTable::make($params);
         }
 
-        return [
-            CreateViaSearchTable::make(['searchQuery' => $this->searchQuery, 'productSource' => $this->getRecord()]),
-        ];
+        if ($service->getInProgress() || $service->getIsComplete()) {
+            $widgets[] = ProductSourceScrapeDebugWidget::make($params);
+        }
+
+        return $widgets;
     }
 
     public function getFooterWidgetsColumns(): int|array

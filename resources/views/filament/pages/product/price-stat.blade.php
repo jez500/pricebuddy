@@ -190,7 +190,7 @@
             :class="expanded ? 'rotate-180' : 'collapsed'"
             @click="expanded = !expanded"
         >
-            <x-filament::icon icon="heroicon-s-chevron-down" class="h-5 w-5" />
+            <x-filament::icon icon="heroicon-s-chevron-up" class="h-5 w-5" />
         </button>
     </div>
     </div>

@@ -14,6 +14,8 @@ class ProductSourceSearchService
 {
     protected LoggerInterface $logger;
 
+    protected ?string $htmlMemoryCache = null;
+
     public bool $logErrors = true;
 
     protected array $keys = [
@@ -33,25 +35,16 @@ class ProductSourceSearchService
         return resolve(static::class, ['source' => $source]);
     }
 
+    public function makeScraper(string $query): WebScraperInterface
+    {
+        return WebScraper::make($this->source->scraper_service)
+            ->from($this->buildSearchUrl($query));
+    }
+
     public function search(string $query): Collection
     {
-        $searchUrl = $this->buildSearchUrl($query);
         $strategy = data_get($this->source, 'extraction_strategy', []);
-
-        $scraper = WebScraper::make($this->source->scraper_service)
-            ->from($searchUrl)
-            ->get();
-
-        if ($errors = $scraper->getErrors()) {
-            $this->errorLog('Error scraping URL', [
-                'store_id' => $this->source->getKey(),
-                'errors' => $errors,
-            ]);
-
-            return collect();
-        }
-
-        $items = $this->scrapeOption($scraper, ($strategy['list_container']));
+        $items = $this->getList($query);
 
         try {
             // For each result, instantiate a new scraper and extract the title and url.
@@ -60,7 +53,7 @@ class ProductSourceSearchService
 
                 return [
                     'title' => $this->scrapeOption($itemScraper, $strategy['product_title'])->first(),
-                    'url' => $this->scrapeOption($itemScraper, $strategy['product_url'])->first(),
+                    'url' => $this->scrapeUrl($itemScraper, $strategy),
                     'content' => $item,
                 ];
             })
@@ -71,6 +64,39 @@ class ProductSourceSearchService
 
             return collect();
         }
+    }
+
+    public function getHtml(string $query): ?string
+    {
+        if (is_null($this->htmlMemoryCache)) {
+            // We cache the body response for 5 minutes to prevent multiple scrapes.
+            $this->htmlMemoryCache = cache()
+                ->remember(
+                    'product_source_search:html:'.md5($this->source->updated_at.':'.$query),
+                    now()->addMinutes(5),
+                    fn () => $this->makeScraper($query)->get()->getBody()
+                );
+        }
+
+        return $this->htmlMemoryCache;
+    }
+
+    public function getList(string $query): Collection
+    {
+        $strategy = data_get($this->source, 'extraction_strategy', []);
+
+        $scraper = $this->makeScraper($query)->get();
+
+        if ($errors = $scraper->getErrors()) {
+            $this->errorLog('Error scraping Product Source search result page', [
+                'store_id' => $this->source->getKey(),
+                'errors' => $errors,
+            ]);
+
+            return collect();
+        }
+
+        return $this->scrapeOption($scraper, ($strategy['list_container']));
     }
 
     public function buildSearchUrl(string $query): string
@@ -96,10 +122,23 @@ class ProductSourceSearchService
         } catch (DomSelectorException $e) {
             $this->errorLog('Error scraping URL', [
                 'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
         }
 
         return collect();
+    }
+
+    protected function scrapeUrl(WebScraperInterface $scraper, array $strategy): ?string
+    {
+        $url = $this->scrapeOption($scraper, $strategy['product_url'])->first();
+
+        if (! empty($strategy['product_url']['url_decode'])) {
+            $url = urldecode($url);
+        }
+
+        return $url;
     }
 
     protected function errorLog(string $message, array $data = []): void

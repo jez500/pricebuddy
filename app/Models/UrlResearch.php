@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\Helpers\IntegrationHelper;
+use App\Services\ScrapeUrl;
 use App\Services\SearchService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -93,5 +94,15 @@ class UrlResearch extends Model
         }
 
         return $query;
+    }
+
+    public function setImageAttribute(?string $value): void
+    {
+        $this->attributes['image'] = ScrapeUrl::preSaveMaxLength($value);
+    }
+
+    public function setUrlAttribute(?string $value): void
+    {
+        $this->attributes['url'] = ScrapeUrl::preSaveMaxLength($value);
     }
 }
