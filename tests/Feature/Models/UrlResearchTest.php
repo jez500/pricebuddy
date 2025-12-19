@@ -52,7 +52,7 @@ class UrlResearchTest extends TestCase
         ]);
         $this->assertEquals($shortUrl, $urlResearch->fresh()->url);
 
-        // String exactly 1024 characters should be set to null
+        // String of 1024 characters (exceeds MAX_STR_LENGTH of 1000) should be set to null
         $longUrl = 'https://example.com/'.str_repeat('a', 1004);
 
         $urlResearch = new UrlResearch([

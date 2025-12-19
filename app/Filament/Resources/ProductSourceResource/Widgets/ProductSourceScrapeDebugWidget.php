@@ -23,6 +23,9 @@ class ProductSourceScrapeDebugWidget extends Widget
 
     protected function getViewData(): array
     {
+        if (! $this->productSource) {
+            return ['scrape' => []];
+        }
 
         return [
             'scrape' => array_merge(

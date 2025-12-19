@@ -141,7 +141,7 @@ class SearchService
             } catch (Throwable $e) {
                 $msg = __('Error searching via :source', ['source' => $source->name]);
                 $this->log($msg);
-                logger()->error($msg.'. Error'.$e->getMessage(), [
+                logger()->error($msg.'. Error: '.$e->getMessage(), [
                     'backtrace' => $e->getTraceAsString(),
                 ]);
             }
