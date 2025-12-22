@@ -57,10 +57,9 @@ class AppSettingsPage extends SettingsPage
                     ->description(__('Settings for scraping'))
                     ->columns(2)
                     ->schema([
-                        Forms\Components\TimePicker::make('scrape_schedule_time')
-                            ->label('Fetch schedule time')
-                            ->seconds(false)
-                            ->hintIcon(Icons::Help->value, 'The time of day to get product prices')
+                        TextInput::make('scrape_schedule')
+                            ->label('Fetch schedule')
+                            ->hintIcon(Icons::Help->value, 'Cron expression to control scraping. Use https://crontab.guru to build an expression.')
                             ->required(),
                         TextInput::make('scrape_cache_ttl')
                             ->label('Scrape cache ttl')
