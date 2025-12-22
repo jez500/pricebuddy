@@ -4,7 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\Icons;
 use App\Enums\ScraperService;
-use App\Enums\ScraperStrategyType;
+use App\Filament\Concerns\HasScraperTrait;
 use App\Filament\Pages\AppSettingsPage;
 use App\Filament\Resources\StoreResource\Pages\CreateStore;
 use App\Filament\Resources\StoreResource\Pages\EditStore;
@@ -31,6 +31,8 @@ use Illuminate\Support\HtmlString;
 
 class StoreResource extends Resource
 {
+    use HasScraperTrait;
+
     public const array DEFAULT_SELECTORS = [
         'title' => 'meta[property=og:title]|content',
         'price' => 'meta[property=og:price:amount]|content',
@@ -71,35 +73,19 @@ class StoreResource extends Resource
 
                 Forms\Components\Group::make([
                     Forms\Components\Section::make('Title strategy')->schema([
-                        Forms\Components\Group::make(self::makeStrategyInput('title'))->columns(2),
+                        Forms\Components\Group::make(self::makeStrategyInput('title', self::DEFAULT_SELECTORS['title']))->columns(2),
                     ])->description('How to get the product title'),
                     Forms\Components\Section::make('Price strategy')->schema([
-                        Forms\Components\Group::make(self::makeStrategyInput('price'))->columns(2),
+                        Forms\Components\Group::make(self::makeStrategyInput('price', self::DEFAULT_SELECTORS['price']))->columns(2),
                     ])->description('How to get the product price'),
                     Forms\Components\Section::make('Image strategy')->schema([
-                        Forms\Components\Group::make(self::makeStrategyInput('image'))->columns(2),
+                        Forms\Components\Group::make(self::makeStrategyInput('image', self::DEFAULT_SELECTORS['image']))->columns(2),
                     ])->description('How to get the product image'),
                 ])
                     ->label('Scrape Strategy')
                     ->statePath('scrape_strategy'),
 
-                Forms\Components\Section::make('Scraper service')->schema([
-                    Forms\Components\Radio::make('settings.scraper_service')
-                        ->options(ScraperService::class)
-                        ->descriptions([
-                            ScraperService::Http->value => 'Faster and less resource intensive. Use this for JSON strategy',
-                            ScraperService::Api->value => 'Slower but good for scraping JavaScript rendered pages',
-                        ])
-                        ->reactive()
-                        ->default(ScraperService::Http),
-
-                    Forms\Components\Textarea::make('settings.scraper_service_settings')
-                        ->label('Settings')
-                        ->hint(new HtmlString('One option per line. <a href="https://github.com/jez500/seleniumbase-scrapper#api-endpoints" target="_blank">Read docs</a>'))
-                        ->hidden(fn (Forms\Get $get) => $get('settings.scraper_service') !== ScraperService::Api->value)
-                        ->rows(4)
-                        ->placeholder("device=Desktop Firefox\nsleep=1000"),
-                ])->description('Advanced scraper service settings')->columns(2),
+                self::getScraperSettings(),
 
                 Section::make('Locale')
                     ->description(__('Override region and locale settings for this store'))
@@ -191,31 +177,6 @@ class StoreResource extends Resource
             'create' => CreateStore::route('/create'),
             'edit' => EditStore::route('/{record}/edit'),
             'test' => TestStore::route('/{record}/test'),
-        ];
-    }
-
-    protected static function makeStrategyInput(string $key): array
-    {
-        return [
-            Forms\Components\Select::make($key.'.type')
-                ->label('Type')
-                ->options(ScraperStrategyType::class)
-                ->required()
-                ->default(ScraperStrategyType::Selector->value)
-                ->hintIcon(Icons::Help->value, 'How to get the value')
-                ->live(),
-            TextInput::make($key.'.value')
-                ->label('Value')
-                ->default(self::DEFAULT_SELECTORS[$key])
-                ->required()
-                ->hintIcon(Icons::Help->value, fn (Forms\Get $get) => ScraperStrategyType::getValueHelp($get($key.'.type')))
-                ->live(),
-            TextInput::make($key.'.prepend')
-                ->label('Prepend')
-                ->hintIcon(Icons::Help->value, 'Optionally prepend a static value to the extracted value'),
-            TextInput::make($key.'.append')
-                ->label('Append')
-                ->hintIcon(Icons::Help->value, 'Optionally append a static value to the extracted value'),
         ];
     }
 }

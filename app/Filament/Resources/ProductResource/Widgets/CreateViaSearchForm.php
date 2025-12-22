@@ -60,7 +60,7 @@ class CreateViaSearchForm extends Widget implements HasForms
 
     public static function canView(): bool
     {
-        return IntegrationHelper::isSearchEnabled();
+        return SearchService::canSearch();
     }
 
     public function mount(): void

@@ -9,6 +9,7 @@ use App\Settings\AppSettings;
 use Exception;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Support\Uri;
 use Jez500\WebScraperForLaravel\Exceptions\DomSelectorException;
 use Jez500\WebScraperForLaravel\Facades\WebScraper;
@@ -18,12 +19,14 @@ use Psr\Log\LoggerInterface;
 
 class ScrapeUrl
 {
-    public const SELECTOR_ATTR_DELIMITER = '|';
+    public const string SELECTOR_ATTR_DELIMITER = '|';
+
+    public const string SELECTOR_HTML_PREFIX = '!';
 
     /**
      * For the title and image, limit the length.
      */
-    public const MAX_STR_LENGTH = 1000;
+    public const int MAX_STR_LENGTH = 1000;
 
     protected WebScraperInterface $webScraper;
 
@@ -211,12 +214,7 @@ class ScrapeUrl
         $type = data_get($options, 'type');
         $value = data_get($options, 'value');
 
-        $method = match ($type) {
-            'regex' => 'getRegex',
-            'json' => 'getJson',
-            'xpath' => 'getXpath',
-            default => 'getSelector'
-        };
+        $method = self::getMethodFromType($type);
 
         $value = match ($type) {
             'selector' => self::parseSelector($value),
@@ -240,8 +238,26 @@ class ScrapeUrl
         return null;
     }
 
+    public static function getMethodFromType(string $type): string
+    {
+        return match ($type) {
+            'regex' => 'getRegex',
+            'json' => 'getJson',
+            'xpath' => 'getXpath',
+            default => 'getSelector'
+        };
+    }
+
     public static function parseSelector(string $selector): array
     {
+        // If starts with exclamation !, return unsanitized HTML.
+        if (str_starts_with($selector, self::SELECTOR_HTML_PREFIX)) {
+            $selector = substr($selector, 1) ?: '';
+
+            return [$selector, 'html'];
+        }
+
+        // If contains a pipe | extract attribute.
         if (! str_contains($selector, self::SELECTOR_ATTR_DELIMITER)) {
             return [$selector, 'text'];
         }
@@ -298,5 +314,23 @@ class ScrapeUrl
         $this->scraperConnectTimeout = $scraperConnectTimeout;
 
         return $this;
+    }
+
+    /**
+     * If a scraped field is greater than the max length, return null. This protects the db
+     * against incorrect and long strings for url or image, both can't be cropped.
+     */
+    public static function preSaveMaxLength(?string $value): ?string
+    {
+        return $value && strlen($value) < self::MAX_STR_LENGTH ? $value : null;
+    }
+
+    /**
+     * For fields that can be truncated, truncate them, eg title attribute. Like preSaveMaxLength,
+     * protect the db from long strings.
+     */
+    public static function preSaveTruncate(?string $value): ?string
+    {
+        return Str::limit($value, self::MAX_STR_LENGTH);
     }
 }

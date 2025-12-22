@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\Helpers\IntegrationHelper;
+use App\Services\ScrapeUrl;
 use App\Services\SearchService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -53,9 +54,28 @@ class UrlResearch extends Model
         return $this->belongsTo(Store::class);
     }
 
-    public function scopeSearchQuery(Builder $query, string $searchQuery): Builder
+    public function scopeSearchQuery(Builder $query, ?string $searchQuery, ?ProductSource $productSource = null): Builder
     {
-        $urls = SearchService::new($searchQuery)->getRawResults()->getResults()->pluck('url');
+        if (empty($searchQuery)) {
+            return $query->whereRaw('1 = 0'); // Return no results
+        }
+
+        $service = SearchService::new($searchQuery);
+
+        // If a specific product source is provided, filter by it
+        if ($productSource) {
+            $service->setProductSource($productSource);
+        }
+
+        $urls = $service
+            ->getProductSourceResults();
+
+        // Only call getRawResults if not filtering by specific source
+        if (! $productSource) {
+            $urls = $urls->getRawResults();
+        }
+
+        $urls = $urls->getResults()->pluck('url');
 
         return $query->whereIn('url', $urls);
     }
@@ -74,5 +94,15 @@ class UrlResearch extends Model
         }
 
         return $query;
+    }
+
+    public function setImageAttribute(?string $value): void
+    {
+        $this->attributes['image'] = ScrapeUrl::preSaveMaxLength($value);
+    }
+
+    public function setUrlAttribute(?string $value): void
+    {
+        $this->attributes['url'] = ScrapeUrl::preSaveMaxLength($value);
     }
 }

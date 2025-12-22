@@ -7,6 +7,7 @@ use App\Enums\Statuses;
 use App\Enums\Trend;
 use App\Filament\Actions\BaseAction;
 use App\Services\Helpers\CurrencyHelper;
+use App\Services\ScrapeUrl;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -46,6 +47,7 @@ use Illuminate\Support\Str;
  * @property bool $is_last_scrape_successful
  * @property bool $is_notified_price
  * @property Carbon $created_at
+ * @property string $first_scrape_date
  */
 class Product extends Model
 {
@@ -230,7 +232,7 @@ class Product extends Model
     public function titleShort(): Attribute
     {
         return Attribute::make(
-            get: fn () => $this->title(20)
+            get: fn () => Str::limit($this->title, 20)
         );
     }
 
@@ -298,6 +300,38 @@ class Product extends Model
             : [];
     }
 
+    public function getFirstScrapeDateAttribute(): string
+    {
+        return $this->getPriceCache()
+            ->map(fn (PriceCacheDto $price) => $price->getFirstDate())
+            ->unique()
+            ->values()
+            ->sort()
+            ->first() ?? $this->created_at->toDateTimeString();
+    }
+
+    /**
+     * Truncate long titles.
+     */
+    public function title(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($v) => ScrapeUrl::preSaveTruncate($v),
+            set: fn ($v) => ScrapeUrl::preSaveTruncate($v)
+        );
+    }
+
+    /**
+     * Replace long images with null.
+     */
+    public function image(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($v) => $v,
+            set: fn ($v) => ScrapeUrl::preSaveMaxLength($v)
+        );
+    }
+
     /***************************************************
      * Helpers.
      **************************************************/
@@ -340,11 +374,15 @@ class Product extends Model
         $urls = Url::findMany($history->keys());
 
         return $urls
+            ->filter(function ($url) {
+                // Filter out URLs without a store (e.g., during deletion)
+                return $url->store !== null;
+            })
             ->map(function ($url) use ($history): array {
                 /** @var Url $url */
                 /** @var Collection $urlHistory */
                 $urlHistory = $history->get($url->getKey());
-                /** @var ?Store $store */
+                /** @var Store $store */
                 $store = $url->store;
 
                 // Get last scraped price.
@@ -521,10 +559,5 @@ class Product extends Model
         }
 
         return false;
-    }
-
-    public function title(int $length = 1000): string
-    {
-        return Str::limit($this->title, $length);
     }
 }

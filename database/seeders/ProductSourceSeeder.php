@@ -1,0 +1,108 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Enums\ProductSourceStatus;
+use App\Enums\ProductSourceType;
+use App\Models\ProductSource;
+use App\Models\Store;
+use App\Models\User;
+use Illuminate\Database\Seeder;
+
+class ProductSourceSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        $uid = User::query()->oldest()->first()?->getKey() ?? User::factory()->create()->getKey();
+
+        // OzBargain (Deals Site)
+        ProductSource::create([
+            'name' => 'OzBargain',
+            'type' => ProductSourceType::DealsSite,
+            'status' => ProductSourceStatus::Active,
+            'search_url' => 'https://www.ozbargain.com.au/search/node/:search_term',
+            'extraction_strategy' => [
+                'list_container' => [
+                    'type' => 'selector',
+                    'value' => '!.search-results dt.title',
+                ],
+                'product_title' => [
+                    'type' => 'selector',
+                    'value' => 'img|alt',
+                ],
+                'product_url' => [
+                    'type' => 'regex',
+                    'value' => '~title="Link:\s*(https?:\/\/[^"]+)"~',
+                ],
+            ],
+            'settings' => [
+                'scraper_service' => 'http',
+            ],
+            'user_id' => $uid,
+        ]);
+
+        // Static ice (Deals Site)
+        ProductSource::create([
+            'name' => 'Static Ice',
+            'type' => ProductSourceType::DealsSite,
+            'status' => ProductSourceStatus::Active,
+            'search_url' => 'https://www.staticice.com.au/cgi-bin/search.cgi?q=:search_term&spos=3',
+            'extraction_strategy' => [
+                'list_container' => [
+                    'type' => 'selector',
+                    'value' => '!tr[valign="top"]',
+                ],
+                'product_title' => [
+                    'type' => 'selector',
+                    'value' => 'td[valign="bottom"]',
+                ],
+                'product_url' => [
+                    'type' => 'regex',
+                    'value' => '~(?:\?|&|&amp;)newurl=([^&]+)~',
+                    'decode_url' => true,
+                ],
+            ],
+            'settings' => [
+                'scraper_service' => 'http',
+            ],
+            'user_id' => $uid,
+        ]);
+
+        // Amazon AU (Online Store) - only create if an Amazon store exists
+        $amazonStore = Store::where('name', 'like', '%Amazon%')->first();
+        if ($amazonStore) {
+            ProductSource::create([
+                'name' => 'Amazon Australia',
+                'type' => ProductSourceType::OnlineStore,
+                'status' => ProductSourceStatus::Draft,
+                'store_id' => $amazonStore->id,
+                'search_url' => 'https://www.amazon.com.au/s?k=:search_term',
+                'extraction_strategy' => [
+                    'list_container' => [
+                        'type' => 'selector',
+                        'value' => 'div[data-component-type="s-search-result"]',
+                    ],
+                    'product_title' => [
+                        'type' => 'selector',
+                        'value' => 'h2 a span',
+                    ],
+                    'product_url' => [
+                        'type' => 'selector',
+                        'value' => 'h2 a|href',
+                    ],
+                    'product_price' => [
+                        'type' => 'selector',
+                        'value' => '.a-price-whole',
+                    ],
+                ],
+                'settings' => [
+                    'scraper_service' => 'http',
+                ],
+                'user_id' => $uid,
+            ]);
+        }
+    }
+}

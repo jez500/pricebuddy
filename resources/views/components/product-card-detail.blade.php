@@ -26,6 +26,7 @@
         <div class="py-2 px-4">
             @include('components.prices-column', ['items' => $product->price_cache])
         </div>
+
         @include('components.price-aggregates', ['aggregates' => $product->price_aggregates, 'trend' => $product->trend])
     </div>
 </div>

@@ -54,15 +54,18 @@ tooling:
       - echo "Done, set permissions with 'sudo chmod +w -R storage'"
   xdebug-on:
     description: Enable xdebug for php.
-    cmd:
-      - php: cp /app/lagoon/docker-php-ext-xdebug.ini /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini && pkill -USR2 php-fpm || true
-      - appserver: cp /app/lagoon/docker-php-ext-xdebug.ini /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini && pkill -USR2 php-fpm || true
+    service: appserver
+    cmd: cp /app/docker/php/debug/docker-php-ext-xdebug.ini /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini && pkill -USR2 php || true
     user: root
   xdebug-off:
     description: Disable xdebug for php.
-    cmd:
-      - php: rm /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini && pkill -USR2 php-fpm || true
-      - appserver: rm /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini && pkill -USR2 php-fpm || true
+    service: appserver
+    cmd: rm /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini && pkill -USR2 php || true
+    user: root
+  coverage-on:
+    description: Enable code coverage for php.
+    service: appserver
+    cmd: cp /app/docker/php/debug/docker-php-ext-xdebug-coverage.ini /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini && pkill -USR2 php || true
     user: root
   phpcs-fix:
     description: Fix CS errors

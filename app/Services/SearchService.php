@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Dto\ProductResearchUrlDto;
 use App\Enums\Icons;
+use App\Models\ProductSource;
 use App\Models\Store;
 use App\Models\UrlResearch;
 use App\Services\Helpers\IntegrationHelper;
@@ -11,6 +12,7 @@ use Exception;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Throwable;
 
 class SearchService
 {
@@ -28,9 +30,11 @@ class SearchService
 
     public ?string $searchQuery = null;
 
+    protected ?ProductSource $productSource = null;
+
     protected bool $useLaravelLog = false;
 
-    protected array $ignoredExtensions = ['pdf', 'doc', 'xls', 'ppt'];
+    protected array $ignoredExtensions = ['pdf', 'doc', 'xls', 'ppt', 'jpg', 'png', 'jpeg'];
 
     public function __construct(?string $query = null)
     {
@@ -43,6 +47,13 @@ class SearchService
         return resolve(static::class, ['query' => $query]);
     }
 
+    public function setProductSource(?ProductSource $productSource): self
+    {
+        $this->productSource = $productSource;
+
+        return $this;
+    }
+
     public function build(string $searchQuery): self
     {
         $this->searchQuery = $searchQuery;
@@ -51,10 +62,17 @@ class SearchService
         $this->log('Starting research for: '.$searchQuery);
 
         try {
-            $this
+            $builder = $this
                 ->setIsComplete(false)
                 ->setInProgress(true)
-                ->getRawResults()
+                ->getProductSourceResults();
+
+            // Only call getRawResults() if no specific product source is set
+            if (! $this->productSource) {
+                $builder->getRawResults();
+            }
+
+            $builder
                 ->filterResults()
                 ->normalizeStructure()
                 ->addStores()
@@ -103,6 +121,35 @@ class SearchService
         return data_get(self::getSettings(), 'max_pages', self::DEFAULT_MAX_PAGES);
     }
 
+    public function getProductSourceResults(): self
+    {
+        // If a specific product source is set, use only that one
+        if ($this->productSource) {
+            $sources = collect([$this->productSource]);
+        } else {
+            $sources = ProductSource::userScopedQuery()->get();
+        }
+
+        $this->log(__('Using :count product sources'), ['count' => $sources->count()]);
+
+        $sources->each(function ($source) {
+            /** @var ProductSource $source */
+            try {
+                $results = $source->search($this->searchQuery);
+                $this->log(__('Found :count results via :source', ['count' => $results->count(), 'source' => $source->name]));
+                $this->results = $this->results->merge($results);
+            } catch (Throwable $e) {
+                $msg = __('Error searching via :source', ['source' => $source->name]);
+                $this->log($msg);
+                logger()->error($msg.'. Error: '.$e->getMessage(), [
+                    'backtrace' => $e->getTraceAsString(),
+                ]);
+            }
+        });
+
+        return $this;
+    }
+
     public function getRawResults(): self
     {
         $this->log('Fetching raw search results');
@@ -114,26 +161,36 @@ class SearchService
             // Merge page results, cache if not already cached.
             $results = array_merge(
                 $results,
-                Cache::remember(
-                    $this->getCacheKey('results', $this->searchQuery).':page-'.$page,
-                    now()->addMinutes(self::CACHE_TTL_MINS),
-                    fn () => Http::timeout(10)
-                        ->get($this->getSearchUrl(), [
-                            'format' => 'json',
-                            'q' => $this->searchQuery,
-                            'pageno' => $page,
-                        ])
-                        ->throw()
-                        ->json('results', [])
-                )
+                $this->getRawResultsForPage($page)
             );
         }
 
-        $this->results = collect($results);
+        $this->results = $this->results->merge($results);
 
-        $this->log(__('Found :count results', ['count' => $this->results->count()]));
+        $this->log(__('Found :count results via SearchXNG', ['count' => count($results)]));
 
         return $this;
+    }
+
+    protected function getRawResultsForPage(int $page): array
+    {
+        try {
+            return Cache::remember(
+                $this->getCacheKey('results', $this->searchQuery).':page-'.$page,
+                now()->addMinutes(self::CACHE_TTL_MINS),
+                fn () => Http::timeout(10)
+                    ->get($this->getSearchUrl(), [
+                        'format' => 'json',
+                        'q' => $this->searchQuery,
+                        'pageno' => $page,
+                    ])
+                    ->throw()
+                    ->json('results', []));
+        } catch (Throwable $e) {
+            $this->log(__('Error fetching results via SearchXNG: :error', ['error' => $e->getMessage()]));
+        }
+
+        return [];
     }
 
     public function flushRawResultsCache(int $page = 1): self
@@ -147,12 +204,20 @@ class SearchService
     public function filterResults(): self
     {
         $this->log('Filtering incompatible results');
+        $usedUrls = [];
 
-        $this->results = $this->results->filter(function ($result) {
-            $extension = pathinfo(data_get($result, 'url'), PATHINFO_EXTENSION);
+        $this->results = $this->results->filter(function ($result) use (&$usedUrls) {
+            $url = data_get($result, 'url');
+
+            if (in_array($url, $usedUrls)) {
+                return false;
+            }
+
+            $usedUrls[] = $url;
+            $extension = pathinfo($url, PATHINFO_EXTENSION);
 
             return empty($extension) || ! in_array($extension, $this->ignoredExtensions);
-        });
+        })->values();
 
         return $this;
     }
@@ -227,7 +292,7 @@ class SearchService
                         $this->replaceLastLogEntry(__('No Price found ":title" (:domain)', $logArgs), ['icon' => Icons::Warning->value]);
                     }
                 } catch (Exception $e) {
-                    $this->log(__('Failed for ":title": '.$e->getMessage(), $logArgs), ['subtitle' => $result['url']]);
+                    $this->log(__('Failed for ":title": :error', array_merge($logArgs, ['error' => $e->getMessage()])), ['subtitle' => $result['url']]);
                 }
 
                 $result['execution_time'] = (microtime(true) - $timeStart);
@@ -361,5 +426,10 @@ class SearchService
         Cache::delete($this->getLogKey());
 
         return $this;
+    }
+
+    public static function canSearch(): bool
+    {
+        return IntegrationHelper::isSearchEnabled() || ProductSource::userScopedQuery()->count() > 0;
     }
 }

@@ -4,7 +4,10 @@ namespace App\Providers;
 
 use App\Enums\NotificationMethods;
 use App\Models\Product;
+use App\Models\ProductSource;
+use App\Models\User;
 use App\Policies\ProductPolicy;
+use App\Policies\ProductSourcePolicy;
 use App\Services\Helpers\NotificationsHelper;
 use App\Services\Helpers\QueueHelper;
 use App\Services\Helpers\SettingsHelper;
@@ -30,11 +33,13 @@ class AppServiceProvider extends ServiceProvider
         $this->registerFilamentSettings();
         $this->setConfigFromAppSettings();
         $this->registerAbout();
+        $this->authorizePackages();
     }
 
     protected function registerPolicies(): void
     {
         Gate::policy(Product::class, ProductPolicy::class);
+        Gate::policy(ProductSource::class, ProductSourcePolicy::class);
     }
 
     protected function registerFilamentSettings(): void
@@ -100,5 +105,12 @@ class AppServiceProvider extends ServiceProvider
             'Version' => config('app.version', 'development'),
             'Queue Worker' => QueueHelper::isRunning() ? 'Running' : 'Stopped',
         ]);
+    }
+
+    protected function authorizePackages(): void
+    {
+        Gate::define('viewApiDocs', function (?User $user) {
+            return ! is_null($user);
+        });
     }
 }

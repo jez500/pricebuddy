@@ -9,6 +9,7 @@ use App\Filament\Resources\ProductResource\Api\Transformers\ProductTransformer;
 use App\Filament\Resources\ProductResource\Columns\ProductCardColumn;
 use App\Filament\Resources\ProductResource\Pages;
 use App\Models\Product;
+use App\Models\Tag; // ADD THIS - Missing Tag import
 use App\Providers\Filament\AdminPanelProvider;
 use App\Rules\StoreUrl;
 use App\Services\Helpers\CurrencyHelper;
@@ -65,8 +66,7 @@ class ProductResource extends Resource
             $components[] = Forms\Components\Select::make('product_id')
                 ->label('Existing product')
                 ->searchable(['title'])
-                ->getSearchResultsUsing(fn (string $search): array => auth()->user()->products()->where('title', 'like', "%{$search}%"
-                )
+                ->getSearchResultsUsing(fn (string $search): array => auth()->user()->products()->where('title', 'like', "%{$search}%")
                     ->limit(50)->pluck('title', 'id')
                     ->toArray()
                 )
@@ -110,23 +110,52 @@ class ProductResource extends Resource
                     ->native(false),
 
                 Select::make('tags')
+                    ->label('Tags')
+                    ->multiple()
                     ->relationship(
                         'tags',
                         'name',
-                        fn (Builder $query) => $query->where('user_id', auth()->id())
+                        modifyQueryUsing: fn (Builder $query) => $query->where('user_id', auth()->id())
                     )
+                    ->searchable()
+                    ->preload()
+                    ->native(false)
                     ->createOptionForm([
-                        TextInput::make('name')->required(),
-                        Hidden::make('user_id')->default(auth()->id()),
+                        TextInput::make('name')
+                            ->label('Tag name')
+                            ->required()
+                            ->maxLength(255)
+                            ->unique(
+                                Tag::class,
+                                'name',
+                                ignoreRecord: true,
+                                modifyRuleUsing: fn ($rule) => $rule->where('user_id', auth()->id())
+                            ),
+
+                        TextInput::make('weight')
+                            ->label('Sort weight')
+                            ->numeric()
+                            ->default(0)
+                            ->helperText(TagResource::getWeightHelperText()),
+
+                        Hidden::make('user_id')
+                            ->default(auth()->id()),
                     ])
-                    ->multiple()
-                    ->nullable()
-                    ->preload(),
+                    ->createOptionUsing(fn (array $data) => Tag::create($data)->id)
+                    ->getOptionLabelsUsing(fn (array $values): array => Tag::whereIn('id', $values)
+                        ->where('user_id', auth()->id())
+                        ->pluck('name', 'id')
+                        ->toArray()
+                    )
+                    ->placeholder('Search tags or create new...')
+                    ->noSearchResultsMessage('No tags found'),
+
                 Forms\Components\Select::make('weight')
                     ->label('Homepage sort order')
                     ->hintIcon(Icons::Help->value, 'The lower the number the higher it will appear on the homepage')
                     ->default('0')
                     ->options(collect(range(-50, 50))->mapWithKeys(fn ($value) => [strval($value) => strval($value)])->all()),
+
                 Forms\Components\Toggle::make('favourite')
                     ->label('Favourite')
                     ->hintIcon(Icons::Help->value, 'Mark this product as favourite')
@@ -230,7 +259,6 @@ class ProductResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc')
             ->modifyQueryUsing(function (Builder $query) {
                 $query->currentUser()->with(['tags']);
             })

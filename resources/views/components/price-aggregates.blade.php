@@ -1,10 +1,13 @@
 @php
     use App\Enums\Trend;
+    use Carbon\CarbonInterface;
+    use Illuminate\Support\Carbon;
     use function Filament\Support\get_color_css_variables;
-    $hideTrend ?? $hideTrend = false;
+    $hideTrend ?? $hideTrend = true;
+    $age = isset($age) ? Carbon::parse($age) : null;
 @endphp
 <div
-    class="mt-1 py-2 px-4 gap-2 flex border-t border-t-gray-200 dark:border-t-gray-800"
+    class="py-2 px-4 gap-2 flex"
     @style([
         get_color_css_variables(
             Trend::getColor($trend),
@@ -20,11 +23,16 @@
             </div>
         @endif
     @endforeach
+    @if ($age)
+        <div class="text-xs text-gray-500 dark:text-gray-400 pr-2" title="First price on: {{ $age->toDateString() }}">
+            Age: {{ $age->diffForHumans(syntax: CarbonInterface::DIFF_ABSOLUTE, short: true) }}
+        </div>
+    @endif
     @if (! $hideTrend)
-            <x-filament::icon
-                :icon="Trend::getIcon($trend)"
-                class="ml-auto w-4 text-custom-600 dark:text-custom-400"
-                title="Current price is {{ strtolower(Trend::getText($trend)) }}"
-            />
+        <x-filament::icon
+            :icon="Trend::getIcon($trend)"
+            class="ml-auto w-4 text-custom-600 dark:text-custom-400"
+            title="Current price is {{ strtolower(Trend::getText($trend)) }}"
+        />
     @endif
 </div>

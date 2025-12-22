@@ -9,13 +9,13 @@
     title="{{ $hoverText }}"
     style="{{ get_color_css_variables(
         $color,
-        shades: [400, 500],
+        shades: [50, 400, 600],
     ) }}"
-    class="text-custom-500 dark:text-custom-400 flex gap-2 items-center text-xs"
+    class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30"
 >
     <x-filament::icon
         icon="{{ $icon }}"
-        class="text-custom-500 dark:text-custom-400 w-4 h-4"
+        class="text-custom-600 dark:text-custom-400 w-4 h-4"
     />
     @if($label)
         <span>{{ $label }}</span>

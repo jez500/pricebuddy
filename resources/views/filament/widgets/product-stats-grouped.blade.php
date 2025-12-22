@@ -11,7 +11,7 @@
                     <x-filament::icon icon="heroicon-s-tag" class="h-5 w-5 pt-1 text-gray-400 dark:text-gray-600" />
                     {{ $group['heading'] }}
                 </h3>
-                <div class="fi-wi-stats-overview-stats-ctn grid gap-6 md:grid-cols-2 3xl:grid-cols-3">
+                <div class="fi-wi-stats-overview-stats-ctn grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
                     @foreach ($group['products'] as $product)
                         <div>
                             <x-product-card :product="$product" />

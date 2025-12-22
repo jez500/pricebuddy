@@ -122,6 +122,11 @@ class PriceCacheDto
         ];
     }
 
+    public function getFirstDate(): string
+    {
+        return $this->getHistory()->keys()->first() ?? now()->toDateString();
+    }
+
     public function getLastScrapeDate(): ?Carbon
     {
         return $this->lastScrapeDate;
