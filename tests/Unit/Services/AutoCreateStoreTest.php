@@ -36,8 +36,9 @@ class AutoCreateStoreTest extends TestCase
         $this->assertCount(2, $attributes['domains']);
         $this->assertSame('example.com', data_get($attributes, 'domains.0.domain'));
 
-        $this->assertCount(3, $attributes['scrape_strategy']);
+        $this->assertCount(4, $attributes['scrape_strategy']);
         $this->assertSame('meta[property="og:title"]|content', data_get($attributes, 'scrape_strategy.title.value'));
+        $this->assertSame('meta[property="og:price:currency"]|content', data_get($attributes, 'scrape_strategy.currency.value'));
         $this->assertArrayHasKey('price', $attributes['scrape_strategy']);
         $this->assertArrayHasKey('image', $attributes['scrape_strategy']);
     }
@@ -63,6 +64,11 @@ class AutoCreateStoreTest extends TestCase
                 'value' => 'meta[property="og:image"]|content',
                 'data' => 'http://localhost/my-image.jpg',
             ],
+            'currency' => [
+                'type' => 'selector',
+                'value' => 'meta[property="og:price:currency"]|content',
+                'data' => 'AUD',
+            ],
         ], $autoCreateStore->strategyParse());
     }
 
@@ -87,6 +93,7 @@ class AutoCreateStoreTest extends TestCase
                 'value' => 'meta[property="og:image:secure_url"]|content',
                 'data' => 'http://localhost/my-image.jpg',
             ],
+            'currency' => []
         ], $autoCreateStore->strategyParse());
     }
 
@@ -111,6 +118,7 @@ class AutoCreateStoreTest extends TestCase
                 'value' => '~\"hiRes\":\"(.+?)\"~',
                 'data' => 'http://localhost/my-image.jpg',
             ],
+            'currency' => [],
         ], $autoCreateStore->strategyParse());
     }
 
@@ -135,6 +143,7 @@ class AutoCreateStoreTest extends TestCase
                 'value' => 'meta[property="og:image"]|content',
                 'data' => 'http://localhost/my-image.jpg',
             ],
+            'currency' => [],
         ], $autoCreateStore->strategyParse());
     }
 
@@ -159,6 +168,7 @@ class AutoCreateStoreTest extends TestCase
                 'value' => 'meta[property="og:image"]|content',
                 'data' => 'http://localhost/my-image.jpg',
             ],
+            'currency' => [],
         ], $autoCreateStore->strategyParse());
     }
 
@@ -183,6 +193,7 @@ class AutoCreateStoreTest extends TestCase
                 'value' => 'meta[property="og:image"]|content',
                 'data' => 'http://localhost/my-image.jpg',
             ],
+            'currency' => [],
         ], $autoCreateStore->strategyParse());
     }
 
@@ -207,6 +218,7 @@ class AutoCreateStoreTest extends TestCase
                 'value' => '~\"hiRes\":\"(.+?)\"~',
                 'data' => 'http://localhost/my-image.jpg',
             ],
+            'currency' => [],
         ], $autoCreateStore->strategyParse());
     }
 

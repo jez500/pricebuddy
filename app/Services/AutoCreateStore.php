@@ -127,6 +127,7 @@ class AutoCreateStore
             'title' => $this->parseTitle(),
             'price' => $this->parsePrice(),
             'image' => $this->parseImage(),
+            'currency' => $this->parseCurrency(),
         ];
     }
 
@@ -167,6 +168,19 @@ class AutoCreateStore
         }
 
         if ($match = $this->attemptRegex($this->getStrategy('image', 'regex'))) {
+            return $match;
+        }
+
+        return [];
+    }
+
+    protected function parseCurrency(): ?array
+    {
+        if ($match = $this->attemptSelectors($this->getStrategy('currency', 'selector'))) {
+            return $match;
+        }
+
+        if ($match = $this->attemptRegex($this->getStrategy('currency', 'regex'))) {
             return $match;
         }
 
