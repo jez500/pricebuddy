@@ -176,11 +176,16 @@ class AutoCreateStore
 
     protected function parseCurrency(): ?array
     {
-        if ($match = $this->attemptSelectors($this->getStrategy('currency', 'selector'))) {
+        $validateCallback = function ($value) {
+            $normalized = strtoupper(trim($value));
+            return preg_match('/^[A-Z]{3}$/', $normalized) ? $normalized : null;
+        };
+
+        if ($match = $this->attemptSelectors($this->getStrategy('currency', 'selector'), $validateCallback)) {
             return $match;
         }
 
-        if ($match = $this->attemptRegex($this->getStrategy('currency', 'regex'))) {
+        if ($match = $this->attemptRegex($this->getStrategy('currency', 'regex'), $validateCallback)) {
             return $match;
         }
 
