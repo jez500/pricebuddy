@@ -222,6 +222,35 @@ class AutoCreateStoreTest extends TestCase
         ], $autoCreateStore->strategyParse());
     }
 
+    public function test_rule_parse_unstructured_store_amazon_currency()
+    {
+        $this->fakeResponse('unstructured-store-amazon-nzd');
+        $autoCreateStore = new AutoCreateStore($this->testUrl, $this->html);
+
+        $this->assertEquals([
+            'title' => [
+                'type' => 'selector',
+                'value' => 'title',
+                'data' => 'My NZD amazon product',
+            ],
+            'price' => [
+                'type' => 'selector',
+                'value' => '.a-price .a-offscreen',
+                'data' => '57.47',
+            ],
+            'image' => [
+                'type' => 'regex',
+                'value' => '~\"hiRes\":\"(.+?)\"~',
+                'data' => 'http://localhost/my-image.jpg',
+            ],
+            'currency' => [
+                'type' => 'selector',
+                'value' => 'input[name="items\[0\.base\]\[customerVisiblePrice\]\[currencyCode\]"]|value',
+                'data' => 'NZD',
+            ],
+        ], $autoCreateStore->strategyParse());
+    }
+
     protected function getHtml(string $name): string
     {
         return file_get_contents(__DIR__.'/../../Fixtures/AutoCreateStore/'.$name.'.html');
