@@ -44,6 +44,7 @@ return [
         'price' => [
             'selector' => [
                 'meta[property="product:price:amount"]|content',
+                'meta[property="og:price:amount"]|content',
                 '.a-price .a-offscreen',            // Amazon
                 '[itemProp="price"]|content',
                 '.price',
