@@ -100,7 +100,7 @@ class AutoCreateStore
 
         $attributes['name'] = ucfirst($host);
 
-        $attributes['scrape_strategy'] = collect($this->strategyParse())
+        $attributes['scrape_strategy'] = collect($strategy)
             ->mapWithKeys(function ($value, $key) {
                 return [
                     $key => collect($value)->only('type', 'value')->all(),
@@ -114,7 +114,7 @@ class AutoCreateStore
             'test_url' => $this->url,
             'locale_settings' => [
                 'locale' => CurrencyHelper::getLocale(),
-                'currency' => CurrencyHelper::getCurrency(),
+                'currency' => data_get($strategy, 'currency.data') ?: CurrencyHelper::getCurrency(),
             ],
         ];
 
