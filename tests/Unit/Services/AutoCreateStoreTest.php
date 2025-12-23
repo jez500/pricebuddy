@@ -38,7 +38,6 @@ class AutoCreateStoreTest extends TestCase
 
         $this->assertCount(4, $attributes['scrape_strategy']);
         $this->assertSame('meta[property="og:title"]|content', data_get($attributes, 'scrape_strategy.title.value'));
-        $this->assertSame('meta[property="og:price:currency"]|content', data_get($attributes, 'scrape_strategy.currency.value'));
         $this->assertArrayHasKey('price', $attributes['scrape_strategy']);
         $this->assertArrayHasKey('image', $attributes['scrape_strategy']);
     }
@@ -64,12 +63,50 @@ class AutoCreateStoreTest extends TestCase
                 'value' => 'meta[property="og:image"]|content',
                 'data' => 'http://localhost/my-image.jpg',
             ],
+            'currency' => [],
+        ], $autoCreateStore->strategyParse());
+
+        // No locale info, uses defaults.
+        $this->assertEquals([
+            'locale' => 'en',
+            'currency' => 'USD',
+        ], $autoCreateStore->getStoreAttributes()['settings']['locale_settings']);
+    }
+
+    public function test_rule_parse_basic_meta_currency()
+    {
+        $this->fakeResponse('basic-meta-aud');
+        $autoCreateStore = new AutoCreateStore($this->testUrl, $this->html);
+        $attributes = $autoCreateStore->getStoreAttributes();
+
+        $this->assertEquals([
+            'title' => [
+                'type' => 'selector',
+                'value' => 'meta[property="og:title"]|content',
+                'data' => 'My product',
+            ],
+            'price' => [
+                'type' => 'selector',
+                'value' => 'meta[property="product:price:amount"]|content',
+                'data' => '35.00',
+            ],
+            'image' => [
+                'type' => 'selector',
+                'value' => 'meta[property="og:image"]|content',
+                'data' => 'http://localhost/my-image.jpg',
+            ],
             'currency' => [
                 'type' => 'selector',
                 'value' => 'meta[property="og:price:currency"]|content',
                 'data' => 'AUD',
             ],
         ], $autoCreateStore->strategyParse());
+
+        $this->assertSame('meta[property="og:price:currency"]|content', data_get($attributes, 'scrape_strategy.currency.value'));
+        $this->assertEquals([
+            'locale' => 'en',
+            'currency' => 'AUD',
+        ], $autoCreateStore->getStoreAttributes()['settings']['locale_settings']);
     }
 
     public function test_rule_parse_basic_meta_secure_image()
