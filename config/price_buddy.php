@@ -74,7 +74,7 @@ return [
         'currency' => [
             'selector' => [
                 'meta[property="og:price:currency"]|content',
-                'input[name="items\[0\.base\]\[customerVisiblePrice\]\[currencyCode\]"]|value'
+                'input[name="items\[0\.base\]\[customerVisiblePrice\]\[currencyCode\]"]|value',
             ],
             'xpath' => [],
             'regex' => [

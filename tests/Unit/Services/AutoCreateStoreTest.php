@@ -130,7 +130,7 @@ class AutoCreateStoreTest extends TestCase
                 'value' => 'meta[property="og:image:secure_url"]|content',
                 'data' => 'http://localhost/my-image.jpg',
             ],
-            'currency' => []
+            'currency' => [],
         ], $autoCreateStore->strategyParse());
     }
 

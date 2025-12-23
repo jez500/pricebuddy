@@ -178,6 +178,7 @@ class AutoCreateStore
     {
         $validateCallback = function ($value) {
             $normalized = strtoupper(trim($value));
+
             return preg_match('/^[A-Z]{3}$/', $normalized) ? $normalized : null;
         };
 
