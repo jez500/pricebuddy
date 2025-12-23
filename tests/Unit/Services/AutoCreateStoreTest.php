@@ -36,7 +36,7 @@ class AutoCreateStoreTest extends TestCase
         $this->assertCount(2, $attributes['domains']);
         $this->assertSame('example.com', data_get($attributes, 'domains.0.domain'));
 
-        $this->assertCount(3, $attributes['scrape_strategy']);
+        $this->assertCount(4, $attributes['scrape_strategy']);
         $this->assertSame('meta[property="og:title"]|content', data_get($attributes, 'scrape_strategy.title.value'));
         $this->assertArrayHasKey('price', $attributes['scrape_strategy']);
         $this->assertArrayHasKey('image', $attributes['scrape_strategy']);
@@ -63,7 +63,50 @@ class AutoCreateStoreTest extends TestCase
                 'value' => 'meta[property="og:image"]|content',
                 'data' => 'http://localhost/my-image.jpg',
             ],
+            'currency' => [],
         ], $autoCreateStore->strategyParse());
+
+        // No locale info, uses defaults.
+        $this->assertEquals([
+            'locale' => 'en',
+            'currency' => 'USD',
+        ], $autoCreateStore->getStoreAttributes()['settings']['locale_settings']);
+    }
+
+    public function test_rule_parse_basic_meta_currency()
+    {
+        $this->fakeResponse('basic-meta-aud');
+        $autoCreateStore = new AutoCreateStore($this->testUrl, $this->html);
+        $attributes = $autoCreateStore->getStoreAttributes();
+
+        $this->assertEquals([
+            'title' => [
+                'type' => 'selector',
+                'value' => 'meta[property="og:title"]|content',
+                'data' => 'My product',
+            ],
+            'price' => [
+                'type' => 'selector',
+                'value' => 'meta[property="product:price:amount"]|content',
+                'data' => '35.00',
+            ],
+            'image' => [
+                'type' => 'selector',
+                'value' => 'meta[property="og:image"]|content',
+                'data' => 'http://localhost/my-image.jpg',
+            ],
+            'currency' => [
+                'type' => 'selector',
+                'value' => 'meta[property="og:price:currency"]|content',
+                'data' => 'AUD',
+            ],
+        ], $autoCreateStore->strategyParse());
+
+        $this->assertSame('meta[property="og:price:currency"]|content', data_get($attributes, 'scrape_strategy.currency.value'));
+        $this->assertEquals([
+            'locale' => 'en',
+            'currency' => 'AUD',
+        ], $autoCreateStore->getStoreAttributes()['settings']['locale_settings']);
     }
 
     public function test_rule_parse_basic_meta_secure_image()
@@ -87,6 +130,7 @@ class AutoCreateStoreTest extends TestCase
                 'value' => 'meta[property="og:image:secure_url"]|content',
                 'data' => 'http://localhost/my-image.jpg',
             ],
+            'currency' => [],
         ], $autoCreateStore->strategyParse());
     }
 
@@ -111,6 +155,7 @@ class AutoCreateStoreTest extends TestCase
                 'value' => '~\"hiRes\":\"(.+?)\"~',
                 'data' => 'http://localhost/my-image.jpg',
             ],
+            'currency' => [],
         ], $autoCreateStore->strategyParse());
     }
 
@@ -135,6 +180,7 @@ class AutoCreateStoreTest extends TestCase
                 'value' => 'meta[property="og:image"]|content',
                 'data' => 'http://localhost/my-image.jpg',
             ],
+            'currency' => [],
         ], $autoCreateStore->strategyParse());
     }
 
@@ -159,6 +205,7 @@ class AutoCreateStoreTest extends TestCase
                 'value' => 'meta[property="og:image"]|content',
                 'data' => 'http://localhost/my-image.jpg',
             ],
+            'currency' => [],
         ], $autoCreateStore->strategyParse());
     }
 
@@ -183,6 +230,7 @@ class AutoCreateStoreTest extends TestCase
                 'value' => 'meta[property="og:image"]|content',
                 'data' => 'http://localhost/my-image.jpg',
             ],
+            'currency' => [],
         ], $autoCreateStore->strategyParse());
     }
 
@@ -206,6 +254,36 @@ class AutoCreateStoreTest extends TestCase
                 'type' => 'regex',
                 'value' => '~\"hiRes\":\"(.+?)\"~',
                 'data' => 'http://localhost/my-image.jpg',
+            ],
+            'currency' => [],
+        ], $autoCreateStore->strategyParse());
+    }
+
+    public function test_rule_parse_unstructured_store_amazon_currency()
+    {
+        $this->fakeResponse('unstructured-store-amazon-nzd');
+        $autoCreateStore = new AutoCreateStore($this->testUrl, $this->html);
+
+        $this->assertEquals([
+            'title' => [
+                'type' => 'selector',
+                'value' => 'title',
+                'data' => 'My NZD amazon product',
+            ],
+            'price' => [
+                'type' => 'selector',
+                'value' => '.a-price .a-offscreen',
+                'data' => '57.47',
+            ],
+            'image' => [
+                'type' => 'regex',
+                'value' => '~\"hiRes\":\"(.+?)\"~',
+                'data' => 'http://localhost/my-image.jpg',
+            ],
+            'currency' => [
+                'type' => 'selector',
+                'value' => 'input[name="items\[0\.base\]\[customerVisiblePrice\]\[currencyCode\]"]|value',
+                'data' => 'NZD',
             ],
         ], $autoCreateStore->strategyParse());
     }

@@ -100,7 +100,7 @@ class AutoCreateStore
 
         $attributes['name'] = ucfirst($host);
 
-        $attributes['scrape_strategy'] = collect($this->strategyParse())
+        $attributes['scrape_strategy'] = collect($strategy)
             ->mapWithKeys(function ($value, $key) {
                 return [
                     $key => collect($value)->only('type', 'value')->all(),
@@ -114,7 +114,7 @@ class AutoCreateStore
             'test_url' => $this->url,
             'locale_settings' => [
                 'locale' => CurrencyHelper::getLocale(),
-                'currency' => CurrencyHelper::getCurrency(),
+                'currency' => data_get($strategy, 'currency.data') ?: CurrencyHelper::getCurrency(),
             ],
         ];
 
@@ -127,6 +127,7 @@ class AutoCreateStore
             'title' => $this->parseTitle(),
             'price' => $this->parsePrice(),
             'image' => $this->parseImage(),
+            'currency' => $this->parseCurrency(),
         ];
     }
 
@@ -167,6 +168,25 @@ class AutoCreateStore
         }
 
         if ($match = $this->attemptRegex($this->getStrategy('image', 'regex'))) {
+            return $match;
+        }
+
+        return [];
+    }
+
+    protected function parseCurrency(): ?array
+    {
+        $validateCallback = function ($value) {
+            $normalized = strtoupper(trim($value));
+
+            return preg_match('/^[A-Z]{3}$/', $normalized) ? $normalized : null;
+        };
+
+        if ($match = $this->attemptSelectors($this->getStrategy('currency', 'selector'), $validateCallback)) {
+            return $match;
+        }
+
+        if ($match = $this->attemptRegex($this->getStrategy('currency', 'regex'), $validateCallback)) {
             return $match;
         }
 
