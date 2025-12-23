@@ -68,8 +68,8 @@ class AutoCreateStoreTest extends TestCase
 
         // No locale info, uses defaults.
         $this->assertEquals([
-            'locale' => 'en',
-            'currency' => 'USD',
+            'locale' => 'en_AU',
+            'currency' => 'GBP',
         ], $autoCreateStore->getStoreAttributes()['settings']['locale_settings']);
     }
 
@@ -104,7 +104,7 @@ class AutoCreateStoreTest extends TestCase
 
         $this->assertSame('meta[property="og:price:currency"]|content', data_get($attributes, 'scrape_strategy.currency.value'));
         $this->assertEquals([
-            'locale' => 'en',
+            'locale' => 'en_AU',
             'currency' => 'AUD',
         ], $autoCreateStore->getStoreAttributes()['settings']['locale_settings']);
     }
