@@ -6,7 +6,7 @@ use Spatie\LaravelSettings\Settings;
 
 class AppSettings extends Settings
 {
-    public string $scrape_schedule_time;
+    public string $scrape_schedule;
 
     public int $scrape_cache_ttl;
 
