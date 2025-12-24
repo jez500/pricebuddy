@@ -9,7 +9,15 @@ return new class extends SettingsMigration
      */
     public function up(): void
     {
-        $this->migrator->add('app.scrape_schedule', '0 6 * * *');
+        $existingTime = $this->migrator->read('app.scrape_schedule_time');
+        if ($existingTime) {
+            // Convert HH:MM format to cron expression: "M H * * *"
+            [$hours, $minutes] = explode(':', $existingTime);
+            $cronExpression = sprintf('%d %d * * *', (int)$minutes, (int)$hours);
+            $this->migrator->add('app.scrape_schedule', $cronExpression);
+        } else {
+            $this->migrator->add('app.scrape_schedule', '0 6 * * *');
+        }
         $this->migrator->delete('app.scrape_schedule_time');
     }
 
