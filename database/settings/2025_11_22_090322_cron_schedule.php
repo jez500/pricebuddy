@@ -13,7 +13,7 @@ return new class extends SettingsMigration
         if ($existingTime) {
             // Convert HH:MM format to cron expression: "M H * * *"
             [$hours, $minutes] = explode(':', $existingTime);
-            $cronExpression = sprintf('%d %d * * *', (int)$minutes, (int)$hours);
+            $cronExpression = sprintf('%d %d * * *', (int) $minutes, (int) $hours);
             $this->migrator->add('app.scrape_schedule', $cronExpression);
         } else {
             $this->migrator->add('app.scrape_schedule', '0 6 * * *');
