@@ -61,9 +61,6 @@ class AppSettingsPage extends SettingsPage
                             ->label('Fetch schedule')
                             ->hintIcon(Icons::Help->value, 'Cron expression to control scraping. Use https://crontab.guru to build an expression.')
                             ->rule(new ValidCron)
-                            ->validationMessages([
-                                'regex' => 'Please enter a valid cron expression (e.g., 0 6 * * *)',
-                            ])
                             ->required(),
                         TextInput::make('scrape_cache_ttl')
                             ->label('Scrape cache ttl')
