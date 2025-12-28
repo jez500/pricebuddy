@@ -7,8 +7,8 @@ These are app wide settings that allow you to configure how PriceBuddy behaves.
 These settings control how the scraper behaves. The scraper is responsible for
 fetching the product details from the product URL.
 
-**Fetch schedule time** - Prices will be scraped once a day, this setting lets 
-you control when that happens.
+**Fetch schedule** - A cron expression that defines when prices get auto-updated. 
+The default is `0 6 * * *` which is 6am every day.
 
 **Scrape cache ttl** - When a page is scraped, it will be cached for this amount 
 of time. This is to prevent scraping the same page multiple times in a short period. 
