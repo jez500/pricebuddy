@@ -1,5 +1,4 @@
 import pbChart from "./pbChart.js";
-
 window.pbChart = pbChart;
 
 new ClipboardJS('.copy-to-clipboard');

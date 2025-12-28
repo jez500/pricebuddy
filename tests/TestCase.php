@@ -17,4 +17,14 @@ abstract class TestCase extends BaseTestCase
         // Ensure we're always using the test database.
         config()->set('database.connections.mariadb.host', 'tests_db');
     }
+
+    /**
+     * Define the migrations to run before regular migrations.
+     * Settings migrations must run first because some regular migrations depend on them.
+     */
+    protected function defineDatabaseMigrations(): void
+    {
+        // Run settings migrations first
+        $this->artisan('migrate', ['--path' => 'database/settings', '--force' => true]);
+    }
 }
