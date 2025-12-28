@@ -9,15 +9,17 @@ use App\Filament\Actions\Notifications\TestAppriseAction;
 use App\Filament\Actions\Notifications\TestGotifyAction;
 use App\Filament\Traits\FormHelperTrait;
 use App\Models\UrlResearch;
+use App\Rules\ValidCron;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\LocaleHelper;
+use App\Services\Helpers\ScheduleHelper;
 use App\Services\SearchService;
 use App\Settings\AppSettings;
-use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Pages\SettingsPage;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\HtmlString;
@@ -57,10 +59,12 @@ class AppSettingsPage extends SettingsPage
                     ->description(__('Settings for scraping'))
                     ->columns(2)
                     ->schema([
-                        Forms\Components\TimePicker::make('scrape_schedule_time')
-                            ->label('Fetch schedule time')
-                            ->seconds(false)
-                            ->hintIcon(Icons::Help->value, 'The time of day to get product prices')
+                        TextInput::make('scrape_schedule')
+                            ->label('Fetch schedule')
+                            ->hintIcon(Icons::Help->value, 'Cron expression to control scraping. Use https://crontab.guru to build an expression.')
+                            ->rule(new ValidCron)
+                            ->live()
+                            ->helperText(fn (Get $get) => ScheduleHelper::parseCronExpression($get('scrape_schedule')))
                             ->required(),
                         TextInput::make('scrape_cache_ttl')
                             ->label('Scrape cache ttl')

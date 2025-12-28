@@ -20,6 +20,10 @@ class SettingsHelper
                     ? AppSettings::new()->toArray()
                     : []
                 );
+        } catch (MissingSettings $e) {
+            Log::error('Settings not fully configured: '.$e->getMessage());
+
+            return [];
         } catch (Exception $e) {
             return [];
         }
@@ -38,9 +42,14 @@ class SettingsHelper
 
     public static function setSetting(string $name, mixed $value): void
     {
-        $settings = static::getSettings();
-        data_set($settings, $name, $value);
-        AppSettings::new()->fill($settings)->save();
-        self::$settings = $settings;
+        try {
+            $settings = static::getSettings();
+            data_set($settings, $name, $value);
+            AppSettings::new()->fill($settings)->save();
+            self::$settings = $settings;
+        } catch (MissingSettings $e) {
+            Log::error("Cannot set setting '$name': Settings not fully configured - ".$e->getMessage());
+            throw $e;
+        }
     }
 }

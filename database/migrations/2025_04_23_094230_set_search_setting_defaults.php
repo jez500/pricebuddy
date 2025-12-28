@@ -13,11 +13,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        $settings = IntegrationHelper::getSettings();
+        try {
+            $settings = IntegrationHelper::getSettings();
 
-        data_set($settings, IntegratedServices::SearXng->value.'.prune_days', UrlResearch::DEFAULT_PRUNE_DAYS);
-        data_set($settings, IntegratedServices::SearXng->value.'.max_pages', SearchService::DEFAULT_MAX_PAGES);
+            data_set($settings, IntegratedServices::SearXng->value.'.prune_days', UrlResearch::DEFAULT_PRUNE_DAYS);
+            data_set($settings, IntegratedServices::SearXng->value.'.max_pages', SearchService::DEFAULT_MAX_PAGES);
 
-        IntegrationHelper::setSettings($settings);
+            IntegrationHelper::setSettings($settings);
+        } catch (\Spatie\LaravelSettings\Exceptions\MissingSettings $e) {
+            // Settings not fully migrated yet, skip this migration
+            // It will be handled when settings are properly configured
+        }
     }
 };

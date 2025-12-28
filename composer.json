@@ -21,6 +21,7 @@
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
+        "lorisleiva/cron-translator": "^0.4.6",
         "moneyphp/money": "^3.3",
         "phiki/phiki": "^2.0",
         "pxlrbt/filament-spotlight": "^1.3",
