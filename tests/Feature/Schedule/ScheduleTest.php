@@ -1,6 +1,6 @@
 <?php
 
-namespace Schedule;
+namespace Tests\Feature\Schedule;
 
 use App\Console\Commands\FetchAll;
 use App\Models\UrlResearch;
