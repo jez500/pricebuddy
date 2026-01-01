@@ -71,5 +71,14 @@ return [
                 '~\"image\"\:\s?\"(.*?\.png)\"~',   // Something that looks like an image, in a json object, eg "price": "99.99"
             ],
         ],
+        'currency' => [
+            'selector' => [
+                'meta[property="og:price:currency"]|content',
+                'input[name="items\[0\.base\]\[customerVisiblePrice\]\[currencyCode\]"]|value',
+            ],
+            'xpath' => [],
+            'regex' => [
+            ],
+        ],
     ],
 ];
