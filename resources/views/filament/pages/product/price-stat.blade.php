@@ -65,7 +65,7 @@
             @if ($priceCache->getFactor() != 1)
                 <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {{ __('Retail') }}: {{ $priceCache->getPriceFormatted() }}
-                    <span class="text-gray-400 dark:text-gray-500">({{ (int) $priceCache->getFactor() }} {{ $priceCache->getUnitOfMeasure() ?? 'pk' }})</span>
+                    <span class="text-gray-400 dark:text-gray-500">({{ rtrim(rtrim($priceCache->getFactor(), '0'), '.') }} {{ $priceCache->getUnitOfMeasure() ?? 'pk' }})</span>
                 </div>
             @endif
         </div>
