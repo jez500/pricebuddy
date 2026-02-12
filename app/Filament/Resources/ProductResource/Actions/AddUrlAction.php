@@ -58,13 +58,8 @@ class AddUrlAction extends Action
                     url: $data['url'],
                     productId: $product->getKey(),
                     userId: auth()->id(),
+                    factor: (float) ($data['factor'] ?? 1),
                 );
-
-                if ($urlModel && ! empty($data['factor']) && $data['factor'] != 1) {
-                    $urlModel->update(['factor' => $data['factor']]);
-                    // Re-fetch price with the new factor applied.
-                    $urlModel->updatePrice();
-                }
 
                 $this->success();
                 $this->redirect($product->view_url);

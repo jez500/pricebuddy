@@ -148,7 +148,7 @@ class Url extends Model
         return $this->url ? ScrapeUrl::new($this->url)->scrape() : [];
     }
 
-    public static function createFromUrl(string $url, ?int $productId = null, ?int $userId = null, bool $createStore = true): Url|false
+    public static function createFromUrl(string $url, ?int $productId = null, ?int $userId = null, bool $createStore = true, float $factor = 1): Url|false
     {
         $userId = $userId ?? auth()->id();
 
@@ -185,6 +185,7 @@ class Url extends Model
             'url' => $url,
             'store_id' => $store->getKey(),
             'product_id' => $productId,
+            'factor' => $factor,
         ]);
 
         $urlModel->updatePrice(data_get($scrape, 'price'));

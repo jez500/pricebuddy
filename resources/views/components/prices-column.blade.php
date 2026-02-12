@@ -43,7 +43,7 @@
                     <div class="hover:underline {{ $color }}" @if ($idx > 0) style="{{ Filament\Support\get_color_css_variables(Color::Gray, shades: [300, 500, 400, 600, 800]) }}" @endif>
                         <strong class="text-[1.2em] font-bold">{{ $cache->getUnitPriceFormatted() }}</strong>
                         @if ($cache->getFactor() != 1)
-                            <span class="text-xs text-gray-400 dark:text-gray-500">{{ $cache->getPriceFormatted() }} ({{ (int) $cache->getFactor() }} {{ $cache->getUnitOfMeasure() ?? 'pk' }})</span>
+                            <span class="text-xs text-gray-400 dark:text-gray-500">{{ $cache->getPriceFormatted() }} ({{ rtrim(rtrim($cache->getFactor(), '0'), '.') }} {{ $cache->getUnitOfMeasure() ?? 'pk' }})</span>
                         @endif
                         ({{ $cache->getStoreName() }})
                     </div>
