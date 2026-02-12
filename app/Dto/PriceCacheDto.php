@@ -23,6 +23,10 @@ class PriceCacheDto
 
     private float $price;
 
+    private float $unitPrice;
+
+    private float $factor;
+
     private array $history;
 
     private ?Carbon $lastScrapeDate;
@@ -30,6 +34,8 @@ class PriceCacheDto
     private string $locale;
 
     private string $currency;
+
+    private ?string $unitOfMeasure;
 
     public function __construct(
         float $price,
@@ -42,6 +48,9 @@ class PriceCacheDto
         ?string $lastScrape = null,
         ?string $locale = null,
         ?string $currency = null,
+        ?float $unitPrice = null,
+        float $factor = 1,
+        ?string $unitOfMeasure = null,
     ) {
         $this->storeId = $storeId;
         $this->storeName = $storeName;
@@ -49,10 +58,13 @@ class PriceCacheDto
         $this->url = $url;
         $this->trend = $trend;
         $this->price = $price;
+        $this->unitPrice = $unitPrice ?? $price;
+        $this->factor = $factor;
         $this->history = $history;
         $this->lastScrapeDate = $lastScrape ? Carbon::parse($lastScrape) : null;
         $this->locale = $locale ?? CurrencyHelper::getLocale();
         $this->currency = $currency ?? CurrencyHelper::getCurrency();
+        $this->unitOfMeasure = $unitOfMeasure;
     }
 
     // Getters
@@ -104,6 +116,26 @@ class PriceCacheDto
     public function getPriceFormatted(): string
     {
         return CurrencyHelper::toString($this->getPrice(), locale: $this->locale, iso: $this->currency);
+    }
+
+    public function getUnitPrice(): float
+    {
+        return $this->unitPrice;
+    }
+
+    public function getUnitPriceFormatted(): string
+    {
+        return CurrencyHelper::toString($this->getUnitPrice(), locale: $this->locale, iso: $this->currency);
+    }
+
+    public function getUnitOfMeasure(): ?string
+    {
+        return $this->unitOfMeasure;
+    }
+
+    public function getFactor(): float
+    {
+        return $this->factor;
     }
 
     public function getHistory(int $count = 365): Collection
@@ -163,7 +195,10 @@ class PriceCacheDto
             $data['history'],
             $data['last_scrape'] ?? null,
             $data['locale'] ?? null,
-            $data['currency'] ?? null
+            $data['currency'] ?? null,
+            $data['unit_price'] ?? null,
+            $data['factor'] ?? 1,
+            $data['unit_of_measure'] ?? null,
         );
     }
 
@@ -180,12 +215,16 @@ class PriceCacheDto
             'trend_text' => $this->getTrendText(),
             'price' => $this->getPrice(),
             'price_formatted' => $this->getPriceFormatted(),
+            'unit_price' => $this->getUnitPrice(),
+            'unit_price_formatted' => $this->getUnitPriceFormatted(),
+            'factor' => $this->getFactor(),
             'history' => $this->getHistory(),
             'last_scrape' => $this->getLastScrapeDate(),
             'hours_since_last_scrape' => $this->getHoursSinceLastScrape(),
             'successful_last_scrape' => $this->isLastScrapeSuccessful(),
             'locale' => $this->locale,
             'currency' => $this->currency,
+            'unit_of_measure' => $this->getUnitOfMeasure(),
         ];
     }
 }

@@ -20,6 +20,8 @@ class PriceFactory extends Factory
     {
         return [
             'price' => 10.00,
+            'unit_price' => 10.00,
+            'factor' => 1,
             'url_id' => Url::factory(),
             'store_id' => Store::factory(),
         ];
