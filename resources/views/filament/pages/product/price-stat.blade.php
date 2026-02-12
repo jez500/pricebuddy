@@ -56,10 +56,18 @@
     >
     <div class="flex mb-4 gap-4">
 
-        <div
-            class="fi-wi-stats-overview-stat-value {{ $firstCardValueStyle }}"
-        >
-            {{ $getValue() }}
+        <div>
+            <div
+                class="fi-wi-stats-overview-stat-value {{ $firstCardValueStyle }}"
+            >
+                {{ $getValue() }}
+            </div>
+            @if ($priceCache->getFactor() != 1)
+                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {{ __('Retail') }}: {{ $priceCache->getPriceFormatted() }}
+                    <span class="text-gray-400 dark:text-gray-500">({{ (int) $priceCache->getFactor() }} {{ $priceCache->getUnitOfMeasure() ?? 'pk' }})</span>
+                </div>
+            @endif
         </div>
 
         <div class="flex items-center gap-x-2 justify-start">

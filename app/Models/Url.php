@@ -20,6 +20,7 @@ use Illuminate\Support\Str;
  * Product URL.
  *
  * @property ?string $url
+ * @property float $factor
  * @property string $product_name_short
  * @property string $store_name
  * @property string $buy_url
@@ -205,8 +206,13 @@ class Url extends Model
             return null;
         }
 
+        $priceFloat = CurrencyHelper::toFloat($price, locale: $this->store?->locale, iso: $this->store?->currency);
+        $factor = $this->factor ?: 1;
+
         return $this->prices()->create([
-            'price' => CurrencyHelper::toFloat($price, locale: $this->store?->locale, iso: $this->store?->currency),
+            'price' => $priceFloat,
+            'unit_price' => $priceFloat / $factor,
+            'factor' => $factor,
             'store_id' => $this->store_id,
         ]);
     }

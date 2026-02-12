@@ -51,6 +51,20 @@ class ProductSeeder extends Seeder
             'image' => 'https://m.media-amazon.com/images/I/812-y3MIhmL._AC_SX679_PIbundle-2,TopRight,0,0_SH20_.jpg',
             'tag' => 'Household',
         ],
+        [
+            'title' => 'Lavazza Napoli Premium Coffee Beans 500g',
+            'urls' => [
+                'https://www.coles.com.au/product/lavazza-tales-of-italy-alluring-napoli-premium-coffee-beans-500g-6277834' => ['22', '24', '22', '19', '22'],
+                'https://www.woolworths.com.au/shop/productdetails/309483/lavazza-tales-of-italy-alluring-napoli-coffee-beans' => ['23', '21', '23', '20', '21'],
+                'https://www.amazon.com.au/Lavazza-Espresso-Chocolate-Intensity-Australia/dp/B0C1JWVRG5?tag=pricebuddy-22' => ['66', '63', '69', '57', '63'],
+            ],
+            'image' => 'https://cdn.productimages.coles.com.au/productimages/6/6277834.jpg',
+            'tag' => 'Household',
+            'unit_of_measure' => 'bag',
+            'factors' => [
+                'https://www.amazon.com.au/Lavazza-Espresso-Chocolate-Intensity-Australia/dp/B0C1JWVRG5?tag=pricebuddy-22' => 3,
+            ],
+        ],
     ];
 
     /**
@@ -87,15 +101,18 @@ class ProductSeeder extends Seeder
 
         foreach ($this->dummy as $productData) {
             $factory = Product::factory();
+            $factors = $productData['factors'] ?? [];
 
             foreach ($productData['urls'] as $url => $prices) {
-                $factory = $factory->addUrlWithPrices($url, $prices);
+                $factor = $factors[$url] ?? 1;
+                $factory = $factory->addUrlWithPrices($url, $prices, $factor);
             }
 
             /** @var Product $product */
             $product = $factory->createOne([
                 'title' => $productData['title'],
                 'image' => $productData['image'],
+                'unit_of_measure' => $productData['unit_of_measure'] ?? null,
                 'user_id' => $userId,
             ]);
 

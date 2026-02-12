@@ -87,6 +87,45 @@ class UrlTest extends TestCase
 
         $this->assertInstanceOf(Price::class, $priceModel);
         $this->assertEquals(100.0, $priceModel->price);
+        $this->assertEquals(100.0, $priceModel->unit_price);
+        $this->assertEquals(1, $priceModel->factor);
+    }
+
+    public function test_update_price_calculates_unit_price_with_factor()
+    {
+        $product = Product::factory()->create();
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'factor' => 6,
+        ]);
+
+        $this->mockScrape('$12', 'foo');
+
+        $priceModel = $url->updatePrice();
+
+        $this->assertInstanceOf(Price::class, $priceModel);
+        $this->assertEquals(12.0, $priceModel->price);
+        $this->assertEquals(2.0, $priceModel->unit_price);
+        $this->assertEquals(6, $priceModel->factor);
+    }
+
+    public function test_update_price_with_default_factor()
+    {
+        $product = Product::factory()->create();
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+        ]);
+
+        $priceModel = $url->updatePrice(50);
+
+        $this->assertInstanceOf(Price::class, $priceModel);
+        $this->assertEquals(50.0, $priceModel->price);
+        $this->assertEquals(50.0, $priceModel->unit_price);
+        $this->assertEquals(1, $priceModel->factor);
     }
 
     public function test_update_price_with_invalid_data()

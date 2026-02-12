@@ -49,5 +49,7 @@ class EditProduct extends EditRecord
         $product = $this->record;
 
         $product->tags()->sync($this->data['tags']);
+        $product->refresh();
+        $product->updatePriceCache();
     }
 }
