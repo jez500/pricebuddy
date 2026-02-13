@@ -36,7 +36,7 @@
                         </span>
                         @if ($latestPrice->getFactor() != 1)
                             <span class="text-xs text-gray-400 dark:text-gray-500">
-                                {{ $latestPrice->getPriceFormatted() }} ({{ rtrim(rtrim($latestPrice->getFactor(), '0'), '.') }} {{ $latestPrice->getUnitOfMeasure() ?? 'pk' }})
+                                {{ $latestPrice->getPriceFormatted() }} ({{ (float) $latestPrice->getFactor() }} {{ $latestPrice->getUnitOfMeasure() ?? 'pk' }})
                             </span>
                         @endif
                         <span class="text-xs text-gray-500 dark:text-gray-400 font-bold display-block">
