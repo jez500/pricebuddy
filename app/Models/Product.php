@@ -406,7 +406,7 @@ class Product extends Model
                     'url' => $url->buy_url,
                     'trend' => $trend,
                     'price' => $urlHistory->last(),
-                    'unit_price' => $lastScrapedPrice?->unit_price ?? $urlHistory->last(),
+                    'unit_price' => $lastScrapedPrice->unit_price ?? $urlHistory->last(),
                     'factor' => ($f = $url->factor ?: 1) == (int) $f ? (int) $f : $f,
                     'history' => $urlHistory->toArray(),
                     'last_scrape' => $lastScrapedTimestamp?->toDateTimeString(),
@@ -484,7 +484,7 @@ class Product extends Model
     public function updatePriceCache(): void
     {
         $priceCache = $this->buildPriceCache()->toArray();
-        $this->update(['price_cache' => $priceCache, 'current_price' => data_get($priceCache, '0.price', 0)]);
+        $this->update(['price_cache' => $priceCache, 'current_price' => data_get($priceCache, '0.unit_price', 0)]);
     }
 
     /**
