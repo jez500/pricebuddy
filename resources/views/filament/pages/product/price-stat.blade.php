@@ -207,6 +207,7 @@
         <div class="pb-expandable-stat__actions px-3 pt-4 pb-3 flex gap-2 justify-start items-center text-gray-500 dark:text-gray-400">
             {{ ($this->viewAction)(['url' => $priceCache->getUrl()]) }}
             {{ ($this->fetchAction)(['url' => $priceCache->getUrlId()]) }}
+            {{ ($this->editAction)(['url' => $priceCache->getUrlId()]) }}
             {{ ($this->deleteAction)(['url' => $priceCache->getUrlId()]) }}
          </div>
         @include('components.price-aggregates', [
