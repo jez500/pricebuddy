@@ -36,8 +36,8 @@ class AddUrlAction extends Action
                 ->hiddenLabel(true)
                 ->placeholder('http://my-store.com/product')
                 ->rules([new StoreUrl]),
-            TextInput::make('factor')
-                ->label(__('Factor'))
+            TextInput::make('price_factor')
+                ->label(__('Price Factor'))
                 ->numeric()
                 ->default(1)
                 ->minValue(0.01)
@@ -58,7 +58,7 @@ class AddUrlAction extends Action
                     url: $data['url'],
                     productId: $product->getKey(),
                     userId: auth()->id(),
-                    factor: (float) ($data['factor'] ?? 1),
+                    priceFactor: (float) ($data['price_factor'] ?? 1),
                 );
 
                 $this->success();

@@ -25,7 +25,7 @@ class PriceCacheDto
 
     private float $unitPrice;
 
-    private float $factor;
+    private float $priceFactor;
 
     private array $history;
 
@@ -49,7 +49,7 @@ class PriceCacheDto
         ?string $locale = null,
         ?string $currency = null,
         ?float $unitPrice = null,
-        float $factor = 1,
+        float $priceFactor = 1,
         ?string $unitOfMeasure = null,
     ) {
         $this->storeId = $storeId;
@@ -59,7 +59,7 @@ class PriceCacheDto
         $this->trend = $trend;
         $this->price = $price;
         $this->unitPrice = $unitPrice ?? $price;
-        $this->factor = $factor;
+        $this->priceFactor = $priceFactor;
         $this->history = $history;
         $this->lastScrapeDate = $lastScrape ? Carbon::parse($lastScrape) : null;
         $this->locale = $locale ?? CurrencyHelper::getLocale();
@@ -133,9 +133,9 @@ class PriceCacheDto
         return $this->unitOfMeasure;
     }
 
-    public function getFactor(): float
+    public function getPriceFactor(): float
     {
-        return $this->factor;
+        return $this->priceFactor;
     }
 
     public function getHistory(int $count = 365): Collection
@@ -197,7 +197,7 @@ class PriceCacheDto
             $data['locale'] ?? null,
             $data['currency'] ?? null,
             $data['unit_price'] ?? null,
-            $data['factor'] ?? 1,
+            $data['price_factor'] ?? 1,
             $data['unit_of_measure'] ?? null,
         );
     }
@@ -217,7 +217,7 @@ class PriceCacheDto
             'price_formatted' => $this->getPriceFormatted(),
             'unit_price' => $this->getUnitPrice(),
             'unit_price_formatted' => $this->getUnitPriceFormatted(),
-            'factor' => $this->getFactor(),
+            'price_factor' => $this->getPriceFactor(),
             'history' => $this->getHistory(),
             'last_scrape' => $this->getLastScrapeDate(),
             'hours_since_last_scrape' => $this->getHoursSinceLastScrape(),

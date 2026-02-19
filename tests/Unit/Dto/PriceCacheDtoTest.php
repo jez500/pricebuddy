@@ -22,7 +22,7 @@ class PriceCacheDtoTest extends TestCase
         $dto = new PriceCacheDto(
             price: 10.00,
             unitPrice: 5.00,
-            factor: 2,
+            priceFactor: 2,
             unitOfMeasure: 'tablet',
         );
 
