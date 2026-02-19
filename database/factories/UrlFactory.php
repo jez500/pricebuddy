@@ -24,7 +24,7 @@ class UrlFactory extends Factory
             'url' => $this->faker->url,
             'product_id' => Product::factory(),
             'store_id' => Store::factory(),
-            'factor' => 1,
+            'price_factor' => 1,
         ];
     }
 
@@ -32,13 +32,13 @@ class UrlFactory extends Factory
     {
         return $this->afterCreating(function (Url $url) use ($prices) {
 
-            $factor = $url->factor ?: 1;
+            $priceFactor = $url->price_factor ?: 1;
 
             foreach ($prices as $idx => $price) {
                 $url->prices()->create([
                     'price' => $price,
-                    'unit_price' => $price / $factor,
-                    'factor' => $factor,
+                    'unit_price' => $price / $priceFactor,
+                    'price_factor' => $priceFactor,
                     'store_id' => $url->store_id,
                     'created_at' => Carbon::now()->subDays(count($prices) - $idx)->setTime(6, 0)->toDateTimeString(),
                 ]);

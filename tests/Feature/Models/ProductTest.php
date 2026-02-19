@@ -215,14 +215,14 @@ class ProductTest extends TestCase
     {
         Carbon::setTestNow(Carbon::create(2025, 1, 10));
         $product = Product::factory()
-            ->addUrlWithPrices('https://example.com', [12, 18, 24], factor: 6)
+            ->addUrlWithPrices('https://example.com', [12, 18, 24], priceFactor: 6)
             ->createOne();
 
         $priceCache = $product->buildPriceCache();
 
         $this->assertCount(1, $priceCache);
         $first = $priceCache->first();
-        $this->assertEquals(6, $first['factor']);
+        $this->assertEquals(6, $first['price_factor']);
         $this->assertEquals(4.0, $first['unit_price']);
     }
 

@@ -37,8 +37,8 @@ class UrlsTableWidget extends BaseWidget
                             ->formatStateUsing(fn (string $state): HtmlString => new HtmlString('<a href="'.$state.'" title="'.$state.'" target="_blank">'.Str::limit($state, 80).'</a>')
                             ),
                     ]),
-                    Tables\Columns\TextColumn::make('factor')
-                        ->label('Factor')
+                    Tables\Columns\TextColumn::make('price_factor')
+                        ->label('Price Factor')
                         ->grow(false)
                         ->badge()
                         ->color('gray'),
@@ -51,8 +51,8 @@ class UrlsTableWidget extends BaseWidget
                         \Filament\Forms\Components\TextInput::make('url')
                             ->label('URL')
                             ->disabled(),
-                        \Filament\Forms\Components\TextInput::make('factor')
-                            ->label('Factor')
+                        \Filament\Forms\Components\TextInput::make('price_factor')
+                            ->label('Price Factor')
                             ->numeric()
                             ->default(1)
                             ->minValue(0.01)
@@ -63,8 +63,8 @@ class UrlsTableWidget extends BaseWidget
                         $record->updatePrice();
                         $record->product->updatePriceCache();
 
-                        Notification::make('factor_updated')
-                            ->title('Factor updated')
+                        Notification::make('price_factor_updated')
+                            ->title('Price factor updated')
                             ->success()
                             ->send();
                     }),

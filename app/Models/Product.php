@@ -407,7 +407,7 @@ class Product extends Model
                     'trend' => $trend,
                     'price' => $urlHistory->last(),
                     'unit_price' => $lastScrapedPrice->unit_price ?? $urlHistory->last(),
-                    'factor' => ($f = $url->factor ?: 1) == (int) $f ? (int) $f : $f,
+                    'price_factor' => ($f = $url->price_factor ?: 1) == (int) $f ? (int) $f : $f,
                     'history' => $urlHistory->toArray(),
                     'last_scrape' => $lastScrapedTimestamp?->toDateTimeString(),
                     'locale' => $store->locale,
@@ -454,7 +454,7 @@ class Product extends Model
                 'prices.id',
                 'prices.price',
                 'prices.unit_price',
-                'prices.factor',
+                'prices.price_factor',
                 'prices.created_at',
                 'urls.id as url_id',
                 'urls.store_id'

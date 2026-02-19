@@ -61,7 +61,7 @@ class ProductSeeder extends Seeder
             'image' => 'https://cdn.productimages.coles.com.au/productimages/6/6277834.jpg',
             'tag' => 'Household',
             'unit_of_measure' => 'bags',
-            'factors' => [
+            'price_factors' => [
                 'https://www.amazon.com.au/Lavazza-Espresso-Chocolate-Intensity-Australia/dp/B0C1JWVRG5?tag=pricebuddy-22' => 3,
             ],
         ],
@@ -86,7 +86,7 @@ class ProductSeeder extends Seeder
             'image' => 'https://assets.woolworths.com.au/images/1005/618643.jpg?impolicy=wowsmkqiema&w=600&h=600',
             'tag' => 'Household',
             'unit_of_measure' => 'tablets',
-            'factors' => [
+            'price_factors' => [
                 'https://www.woolworths.com.au/shop/productdetails/618643/finish-ultimate-lemon-dishwasher-tablets' => 34,
                 'https://www.coles.com.au/product/finish-ultimate-dishwashing-tablets-lemon-sparkle-34-pack-7752503' => 34,
                 'https://www.woolworths.com.au/shop/productdetails/78637/finish-ultimate-lemon-dishwasher-tablets' => 16,
@@ -134,11 +134,11 @@ class ProductSeeder extends Seeder
 
         foreach ($this->dummy as $productData) {
             $factory = Product::factory();
-            $factors = $productData['factors'] ?? [];
+            $priceFactors = $productData['price_factors'] ?? [];
 
             foreach ($productData['urls'] as $url => $prices) {
-                $factor = $factors[$url] ?? 1;
-                $factory = $factory->addUrlWithPrices($url, $prices, $factor);
+                $priceFactor = $priceFactors[$url] ?? 1;
+                $factory = $factory->addUrlWithPrices($url, $prices, $priceFactor);
             }
 
             /** @var Product $product */

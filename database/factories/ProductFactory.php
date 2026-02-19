@@ -38,25 +38,25 @@ class ProductFactory extends Factory
         ];
     }
 
-    public function addUrlWithPrices(string $url, array $prices, float $factor = 1): self
+    public function addUrlWithPrices(string $url, array $prices, float $priceFactor = 1): self
     {
-        return $this->afterCreating(function (Product $product) use ($url, $prices, $factor) {
+        return $this->afterCreating(function (Product $product) use ($url, $prices, $priceFactor) {
             $store = ScrapeUrl::new($url)->getStore() ?? Store::factory()->forUrl($url)->createOne();
 
             /** @var Url $url */
             $url = $product->urls()->create([
                 'url' => $url,
                 'store_id' => $store->id,
-                'factor' => $factor,
+                'price_factor' => $priceFactor,
             ]);
 
-            $urlFactor = $factor ?: 1;
+            $urlPriceFactor = $priceFactor ?: 1;
 
             foreach ($prices as $idx => $price) {
                 $url->prices()->create([
                     'price' => $price,
-                    'unit_price' => $price / $urlFactor,
-                    'factor' => $urlFactor,
+                    'unit_price' => $price / $urlPriceFactor,
+                    'price_factor' => $urlPriceFactor,
                     'store_id' => $store->id,
                     'created_at' => Carbon::now()->subDays(count($prices) - $idx)->setTime(6, 0)->toDateTimeString(),
                 ]);
@@ -88,7 +88,7 @@ class ProductFactory extends Factory
                     $url->prices()->create([
                         'price' => $priceValue,
                         'unit_price' => $priceValue,
-                        'factor' => 1,
+                        'price_factor' => 1,
                         'store_id' => $store->id,
                         'created_at' => $mutableDate->subDay()->toDateTimeString(),
                     ]);

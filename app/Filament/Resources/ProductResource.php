@@ -79,8 +79,8 @@ class ProductResource extends Resource
             ->hintIcon(Icons::Help->value, 'The domain of the URL must be in the list of available stores')
             ->rules([new StoreUrl]);
 
-        $components[] = TextInput::make('factor')
-            ->label(__('Factor'))
+        $components[] = TextInput::make('price_factor')
+            ->label(__('Price Factor'))
             ->numeric()
             ->default(1)
             ->minValue(0.01)
