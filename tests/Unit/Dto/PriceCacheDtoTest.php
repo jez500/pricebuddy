@@ -23,10 +23,10 @@ class PriceCacheDtoTest extends TestCase
             price: 10.00,
             unitPrice: 5.00,
             priceFactor: 2,
-            unitOfMeasure: 'tablet',
+            unitOfMeasure: 'tablets',
         );
 
-        $this->assertSame('tablet', $dto->getUnitOfMeasure());
+        $this->assertSame('tablets', $dto->getUnitOfMeasure());
     }
 
     public function test_unit_of_measure_null_by_default()

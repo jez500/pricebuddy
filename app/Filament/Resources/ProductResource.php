@@ -110,10 +110,10 @@ class ProductResource extends Resource
                     ->hintIcon(Icons::Help->value, 'The Image URL of the product'),
 
                 TextInput::make('unit_of_measure')
-                    ->label('Unit of Measure')
-                    ->placeholder('e.g. tablet, item, 100g')
+                    ->label('Sold as')
+                    ->placeholder('e.g. tablets, bags, 100g')
                     ->maxLength(50)
-                    ->hintIcon(Icons::Help->value, 'Displayed after unit price, e.g. $5.00/tablet'),
+                    ->hintIcon(Icons::Help->value, 'Displayed after the price factor, e.g. (2 tablets)'),
 
                 Forms\Components\Select::make('status')
                     ->options(Statuses::class)

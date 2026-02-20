@@ -231,12 +231,12 @@ class ProductTest extends TestCase
         Carbon::setTestNow(Carbon::create(2025, 1, 10));
         $product = Product::factory()
             ->addUrlWithPrices('https://example.com', [12, 18, 24])
-            ->createOne(['unit_of_measure' => 'tablet']);
+            ->createOne(['unit_of_measure' => 'tablets']);
 
         $priceCache = $product->buildPriceCache();
 
         $this->assertCount(1, $priceCache);
-        $this->assertSame('tablet', $priceCache->first()['unit_of_measure']);
+        $this->assertSame('tablets', $priceCache->first()['unit_of_measure']);
     }
 
     public function test_build_price_cache_unit_of_measure_null_by_default()
