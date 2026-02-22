@@ -365,9 +365,11 @@ class Product extends Model
             $cache->filter(fn (PriceCacheDto $price) => $price->getUrlId() === $urlId);
         }
 
-        return round($cache->map(fn (PriceCacheDto $price) => $price->getHistory()->values()->toArray())
+        $values = $cache->map(fn (PriceCacheDto $price) => $price->getHistory()->values()->toArray())
             ->flatten()
-            ->{$method}(), 2);
+            ->filter(fn ($value) => $value > 0);
+
+        return $values->isEmpty() ? 0 : round($values->{$method}(), 2);
     }
 
     /**
@@ -395,7 +397,7 @@ class Product extends Model
             ->map(function ($url) use ($history): array {
                 /** @var Url $url */
                 /** @var Collection $urlHistory */
-                $urlHistory = $history->get($url->getKey(), collect([now()->toDateString() => 0]));
+                $urlHistory = $history->get($url->getKey(), collect());
                 /** @var Store $store */
                 $store = $url->store;
 
@@ -404,12 +406,14 @@ class Product extends Model
                 $lastScrapedPrice = $url->prices()->latest('id')->first();
                 $lastScrapedTimestamp = $lastScrapedPrice?->created_at;
 
-                // Build trend, current price vs average price.
-                $trend = Trend::calculateTrend(
-                    $urlHistory->last(),
-                    $urlHistory->values()->avg(),
-                    $urlHistory->values()->min(),
-                );
+                // Build trend, current price vs average price (skip for URLs with no history).
+                $trend = $urlHistory->isEmpty()
+                    ? Trend::None->value
+                    : Trend::calculateTrend(
+                        $urlHistory->last(),
+                        $urlHistory->values()->avg(),
+                        $urlHistory->values()->min(),
+                    );
 
                 // Build output suitable for dto.
                 return [
@@ -418,8 +422,8 @@ class Product extends Model
                     'url_id' => $url->getKey(),
                     'url' => $url->buy_url,
                     'trend' => $trend,
-                    'price' => $urlHistory->last(),
-                    'unit_price' => $lastScrapedPrice->unit_price ?? $urlHistory->last(),
+                    'price' => $urlHistory->isEmpty() ? 0 : $urlHistory->last(),
+                    'unit_price' => $lastScrapedPrice->unit_price ?? ($urlHistory->isEmpty() ? 0 : $urlHistory->last()),
                     'price_factor' => ($f = $url->price_factor ?: 1) == (int) $f ? (int) $f : $f,
                     'history' => $urlHistory->toArray(),
                     'last_scrape' => $lastScrapedTimestamp?->toDateTimeString(),
