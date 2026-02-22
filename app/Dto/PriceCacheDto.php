@@ -2,6 +2,7 @@
 
 namespace App\Dto;
 
+use App\Enums\StockStatus;
 use App\Enums\Trend;
 use App\Models\Price;
 use App\Models\Product;
@@ -37,6 +38,8 @@ class PriceCacheDto
 
     private ?string $unitOfMeasure;
 
+    private StockStatus $stockStatus;
+
     public function __construct(
         float $price,
         ?int $storeId = null,
@@ -51,6 +54,7 @@ class PriceCacheDto
         ?float $unitPrice = null,
         float $priceFactor = 1,
         ?string $unitOfMeasure = null,
+        ?string $availability = null,
     ) {
         $this->storeId = $storeId;
         $this->storeName = $storeName;
@@ -65,6 +69,7 @@ class PriceCacheDto
         $this->locale = $locale ?? CurrencyHelper::getLocale();
         $this->currency = $currency ?? CurrencyHelper::getCurrency();
         $this->unitOfMeasure = $unitOfMeasure;
+        $this->stockStatus = StockStatus::fromScrapedValue($availability);
     }
 
     // Getters
@@ -176,6 +181,31 @@ class PriceCacheDto
         return $hours && $hours < 24;
     }
 
+    public function isOutOfStock(): bool
+    {
+        return $this->stockStatus->isUnavailable();
+    }
+
+    public function getStockStatus(): StockStatus
+    {
+        return $this->stockStatus;
+    }
+
+    public function getStockStatusLabel(): string
+    {
+        return $this->stockStatus->getLabel();
+    }
+
+    public function getStockStatusColor(): string
+    {
+        return $this->stockStatus->getColor();
+    }
+
+    public function getStockStatusIcon(): string
+    {
+        return $this->stockStatus->getIcon();
+    }
+
     public function matchesNotification(Product $product): bool
     {
         return $product->shouldNotifyOnPrice(new Price([
@@ -199,6 +229,7 @@ class PriceCacheDto
             $data['unit_price'] ?? null,
             $data['price_factor'] ?? 1,
             $data['unit_of_measure'] ?? null,
+            $data['availability'] ?? null,
         );
     }
 
@@ -225,6 +256,7 @@ class PriceCacheDto
             'locale' => $this->locale,
             'currency' => $this->currency,
             'unit_of_measure' => $this->getUnitOfMeasure(),
+            'availability' => $this->stockStatus === StockStatus::InStock ? null : $this->stockStatus->value,
         ];
     }
 }

@@ -46,6 +46,7 @@ class ScrapeUrl
         'description',
         'price',
         'image',
+        'availability',
     ];
 
     public bool $sendUiNotifications = true;
@@ -129,7 +130,14 @@ class ScrapeUrl
             }
         }
 
+        $isOutOfStock = ! empty($output['availability']);
+
         foreach (['price', 'title'] as $required) {
+            // Skip price requirement when product is out of stock.
+            if ($required === 'price' && $isOutOfStock) {
+                continue;
+            }
+
             if (empty($output[$required])) {
                 $this->errorLog('Error scraping URL '.$attempt.' times', [
                     'attempts' => $attempt,

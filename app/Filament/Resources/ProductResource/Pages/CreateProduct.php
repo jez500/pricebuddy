@@ -6,6 +6,7 @@ use App\Filament\Resources\ProductResource;
 use App\Models\Url;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 class CreateProduct extends CreateRecord
 {
@@ -26,6 +27,12 @@ class CreateProduct extends CreateRecord
             createStore: data_get($data, 'create_store', false),
             priceFactor: (float) data_get($data, 'price_factor', 1),
         );
+
+        if ($urlModel === false) {
+            throw ValidationException::withMessages([
+                'url' => __('Unable to create product from this URL'),
+            ]);
+        }
 
         return $urlModel->product;
     }

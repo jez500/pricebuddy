@@ -144,6 +144,64 @@ class UrlTest extends TestCase
         $this->assertNull($priceModel);
     }
 
+    public function test_create_from_url_with_unavailable_product_and_no_price()
+    {
+        $this->actingAs($this->user);
+
+        $this->store->update([
+            'scrape_strategy' => array_merge($this->store->scrape_strategy ?? [], [
+                'availability' => [
+                    'type' => 'selector',
+                    'value' => '.availability',
+                    'match' => [
+                        'out_of_stock' => ['type' => 'match', 'value' => 'OutOfStock'],
+                        'default' => 'in_stock',
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->mockScrape('', 'Out of Stock Product', null, 'OutOfStock');
+
+        $urlModel = Url::createFromUrl(self::TEST_URL);
+
+        $this->assertInstanceOf(Url::class, $urlModel);
+        $this->assertEquals('out_of_stock', $urlModel->availability);
+        $this->assertEquals('Out of Stock Product', $urlModel->product->title);
+        $this->assertEquals(0, $urlModel->prices()->first()->price);
+    }
+
+    public function test_update_price_unavailable_no_price_uses_zero()
+    {
+        $product = Product::factory()->create();
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+        ]);
+
+        $this->store->update([
+            'scrape_strategy' => array_merge($this->store->scrape_strategy ?? [], [
+                'availability' => [
+                    'type' => 'selector',
+                    'value' => '.availability',
+                    'match' => [
+                        'out_of_stock' => ['type' => 'match', 'value' => 'OutOfStock'],
+                        'default' => 'in_stock',
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->mockScrape('', 'foo', null, 'OutOfStock');
+
+        $priceModel = $url->updatePrice();
+
+        $this->assertInstanceOf(Price::class, $priceModel);
+        $this->assertEquals(0, $priceModel->price);
+        $this->assertEquals('out_of_stock', $url->fresh()->availability);
+    }
+
     public function test_product_name_short_returns_correct_value()
     {
         $product = Product::factory()->create(['title' => 'A long title that is too long, it should be trimmed to a limit so not so long']);

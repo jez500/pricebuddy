@@ -38,9 +38,9 @@ class ProductFactory extends Factory
         ];
     }
 
-    public function addUrlWithPrices(string $url, array $prices, float $priceFactor = 1): self
+    public function addUrlWithPrices(string $url, array $prices, float $priceFactor = 1, ?string $availability = null): self
     {
-        return $this->afterCreating(function (Product $product) use ($url, $prices, $priceFactor) {
+        return $this->afterCreating(function (Product $product) use ($url, $prices, $priceFactor, $availability) {
             $store = ScrapeUrl::new($url)->getStore() ?? Store::factory()->forUrl($url)->createOne();
 
             /** @var Url $url */
@@ -48,6 +48,7 @@ class ProductFactory extends Factory
                 'url' => $url,
                 'store_id' => $store->id,
                 'price_factor' => $priceFactor,
+                'availability' => $availability,
             ]);
 
             $urlPriceFactor = $priceFactor ?: 1;

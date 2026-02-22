@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Dto\PriceCacheDto;
 use App\Enums\Statuses;
+use App\Enums\StockStatus;
 use App\Enums\Trend;
 use App\Filament\Actions\BaseAction;
 use App\Services\Helpers\CurrencyHelper;
@@ -345,7 +346,10 @@ class Product extends Model
     public function getPriceCache(): Collection
     {
         return collect($this->price_cache)
-            ->sortBy('unit_price')
+            ->sortBy([
+                fn ($item) => StockStatus::fromScrapedValue($item['availability'] ?? null)->getSortOrder(),
+                ['unit_price', 'asc'],
+            ])
             ->map(fn ($price) => PriceCacheDto::fromArray($price))
             ->values();
     }
@@ -372,7 +376,16 @@ class Product extends Model
     public function buildPriceCache(): Collection
     {
         $history = $this->getPriceHistory();
-        $urls = Url::findMany($history->keys());
+
+        // Include out-of-stock URLs that have no price history (e.g. price 0).
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Url> $outOfStockUrls */
+        $outOfStockUrls = $this->urls()
+            ->whereNotNull('availability')
+            ->whereNotIn('id', $history->keys())
+            ->with('store')
+            ->get();
+
+        $urls = Url::findMany($history->keys())->merge($outOfStockUrls);
 
         return $urls
             ->filter(function ($url) {
@@ -382,7 +395,7 @@ class Product extends Model
             ->map(function ($url) use ($history): array {
                 /** @var Url $url */
                 /** @var Collection $urlHistory */
-                $urlHistory = $history->get($url->getKey());
+                $urlHistory = $history->get($url->getKey(), collect([now()->toDateString() => 0]));
                 /** @var Store $store */
                 $store = $url->store;
 
@@ -413,9 +426,13 @@ class Product extends Model
                     'locale' => $store->locale,
                     'currency' => $store->currency,
                     'unit_of_measure' => $this->unit_of_measure,
+                    'availability' => $url->availability,
                 ];
             })
-            ->sortBy('unit_price')
+            ->sortBy([
+                fn ($item) => StockStatus::fromScrapedValue($item['availability'] ?? null)->getSortOrder(),
+                ['unit_price', 'asc'],
+            ])
             ->values();
     }
 

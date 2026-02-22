@@ -46,6 +46,9 @@
                             <span class="text-xs text-gray-400 dark:text-gray-500">{{ $cache->getPriceFormatted() }} ({{ (float) $cache->getPriceFactor() }} {{ $cache->getUnitOfMeasure() ?? 'pk' }})</span>
                         @endif
                         ({{ $cache->getStoreName() }})
+                        @if ($cache->isOutOfStock())
+                            <span style="{{ Filament\Support\get_color_css_variables($cache->getStockStatusColor(), shades: [400, 500]) }}" class="text-xs text-custom-500 dark:text-custom-400 font-medium ml-1">{{ __($cache->getStockStatusLabel()) }}</span>
+                        @endif
                     </div>
 
                 </a>

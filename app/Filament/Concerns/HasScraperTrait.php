@@ -15,23 +15,31 @@ use Illuminate\Support\HtmlString;
 
 trait HasScraperTrait
 {
-    protected static function makeStrategyInput(string $key, ?string $default = null): array
+    protected static function makeStrategyInput(string $key, ?string $default = null, bool $required = true): array
     {
+        $typeField = Select::make($key.'.type')
+            ->label('Type')
+            ->options(ScraperStrategyType::class)
+            ->default(ScraperStrategyType::Selector->value)
+            ->hintIcon(Icons::Help->value, 'How to get the value')
+            ->live();
+
+        $valueField = TextInput::make($key.'.value')
+            ->label('Value')
+            ->default($default)
+            ->hintIcon(Icons::Help->value, fn (Get $get) => ScraperStrategyType::getValueHelp($get($key.'.type')))
+            ->live();
+
+        if ($required) {
+            $typeField = $typeField->required();
+            $valueField = $valueField->required();
+        }
+
+        $valueField = $valueField->hidden(fn (Get $get) => ! ScraperStrategyType::needsValue($get($key.'.type')));
+
         return [
-            Select::make($key.'.type')
-                ->label('Type')
-                ->options(ScraperStrategyType::class)
-                ->required()
-                ->default(ScraperStrategyType::Selector->value)
-                ->hintIcon(Icons::Help->value, 'How to get the value')
-                ->live(),
-            TextInput::make($key.'.value')
-                ->label('Value')
-                ->default($default)
-                ->required()
-                ->hidden(fn (Get $get) => ! ScraperStrategyType::needsValue($get($key.'.type')))
-                ->hintIcon(Icons::Help->value, fn (Get $get) => ScraperStrategyType::getValueHelp($get($key.'.type')))
-                ->live(),
+            $typeField,
+            $valueField,
             TextInput::make($key.'.prepend')
                 ->label('Prepend')
                 ->hidden(fn (Get $get) => ! ScraperStrategyType::needsValue($get($key.'.type')))

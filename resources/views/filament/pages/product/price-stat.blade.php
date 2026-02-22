@@ -106,8 +106,19 @@
         @endif
     </div>
 
-    @if (! $priceCache->isLastScrapeSuccessful() || $priceCache->matchesNotification($product))
+    @if ($priceCache->isOutOfStock() || ! $priceCache->isLastScrapeSuccessful() || $priceCache->matchesNotification($product))
         <div class="mt-2 pb-4 inline-flex gap-2">
+            @if ($priceCache->isOutOfStock())
+                <div class="mb-2">
+                    @include('components.icon-badge', [
+                        'hoverText' => __('This item is currently :status', ['status' => strtolower($priceCache->getStockStatusLabel())]),
+                        'label' => __($priceCache->getStockStatusLabel()),
+                        'color' => $priceCache->getStockStatusColor(),
+                        'icon' => $priceCache->getStockStatusIcon(),
+                    ])
+                </div>
+            @endif
+
             @if (! $priceCache->isLastScrapeSuccessful())
                 <div class="mb-2">
                     @include('components.icon-badge', [

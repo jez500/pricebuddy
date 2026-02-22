@@ -238,6 +238,17 @@ return [
                 'value' => 'meta[property=og:image]|content',
                 'type' => 'selector',
             ],
+            'availability' => [
+                'value' => '~"availability":"https?://schema.org/(\w+)"~',
+                'type' => 'regex',
+                'match' => [
+                    'out_of_stock' => ['type' => 'match', 'value' => 'OutOfStock'],
+                    'pre_order' => ['type' => 'match', 'value' => 'PreOrder'],
+                    'discontinued' => ['type' => 'match', 'value' => 'Discontinued'],
+                    'back_order' => ['type' => 'match', 'value' => 'BackOrder'],
+                    'default' => 'in_stock',
+                ],
+            ],
         ],
         'user_id' => 1,
     ],
@@ -255,12 +266,23 @@ return [
                 'type' => 'selector',
             ],
             'price' => [
-                'value' => '.price-parts',
-                'type' => 'selector',
+                'value' => '~"price":(\d+\.?\d*),"priceCurrency":"AUD"~',
+                'type' => 'regex',
             ],
             'image' => [
-                'value' => 'meta[property=og:image]|content',
-                'type' => 'selector',
+                'value' => '~"image":"(https://cdn0\.woolworths\.media/content/wowproductimages/large/[^"]+)"~',
+                'type' => 'regex',
+            ],
+            'availability' => [
+                'value' => '~"availability":"https?://schema.org/(\w+)"~',
+                'type' => 'regex',
+                'match' => [
+                    'out_of_stock' => ['type' => 'match', 'value' => 'OutOfStock'],
+                    'pre_order' => ['type' => 'match', 'value' => 'PreOrder'],
+                    'discontinued' => ['type' => 'match', 'value' => 'Discontinued'],
+                    'back_order' => ['type' => 'match', 'value' => 'BackOrder'],
+                    'default' => 'in_stock',
+                ],
             ],
         ],
         'settings' => [
@@ -288,6 +310,46 @@ return [
             'image' => [
                 'value' => '.img|src',
                 'type' => 'selector',
+            ],
+        ],
+        'settings' => [
+            'scraper_service' => ScraperService::Api->value,
+            'scraper_service_settings' => '',
+        ],
+    ],
+
+    // Tech.
+    [
+        'name' => 'The Tech Geeks',
+        'initials' => 'TG',
+        'slug' => 'the-tech-geeks',
+        'domains' => [
+            ['domain' => 'thetechgeeks.com'],
+            ['domain' => 'www.thetechgeeks.com'],
+        ],
+        'scrape_strategy' => [
+            'title' => [
+                'value' => 'meta[property=og:title]|content',
+                'type' => 'selector',
+            ],
+            'price' => [
+                'value' => 'meta[property=og:price:amount]|content',
+                'type' => 'selector',
+            ],
+            'image' => [
+                'value' => 'meta[property=og:image]|content',
+                'type' => 'selector',
+            ],
+            'availability' => [
+                'value' => 'button[name="add"]|value',
+                'type' => 'selector',
+                'match' => [
+                    'pre_order' => ['type' => 'regex', 'value' => 'Pre.?Order'],
+                    'special_order' => ['type' => 'regex', 'value' => 'Special.?Order'],
+                    'back_order' => ['type' => 'regex', 'value' => 'Back.?Order'],
+                    'out_of_stock' => ['type' => 'match', 'value' => 'Sold out'],
+                    'default' => 'in_stock',
+                ],
             ],
         ],
         'settings' => [

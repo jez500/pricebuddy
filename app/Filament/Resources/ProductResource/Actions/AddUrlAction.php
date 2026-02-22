@@ -61,6 +61,12 @@ class AddUrlAction extends Action
                     priceFactor: (float) ($data['price_factor'] ?? 1),
                 );
 
+                if ($urlModel === false) {
+                    $this->failure();
+
+                    return;
+                }
+
                 $this->success();
                 $this->redirect($product->view_url);
             } catch (Exception $e) {
