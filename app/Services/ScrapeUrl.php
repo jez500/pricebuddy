@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
+use App\Enums\StockStatus;
 use App\Models\Store;
 use App\Services\Helpers\SettingsHelper;
 use App\Settings\AppSettings;
@@ -130,7 +131,8 @@ class ScrapeUrl
             }
         }
 
-        $isUnavailable = ! empty($output['availability']);
+        $matchConfig = data_get($output, 'store.scrape_strategy.availability.match');
+        $isUnavailable = StockStatus::matchFromScrapedValue($output['availability'] ?? null, $matchConfig)->isUnavailable();
 
         foreach (['price', 'title'] as $required) {
             // Skip price requirement when product is unavailable.

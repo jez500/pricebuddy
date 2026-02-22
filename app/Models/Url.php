@@ -163,7 +163,8 @@ class Url extends Model
         /** @var ?Store $store */
         $store = data_get($scrape, 'store');
 
-        $isUnavailable = ! empty(data_get($scrape, 'availability'));
+        $matchConfig = data_get($store, 'scrape_strategy.availability.match');
+        $isUnavailable = StockStatus::matchFromScrapedValue(data_get($scrape, 'availability'), $matchConfig)->isUnavailable();
 
         if (! $store || (! data_get($scrape, 'price') && ! $isUnavailable)) {
             return false;
