@@ -96,7 +96,7 @@ class ProductSeeder extends Seeder
         [
             'title' => 'Ubiquiti UniFi Protect Camera G6 180 (Black)',
             'urls' => [
-                'https://thetechgeeks.com/products/uvc-g6-180-b' => ['prices' => ['731.50'], 'availability' => 'Special Order'],
+                'https://thetechgeeks.com/products/uvc-g6-180-b' => ['prices' => ['731.50'], 'availability' => 'special_order'],
             ],
             'image' => 'https://thetechgeeks.com/cdn/shop/files/UVC-G6-180-B_grande.png',
             'tag' => 'Tech',
@@ -104,7 +104,7 @@ class ProductSeeder extends Seeder
         [
             'title' => 'Ubiquiti UniFi Travel Router',
             'urls' => [
-                'https://thetechgeeks.com/products/utr' => ['prices' => ['225.50'], 'availability' => 'Special Order'],
+                'https://thetechgeeks.com/products/utr' => ['prices' => ['225.50'], 'availability' => 'special_order'],
             ],
             'image' => 'https://thetechgeeks.com/cdn/shop/files/UTR_grande.png',
             'tag' => 'Tech',
@@ -112,7 +112,7 @@ class ProductSeeder extends Seeder
         [
             'title' => 'Ubiquiti UniFi Edge AI Appliance',
             'urls' => [
-                'https://thetechgeeks.com/products/ai-key' => ['prices' => ['1815'], 'availability' => 'Back Order'],
+                'https://thetechgeeks.com/products/ai-key' => ['prices' => ['1815'], 'availability' => 'back_order'],
             ],
             'image' => 'https://thetechgeeks.com/cdn/shop/files/AI-Key_grande.png',
             'tag' => 'Tech',
@@ -120,7 +120,7 @@ class ProductSeeder extends Seeder
         [
             'title' => 'Ubiquiti Pro Max 16 Rack Mount Kit',
             'urls' => [
-                'https://thetechgeeks.com/products/uacc-pro-max-16-rm' => ['prices' => ['126.50'], 'availability' => 'Pre-Order Now'],
+                'https://thetechgeeks.com/products/uacc-pro-max-16-rm' => ['prices' => ['126.50'], 'availability' => 'pre_order'],
             ],
             'image' => 'https://thetechgeeks.com/cdn/shop/files/UACC-Pro-Max-16-RM_grande.png',
             'tag' => 'Tech',
