@@ -2,6 +2,7 @@
 
 namespace App\Dto;
 
+use App\Enums\StockStatus;
 use App\Enums\Trend;
 use App\Models\Price;
 use App\Models\Product;
@@ -31,6 +32,8 @@ class PriceCacheDto
 
     private string $currency;
 
+    private StockStatus $stockStatus;
+
     public function __construct(
         float $price,
         ?int $storeId = null,
@@ -42,6 +45,7 @@ class PriceCacheDto
         ?string $lastScrape = null,
         ?string $locale = null,
         ?string $currency = null,
+        ?string $availability = null,
     ) {
         $this->storeId = $storeId;
         $this->storeName = $storeName;
@@ -53,6 +57,7 @@ class PriceCacheDto
         $this->lastScrapeDate = $lastScrape ? Carbon::parse($lastScrape) : null;
         $this->locale = $locale ?? CurrencyHelper::getLocale();
         $this->currency = $currency ?? CurrencyHelper::getCurrency();
+        $this->stockStatus = StockStatus::fromScrapedValue($availability);
     }
 
     // Getters
@@ -144,6 +149,31 @@ class PriceCacheDto
         return $hours && $hours < 24;
     }
 
+    public function isOutOfStock(): bool
+    {
+        return $this->stockStatus->isUnavailable();
+    }
+
+    public function getStockStatus(): StockStatus
+    {
+        return $this->stockStatus;
+    }
+
+    public function getStockStatusLabel(): string
+    {
+        return $this->stockStatus->getLabel();
+    }
+
+    public function getStockStatusColor(): string
+    {
+        return $this->stockStatus->getColor();
+    }
+
+    public function getStockStatusIcon(): string
+    {
+        return $this->stockStatus->getIcon();
+    }
+
     public function matchesNotification(Product $product): bool
     {
         return $product->shouldNotifyOnPrice(new Price([
@@ -163,7 +193,8 @@ class PriceCacheDto
             $data['history'],
             $data['last_scrape'] ?? null,
             $data['locale'] ?? null,
-            $data['currency'] ?? null
+            $data['currency'] ?? null,
+            $data['availability'] ?? null,
         );
     }
 
@@ -186,6 +217,7 @@ class PriceCacheDto
             'successful_last_scrape' => $this->isLastScrapeSuccessful(),
             'locale' => $this->locale,
             'currency' => $this->currency,
+            'availability' => $this->stockStatus === StockStatus::InStock ? null : $this->stockStatus->value,
         ];
     }
 }

@@ -18,5 +18,8 @@
 </head>
 <body>
     <p>This page is used for test responses</p>
+    @if (!empty($availability))
+        <span class="availability">{{ $availability }}</span>
+    @endif
 </body>
 </html>

@@ -373,6 +373,58 @@ class ProductTest extends TestCase
         $this->assertNull($product->image);
     }
 
+    public function test_build_price_cache_includes_availability()
+    {
+        Carbon::setTestNow(Carbon::create(2025, 1, 10));
+        $product = $this->createOneProductWithUrlAndPrices(prices: [10, 20, 30]);
+
+        $priceCache = $product->buildPriceCache();
+        $first = $priceCache->first();
+
+        $this->assertArrayHasKey('availability', $first);
+        $this->assertNull($first['availability']);
+    }
+
+    public function test_build_price_cache_sorts_in_stock_before_unavailable()
+    {
+        Carbon::setTestNow(Carbon::create(2025, 1, 10));
+        $product = $this->createOneProductWithUrlAndPrices(prices: [50, 60, 70]);
+
+        // Create a second URL that is out of stock with a lower price.
+        $oosUrl = Url::factory()->withPrices([5, 10, 15])->createOne([
+            'product_id' => $product->getKey(),
+            'url' => 'https://example-oos.com',
+            'availability' => 'OutOfStock',
+        ]);
+
+        $priceCache = $product->buildPriceCache();
+
+        // The in-stock URL (higher price) should come first.
+        $this->assertNull($priceCache->first()['availability']);
+        $this->assertSame('OutOfStock', $priceCache->last()['availability']);
+    }
+
+    public function test_get_price_cache_sorts_in_stock_before_unavailable()
+    {
+        $product = Product::factory()->createOne([
+            'price_cache' => [
+                ['price' => 5, 'history' => [], 'availability' => 'OutOfStock'],
+                ['price' => 20, 'history' => [], 'availability' => null],
+                ['price' => 10, 'history' => [], 'availability' => null],
+            ],
+        ]);
+
+        $priceCache = $product->getPriceCache();
+
+        // In-stock items sorted by price first, then OOS items.
+        $this->assertFalse($priceCache->get(0)->isOutOfStock());
+        $this->assertEquals(10.0, $priceCache->get(0)->getPrice());
+        $this->assertFalse($priceCache->get(1)->isOutOfStock());
+        $this->assertEquals(20.0, $priceCache->get(1)->getPrice());
+        $this->assertTrue($priceCache->get(2)->isOutOfStock());
+        $this->assertEquals(5.0, $priceCache->get(2)->getPrice());
+    }
+
     protected function createOneProductWithUrlAndPrices(string $url = self::DEFAULT_URL, array $prices = [10, 15, 20], array $attrs = []): Product
     {
         return Product::factory()

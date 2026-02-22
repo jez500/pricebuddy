@@ -48,11 +48,17 @@ class AddUrlAction extends Action
             $product = $this->record;
 
             try {
-                Url::createFromUrl(
+                $urlModel = Url::createFromUrl(
                     url: $data['url'],
                     productId: $product->getKey(),
                     userId: auth()->id(),
                 );
+
+                if ($urlModel === false) {
+                    $this->failure();
+
+                    return;
+                }
 
                 $this->success();
                 $this->redirect($product->view_url);
