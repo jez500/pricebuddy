@@ -457,11 +457,11 @@ class ProductTest extends TestCase
         $priceCache = $product->getPriceCache();
 
         // In-stock items sorted by price first, then OOS items.
-        $this->assertFalse($priceCache->get(0)->isOutOfStock());
+        $this->assertFalse($priceCache->get(0)->isUnavailable());
         $this->assertEquals(10.0, $priceCache->get(0)->getPrice());
-        $this->assertFalse($priceCache->get(1)->isOutOfStock());
+        $this->assertFalse($priceCache->get(1)->isUnavailable());
         $this->assertEquals(20.0, $priceCache->get(1)->getPrice());
-        $this->assertTrue($priceCache->get(2)->isOutOfStock());
+        $this->assertTrue($priceCache->get(2)->isUnavailable());
         $this->assertEquals(5.0, $priceCache->get(2)->getPrice());
     }
 

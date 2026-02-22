@@ -130,11 +130,11 @@ class ScrapeUrl
             }
         }
 
-        $isOutOfStock = ! empty($output['availability']);
+        $isUnavailable = ! empty($output['availability']);
 
         foreach (['price', 'title'] as $required) {
-            // Skip price requirement when product is out of stock.
-            if ($required === 'price' && $isOutOfStock) {
+            // Skip price requirement when product is unavailable.
+            if ($required === 'price' && $isUnavailable) {
                 continue;
             }
 

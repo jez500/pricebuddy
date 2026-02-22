@@ -77,7 +77,7 @@ class PriceCacheDtoTest extends TestCase
     {
         $dto = new PriceCacheDto(price: 10.0);
 
-        $this->assertFalse($dto->isOutOfStock());
+        $this->assertFalse($dto->isUnavailable());
         $this->assertSame(StockStatus::InStock, $dto->getStockStatus());
     }
 
@@ -85,7 +85,7 @@ class PriceCacheDtoTest extends TestCase
     {
         $dto = new PriceCacheDto(price: 10.0, availability: 'OutOfStock');
 
-        $this->assertTrue($dto->isOutOfStock());
+        $this->assertTrue($dto->isUnavailable());
         $this->assertSame(StockStatus::OutOfStock, $dto->getStockStatus());
     }
 
@@ -97,7 +97,7 @@ class PriceCacheDtoTest extends TestCase
             'availability' => 'OutOfStock',
         ]);
 
-        $this->assertTrue($dto->isOutOfStock());
+        $this->assertTrue($dto->isUnavailable());
         $this->assertSame(StockStatus::OutOfStock, $dto->getStockStatus());
     }
 
@@ -108,7 +108,7 @@ class PriceCacheDtoTest extends TestCase
             'history' => [],
         ]);
 
-        $this->assertFalse($dto->isOutOfStock());
+        $this->assertFalse($dto->isUnavailable());
         $this->assertSame(StockStatus::InStock, $dto->getStockStatus());
     }
 
@@ -148,7 +148,7 @@ class PriceCacheDtoTest extends TestCase
 
         $this->assertSame(StockStatus::OutOfStock->value, $array['availability']);
         $this->assertSame(25.0, $array['price']);
-        $this->assertTrue($dto->isOutOfStock());
+        $this->assertTrue($dto->isUnavailable());
     }
 
     public function test_stock_status_convenience_methods()
@@ -173,7 +173,7 @@ class PriceCacheDtoTest extends TestCase
     {
         $dto = new PriceCacheDto(price: 10.0, availability: 'PreOrder');
 
-        $this->assertTrue($dto->isOutOfStock());
+        $this->assertTrue($dto->isUnavailable());
         $this->assertSame(StockStatus::PreOrder, $dto->getStockStatus());
         $this->assertSame('Pre-Order', $dto->getStockStatusLabel());
         $this->assertSame('info', $dto->getStockStatusColor());
@@ -187,7 +187,7 @@ class PriceCacheDtoTest extends TestCase
             'availability' => StockStatus::OutOfStock->value,
         ]);
 
-        $this->assertTrue($dto->isOutOfStock());
+        $this->assertTrue($dto->isUnavailable());
         $this->assertSame(StockStatus::OutOfStock, $dto->getStockStatus());
     }
 }

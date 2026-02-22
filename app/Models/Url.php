@@ -163,9 +163,9 @@ class Url extends Model
         /** @var ?Store $store */
         $store = data_get($scrape, 'store');
 
-        $isOutOfStock = ! empty(data_get($scrape, 'availability'));
+        $isUnavailable = ! empty(data_get($scrape, 'availability'));
 
-        if (! $store || (! data_get($scrape, 'price') && ! $isOutOfStock)) {
+        if (! $store || (! data_get($scrape, 'price') && ! $isUnavailable)) {
             return false;
         }
 
