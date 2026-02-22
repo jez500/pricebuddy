@@ -37,7 +37,7 @@
                         <span class="text-xs text-gray-500 dark:text-gray-400 font-bold display-block">
                             {{ '@'.$latestPrice->getStoreName() }}
                         </span>
-                        @if ($latestPrice->isOutOfStock())
+                        @if ($latestPrice->isUnavailable())
                             <div class="block mt-1">
                                 @include('components.icon-badge', [
                                     'hoverText' => __('This item is currently :status', ['status' => strtolower($latestPrice->getStockStatusLabel())]),

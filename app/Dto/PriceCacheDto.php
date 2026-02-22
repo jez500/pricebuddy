@@ -149,7 +149,7 @@ class PriceCacheDto
         return $hours && $hours < 24;
     }
 
-    public function isOutOfStock(): bool
+    public function isUnavailable(): bool
     {
         return $this->stockStatus->isUnavailable();
     }
