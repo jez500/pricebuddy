@@ -387,11 +387,11 @@ class Product extends Model
             ->with('store')
             ->get();
 
-        $urls = Url::findMany($history->keys())->merge($outOfStockUrls);
+        $urls = $this->urls()->whereIn('id', $history->keys())->with('store')->get()->merge($outOfStockUrls);
 
         return $urls
             ->filter(function ($url) {
-                // Filter out URLs without a store (e.g., during deletion)
+                /** @var Url $url */
                 return $url->store !== null;
             })
             ->map(function ($url) use ($history): array {

@@ -431,7 +431,7 @@ class ProductTest extends TestCase
         $product = $this->createOneProductWithUrlAndPrices(prices: [50, 60, 70]);
 
         // Create a second URL that is out of stock with a lower price.
-        $oosUrl = Url::factory()->withPrices([5, 10, 15])->createOne([
+        Url::factory()->withPrices([5, 10, 15])->createOne([
             'product_id' => $product->getKey(),
             'url' => 'https://example-oos.com',
             'availability' => 'OutOfStock',
