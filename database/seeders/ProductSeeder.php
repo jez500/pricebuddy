@@ -56,6 +56,7 @@ class ProductSeeder extends Seeder
             'urls' => [
                 'https://www.woolworths.com.au/shop/productdetails/618643/finish-ultimate-lemon-dishwasher-tablets' => ['24', '24', '22', '23', '24'],
                 'https://www.coles.com.au/product/finish-ultimate-dishwashing-tablets-lemon-sparkle-34-pack-7752503' => ['22', '22', '21', '21', '22'],
+                'https://www.woolworths.com.au/shop/productdetails/78637/finish-ultimate-lemon-dishwasher-tablets' => ['30', '30', '28', '29', '30'],
                 'https://www.woolworths.com.au/shop/productdetails/148368/finish-ultimate-lemon-dishwasher-tablets' => ['39', '39', '37', '38', '39'],
                 'https://www.coles.com.au/product/finish-ultimate-dishwasher-tablets-lemon-46-pack-3967235' => ['35', '35', '33', '34', '35'],
             ],
