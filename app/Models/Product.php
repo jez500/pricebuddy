@@ -361,7 +361,7 @@ class Product extends Model
         $cache = $this->getPriceCache();
 
         if ($urlId) {
-            $cache->filter(fn (PriceCacheDto $price) => $price->getUrlId() === $urlId);
+            $cache = $cache->filter(fn (PriceCacheDto $price) => $price->getUrlId() === $urlId);
         }
 
         $values = $cache->map(fn (PriceCacheDto $price) => $price->getHistory()->values()->toArray())
