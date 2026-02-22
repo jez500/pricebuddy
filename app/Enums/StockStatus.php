@@ -86,6 +86,7 @@ enum StockStatus: string implements HasColor, HasIcon, HasLabel
         }
 
         return match ($value) {
+            'InStock' => self::InStock,
             'OutOfStock' => self::OutOfStock,
             'PreOrder' => self::PreOrder,
             'BackOrder' => self::BackOrder,

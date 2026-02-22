@@ -83,6 +83,7 @@ class StockStatusTest extends TestCase
 
     public function test_from_scraped_value_maps_known_values()
     {
+        $this->assertSame(StockStatus::InStock, StockStatus::fromScrapedValue('InStock'));
         $this->assertSame(StockStatus::OutOfStock, StockStatus::fromScrapedValue('OutOfStock'));
         $this->assertSame(StockStatus::PreOrder, StockStatus::fromScrapedValue('PreOrder'));
         $this->assertSame(StockStatus::BackOrder, StockStatus::fromScrapedValue('BackOrder'));
