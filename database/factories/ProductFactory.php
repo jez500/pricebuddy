@@ -37,15 +37,16 @@ class ProductFactory extends Factory
         ];
     }
 
-    public function addUrlWithPrices(string $url, array $prices): self
+    public function addUrlWithPrices(string $url, array $prices, ?string $availability = null): self
     {
-        return $this->afterCreating(function (Product $product) use ($url, $prices) {
+        return $this->afterCreating(function (Product $product) use ($url, $prices, $availability) {
             $store = ScrapeUrl::new($url)->getStore() ?? Store::factory()->forUrl($url)->createOne();
 
             /** @var Url $url */
             $url = $product->urls()->create([
                 'url' => $url,
                 'store_id' => $store->id,
+                'availability' => $availability,
             ]);
 
             foreach ($prices as $idx => $price) {

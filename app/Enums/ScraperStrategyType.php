@@ -40,7 +40,7 @@ enum ScraperStrategyType: string implements HasDescription, HasLabel
         };
     }
 
-    public static function getValueHelp(string $type): string
+    public static function getValueHelp(?string $type): string
     {
         return match ($type) {
             self::Selector->value => 'CSS selector to get the value. Use |attribute_name to get an attribute value instead of the element content',

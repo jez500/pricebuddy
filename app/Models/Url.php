@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\StockStatus;
 use App\Services\AutoCreateStore;
 use App\Services\Helpers\AffiliateHelper;
 use App\Services\Helpers\CurrencyHelper;
@@ -54,6 +55,7 @@ class Url extends Model
         return [
             'updated_at' => 'datetime',
             'created_at' => 'datetime',
+            'availability' => 'string',
         ];
     }
 
@@ -160,7 +162,10 @@ class Url extends Model
         /** @var ?Store $store */
         $store = data_get($scrape, 'store');
 
-        if (! $store || ! data_get($scrape, 'price')) {
+        $matchConfig = data_get($store, 'scrape_strategy.availability.match');
+        $isUnavailable = StockStatus::matchFromScrapedValue(data_get($scrape, 'availability'), $matchConfig)->isUnavailable();
+
+        if (! $store || (! data_get($scrape, 'price') && ! $isUnavailable)) {
             return false;
         }
 
@@ -186,19 +191,36 @@ class Url extends Model
             'product_id' => $productId,
         ]);
 
-        $urlModel->updatePrice(data_get($scrape, 'price'));
+        $urlModel->updatePrice(data_get($scrape, 'price'), $scrape);
 
         return $urlModel;
     }
 
-    public function updatePrice(int|float|string|null $price = null): Price|Model|null
+    public function updatePrice(int|float|string|null $price = null, ?array $scrapeResult = null): Price|Model|null
     {
         if (! $this->store_id) {
             return null;
         }
 
         if (is_null($price) || $price === '') {
-            $price = data_get($this->scrape(), 'price');
+            $scrapeResult = $scrapeResult ?? $this->scrape();
+            $price = data_get($scrapeResult, 'price');
+        }
+
+        // Update out-of-stock status based on scrape result.
+        if ($scrapeResult) {
+            $scrapedValue = data_get($scrapeResult, 'availability');
+            $matchConfig = data_get($this->store, 'scrape_strategy.availability.match');
+            $stockStatus = StockStatus::matchFromScrapedValue($scrapedValue, $matchConfig);
+            $this->availability = $stockStatus->isUnavailable() ? $stockStatus->value : null;
+            $this->save();
+
+            // If unavailable and no price scraped, use the most recent price or 0.
+            if ($stockStatus->isUnavailable() && (is_null($price) || $price === '')) {
+                /** @var ?Price $latestPrice */
+                $latestPrice = $this->prices()->first();
+                $price = $latestPrice !== null ? $latestPrice->price : 0;
+            }
         }
 
         if (is_null($price) || $price === '') {

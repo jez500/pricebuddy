@@ -51,6 +51,50 @@ class ProductSeeder extends Seeder
             'image' => 'https://m.media-amazon.com/images/I/812-y3MIhmL._AC_SX679_PIbundle-2,TopRight,0,0_SH20_.jpg',
             'tag' => 'Household',
         ],
+        [
+            'title' => 'Finish Ultimate Lemon Dishwasher Tablets',
+            'urls' => [
+                'https://www.woolworths.com.au/shop/productdetails/618643/finish-ultimate-lemon-dishwasher-tablets' => ['24', '24', '22', '23', '24'],
+                'https://www.coles.com.au/product/finish-ultimate-dishwashing-tablets-lemon-sparkle-34-pack-7752503' => ['22', '22', '21', '21', '22'],
+                'https://www.woolworths.com.au/shop/productdetails/78637/finish-ultimate-lemon-dishwasher-tablets' => ['30', '30', '28', '29', '30'],
+                'https://www.woolworths.com.au/shop/productdetails/148368/finish-ultimate-lemon-dishwasher-tablets' => ['39', '39', '37', '38', '39'],
+                'https://www.coles.com.au/product/finish-ultimate-dishwasher-tablets-lemon-46-pack-3967235' => ['35', '35', '33', '34', '35'],
+            ],
+            'image' => 'https://assets.woolworths.com.au/images/1005/618643.jpg?impolicy=wowsmkqiema&w=600&h=600',
+            'tag' => 'Household',
+        ],
+        [
+            'title' => 'Ubiquiti UniFi Protect Camera G6 180 (Black)',
+            'urls' => [
+                'https://thetechgeeks.com/products/uvc-g6-180-b' => ['prices' => ['731.50'], 'availability' => 'special_order'],
+            ],
+            'image' => 'https://thetechgeeks.com/cdn/shop/files/UVC-G6-180-B_grande.png',
+            'tag' => 'Tech',
+        ],
+        [
+            'title' => 'Ubiquiti UniFi Travel Router',
+            'urls' => [
+                'https://thetechgeeks.com/products/utr' => ['prices' => ['225.50'], 'availability' => 'special_order'],
+            ],
+            'image' => 'https://thetechgeeks.com/cdn/shop/files/UTR_grande.png',
+            'tag' => 'Tech',
+        ],
+        [
+            'title' => 'Ubiquiti UniFi Edge AI Appliance',
+            'urls' => [
+                'https://thetechgeeks.com/products/ai-key' => ['prices' => ['1815'], 'availability' => 'back_order'],
+            ],
+            'image' => 'https://thetechgeeks.com/cdn/shop/files/AI-Key_grande.png',
+            'tag' => 'Tech',
+        ],
+        [
+            'title' => 'Ubiquiti Pro Max 16 Rack Mount Kit',
+            'urls' => [
+                'https://thetechgeeks.com/products/uacc-pro-max-16-rm' => ['prices' => ['126.50'], 'availability' => 'pre_order'],
+            ],
+            'image' => 'https://thetechgeeks.com/cdn/shop/files/UACC-Pro-Max-16-RM_grande.png',
+            'tag' => 'Tech',
+        ],
     ];
 
     /**
@@ -88,8 +132,13 @@ class ProductSeeder extends Seeder
         foreach ($this->dummy as $productData) {
             $factory = Product::factory();
 
-            foreach ($productData['urls'] as $url => $prices) {
-                $factory = $factory->addUrlWithPrices($url, $prices);
+            foreach ($productData['urls'] as $url => $urlData) {
+                // Support both simple ['price1', 'price2'] and extended ['prices' => [...], 'availability' => '...'] formats.
+                if (is_array($urlData) && array_key_exists('prices', $urlData)) {
+                    $factory = $factory->addUrlWithPrices($url, $urlData['prices'], $urlData['availability'] ?? null);
+                } else {
+                    $factory = $factory->addUrlWithPrices($url, $urlData);
+                }
             }
 
             /** @var Product $product */
