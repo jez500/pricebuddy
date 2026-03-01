@@ -117,4 +117,24 @@ class ScrapeUrlTest extends TestCase
         $this->assertEquals('Example Title', $result['title']);
         $this->assertEquals('$10.00', $result['price']);
     }
+
+    public function test_scrape_schema_org()
+    {
+        $this->store->update([
+            'scrape_strategy' => [
+                'title' => ['type' => 'schema_org', 'value' => null],
+                'price' => ['type' => 'schema_org', 'value' => null],
+                'image' => ['type' => 'schema_org', 'value' => null],
+            ],
+        ]);
+
+        $this->mockScrapeSchema('49.99', 'Schema Title', 'https://example.com/schema.jpg');
+
+        $scrapeUrl = ScrapeUrl::new(self::TEST_URL);
+        $result = $scrapeUrl->scrape();
+
+        $this->assertEquals('Schema Title', $result['title']);
+        $this->assertEquals('49.99', $result['price']);
+        $this->assertEquals('https://example.com/schema.jpg', $result['image']);
+    }
 }

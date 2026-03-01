@@ -34,21 +34,23 @@ class CacheSearchResults implements ShouldQueue
      */
     public $uniqueFor = 600; // 10 mins
 
-    public SearchService $searchService;
+    /**
+     * Search service instance.
+     */
+    protected SearchService $searchService;
 
     /**
      * Create a new job instance.
      */
-    public function __construct(public string $searchQuery, public ?int $productSourceId = null)
-    {
-        $this->searchService = SearchService::new($searchQuery);
-    }
+    public function __construct(public string $searchQuery, public ?int $productSourceId = null) {}
 
     /**
      * Execute the job.
      */
     public function handle(): void
     {
+        $this->searchService = SearchService::new($this->searchQuery);
+
         try {
             // If a product source ID is provided, set it on the search service
             if ($this->productSourceId) {

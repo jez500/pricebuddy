@@ -81,8 +81,8 @@ class AutoCreateStore
 
         // Exit if required fields are missing, noting that schemaOrg doesn't requrie a value.
         if (
-            ($strategy['title']['type'] !== $schemaOrg && empty($strategy['title']['value'])) ||
-            ($strategy['price']['type'] !== $schemaOrg && empty($strategy['price']['value']))
+            (data_get($strategy, 'title.type') !== $schemaOrg && empty($strategy['title']['value'])) ||
+            (data_get($strategy, 'price.type') !== $schemaOrg && empty($strategy['price']['value']))
         ) {
             $this->errorLog('Unable to auto create store', [
                 'url' => $this->url,

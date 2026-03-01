@@ -24,7 +24,11 @@ abstract class TestCase extends BaseTestCase
      */
     protected function defineDatabaseMigrations(): void
     {
-        // Run settings migrations first
+        // Settings migrations must run first because some regular migrations depend on them.
+        // We need to run the core settings table migration first.
+        $this->artisan('migrate', ['--path' => 'database/migrations/2025_01_17_000000_create_settings_table.php', '--force' => true]);
+
+        // Run settings migrations
         $this->artisan('migrate', ['--path' => 'database/settings', '--force' => true]);
     }
 }

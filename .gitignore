@@ -53,3 +53,4 @@ database/*.sqlite
 .junie/mcp/mcp.json
 .junie/guidelines.local.md
 .output.txt
+.ai/mcp

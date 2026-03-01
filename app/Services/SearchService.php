@@ -292,7 +292,8 @@ class SearchService
                         $this->replaceLastLogEntry(__('No Price found ":title" (:domain)', $logArgs), ['icon' => Icons::Warning->value]);
                     }
                 } catch (Exception $e) {
-                    $this->log(__('Failed for ":title": :error', array_merge($logArgs, ['error' => $e->getMessage()])), ['subtitle' => $result['url']]);
+                    $trace = $e->getTrace();
+                    $this->log(__('Failed for ":title": :error', array_merge($logArgs, ['error' => $e->getMessage()])), ['subtitle' => $result['url'], 'trace' => array_splice($trace, 0, 5)]);
                 }
 
                 $result['execution_time'] = (microtime(true) - $timeStart);
