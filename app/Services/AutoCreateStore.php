@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Actions\CreateStoreAction;
 use App\Enums\ScraperService;
+use App\Enums\ScraperStrategyType;
 use App\Models\Store;
 use App\Services\Helpers\CurrencyHelper;
 use Closure;
@@ -11,6 +12,7 @@ use Exception;
 use Illuminate\Support\Uri;
 use Jez500\WebScraperForLaravel\Exceptions\DomSelectorException;
 use Jez500\WebScraperForLaravel\Facades\WebScraper;
+use Jez500\WebScraperForLaravel\WebScraperInterface;
 use Symfony\Component\DomCrawler\Crawler;
 
 class AutoCreateStore
@@ -18,6 +20,8 @@ class AutoCreateStore
     public const string DEFAULT_SCRAPER = ScraperService::Http->value;
 
     public const string ALT_SCRAPER = ScraperService::Api->value;
+
+    protected WebScraperInterface $scraperService;
 
     protected array $strategies = [];
 
@@ -28,12 +32,14 @@ class AutoCreateStore
         $this->strategies = config('price_buddy.auto_create_store_strategies', []);
 
         if (empty($html)) {
-            $this->html = WebScraper::make($scraper)
+            $this->scraperService = WebScraper::make($scraper)
                 ->setConnectTimeout($timeout)
                 ->setRequestTimeout($timeout)
                 ->from($url)
-                ->get()
-                ->getBody();
+                ->get();
+            $this->html = $this->scraperService->getBody();
+        } else {
+            $this->scraperService = WebScraper::make($scraper)->setBody($this->html);
         }
     }
 
@@ -71,9 +77,13 @@ class AutoCreateStore
     public function getStoreAttributes(): ?array
     {
         $strategy = $this->strategyParse();
+        $schemaOrg = ScraperStrategyType::SchemaOrg->value;
 
-        // Exit if required fields are missing.
-        if (empty($strategy['title']['value']) || empty($strategy['price']['value'])) {
+        // Exit if required fields are missing, noting that schemaOrg doesn't requrie a value.
+        if (
+            ($strategy['title']['type'] !== $schemaOrg && empty($strategy['title']['value'])) ||
+            ($strategy['price']['type'] !== $schemaOrg && empty($strategy['price']['value']))
+        ) {
             $this->errorLog('Unable to auto create store', [
                 'url' => $this->url,
                 'strategy' => $strategy,
@@ -132,6 +142,10 @@ class AutoCreateStore
 
     protected function parseTitle(): ?array
     {
+        if ($match = $this->attemptSchemaOrg('title')) {
+            return $match;
+        }
+
         if ($match = $this->attemptSelectors($this->getStrategy('title', 'selector'))) {
             return $match;
         }
@@ -149,6 +163,10 @@ class AutoCreateStore
             return CurrencyHelper::toFloat($value);
         };
 
+        if ($match = $this->attemptSchemaOrg('price')) {
+            return $match;
+        }
+
         if ($match = $this->attemptSelectors($this->getStrategy('price', 'selector'), $validateCallback)) {
             return $match;
         }
@@ -162,6 +180,10 @@ class AutoCreateStore
 
     protected function parseImage(): ?array
     {
+        if ($match = $this->attemptSchemaOrg('image')) {
+            return $match;
+        }
+
         if ($match = $this->attemptSelectors($this->getStrategy('image', 'selector'))) {
             return $match;
         }
@@ -171,6 +193,19 @@ class AutoCreateStore
         }
 
         return [];
+    }
+
+    protected function attemptSchemaOrg(string $field, ?Closure $validateValue = null): ?array
+    {
+        $extracted = SchemaOrgService::parseSchemaOrg($this->scraperService->getSchemaOrg(), $field);
+
+        $value = is_null($validateValue)
+            ? $extracted
+            : $validateValue($extracted);
+
+        return ! empty($value)
+            ? ['type' => ScraperStrategyType::SchemaOrg->value, 'value' => null, 'data' => $value]
+            : null;
     }
 
     protected function attemptSelectors(array $selectors, ?Closure $validateValue = null): ?array

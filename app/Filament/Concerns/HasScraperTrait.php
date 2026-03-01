@@ -29,13 +29,16 @@ trait HasScraperTrait
                 ->label('Value')
                 ->default($default)
                 ->required()
+                ->hidden(fn (Get $get) => ! ScraperStrategyType::needsValue($get($key.'.type')))
                 ->hintIcon(Icons::Help->value, fn (Get $get) => ScraperStrategyType::getValueHelp($get($key.'.type')))
                 ->live(),
             TextInput::make($key.'.prepend')
                 ->label('Prepend')
+                ->hidden(fn (Get $get) => ! ScraperStrategyType::needsValue($get($key.'.type')))
                 ->hintIcon(Icons::Help->value, 'Optionally prepend a static value to the extracted value'),
             TextInput::make($key.'.append')
                 ->label('Append')
+                ->hidden(fn (Get $get) => ! ScraperStrategyType::needsValue($get($key.'.type')))
                 ->hintIcon(Icons::Help->value, 'Optionally append a static value to the extracted value'),
         ];
     }

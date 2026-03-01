@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ScraperService;
+use App\Enums\ScraperStrategyType;
 use App\Models\Store;
 use App\Services\Helpers\SettingsHelper;
 use App\Settings\AppSettings;
@@ -187,7 +188,7 @@ class ScrapeUrl
                 if (empty($strategy[$key]) || ! is_array($strategy[$key])) {
                     $output[$key] = null;
                 } else {
-                    $output[$key] = $this->scrapeOption($page, $strategy[$key]);
+                    $output[$key] = $this->scrapeOption($page, $strategy[$key], $key);
                 }
             }
 
@@ -209,7 +210,7 @@ class ScrapeUrl
         return Store::query()->domainFilter($host)->oldest()->first();
     }
 
-    protected function scrapeOption(WebScraperInterface $scraper, array $options): ?string
+    protected function scrapeOption(WebScraperInterface $scraper, array $options, string $field): ?string
     {
         $type = data_get($options, 'type');
         $value = data_get($options, 'value');
@@ -217,11 +218,15 @@ class ScrapeUrl
         $method = self::getMethodFromType($type);
 
         $value = match ($type) {
-            'selector' => self::parseSelector($value),
+            ScraperStrategyType::Selector->value => self::parseSelector($value),
             default => [$value]
         };
 
         try {
+            if ($type === ScraperStrategyType::SchemaOrg->value) {
+                return SchemaOrgService::parseSchemaOrg($scraper->getSchemaOrg(), $field);
+            }
+
             return implode('', [
                 data_get($options, 'prepend', ''),
                 call_user_func_array([$scraper, $method], $value)?->first(),
@@ -241,9 +246,10 @@ class ScrapeUrl
     public static function getMethodFromType(string $type): string
     {
         return match ($type) {
-            'regex' => 'getRegex',
-            'json' => 'getJson',
-            'xpath' => 'getXpath',
+            ScraperStrategyType::Regex->value => 'getRegex',
+            ScraperStrategyType::Json->value => 'getJson',
+            ScraperStrategyType::xPath->value => 'getXpath',
+            ScraperStrategyType::SchemaOrg->value => 'getSchemaOrg',
             default => 'getSelector'
         };
     }

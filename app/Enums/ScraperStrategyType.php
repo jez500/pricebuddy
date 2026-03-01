@@ -7,6 +7,8 @@ use Filament\Support\Contracts\HasLabel;
 
 enum ScraperStrategyType: string implements HasDescription, HasLabel
 {
+    case SchemaOrg = 'schema_org';
+
     case Selector = 'selector';
 
     case xPath = 'xpath';
@@ -23,6 +25,7 @@ enum ScraperStrategyType: string implements HasDescription, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
+            self::SchemaOrg => 'Schema.org metadata',
             self::Selector => 'CSS Selector',
             self::xPath => 'XPath',
             self::Regex => 'Regex',
@@ -33,6 +36,7 @@ enum ScraperStrategyType: string implements HasDescription, HasLabel
     public function getDescription(): string
     {
         return match ($this) {
+            self::SchemaOrg => 'Extract embedded data from the page using Schema.org.',
             self::Selector => 'Use CSS selectors to extract a value from a HTML document.',
             self::xPath => 'Use XPath to extract a value from a XML or HTML document.',
             self::Regex => 'Use regular expressions to extract a value from any document.',
@@ -40,9 +44,18 @@ enum ScraperStrategyType: string implements HasDescription, HasLabel
         };
     }
 
+    public static function needsValue(string $type): bool
+    {
+        return match ($type) {
+            self::SchemaOrg->value => false,
+            default => true,
+        };
+    }
+
     public static function getValueHelp(string $type): string
     {
         return match ($type) {
+            self::SchemaOrg->value => 'No extra configuration needed',
             self::Selector->value => 'CSS selector to get the value. Use |attribute_name to get an attribute value instead of the element content',
             self::xPath->value => 'XPath expression to get the value. Use @attribute for attributes, text() for text content',
             self::Regex->value => 'Regex pattern to get the value. Enclose the value in () to get the value',
