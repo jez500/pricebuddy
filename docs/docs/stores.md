@@ -29,6 +29,17 @@ These are the rules that PriceBuddy uses to extract the price, title and
 image from the product page. There is multiple ways to extract these details
 and you can mix and match different strategies.
 
+### Schema.org (JSON-LD)
+
+Probably the most robust way to extract data from a product page, this method 
+reads the JSON-LD data to extract the product detail.
+
+You can read about the spec [here](https://schema.org/Product). It will only
+work if the retailer has added the JSON-LD data to the page, but if it does
+exist, this is the recommended method.
+
+When a store is auto-created, it will test this strategy first.
+
 ### CSS Selector
 
 This is the most common strategy and is used to extract data. There are plenty
