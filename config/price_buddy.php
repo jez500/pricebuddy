@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\ScraperStrategyType;
+
 return [
     /*
     |--------------------------------------------------------------------------
@@ -33,16 +35,18 @@ return [
     */
     'auto_create_store_strategies' => [
         'title' => [
-            'selector' => [
+            ScraperStrategyType::SchemaOrg->value => [],
+            ScraperStrategyType::Selector->value => [
                 'meta[property="og:title"]|content',
                 'title',
                 'h1',
             ],
-            'xpath' => [],
-            'regex' => [],
+            ScraperStrategyType::xPath->value => [],
+            ScraperStrategyType::Regex->value => [],
         ],
         'price' => [
-            'selector' => [
+            ScraperStrategyType::SchemaOrg->value => [],
+            ScraperStrategyType::Selector->value => [
                 'meta[property="product:price:amount"]|content',
                 'meta[property="og:price:amount"]|content',
                 '.a-price .a-offscreen',            // Amazon
@@ -52,20 +56,21 @@ return [
                 '[class^="price"]',
                 '[class*="price"]',
             ],
-            'xpath' => [],
-            'regex' => [
+            ScraperStrategyType::xPath->value => [],
+            ScraperStrategyType::Regex->value => [
                 '~\"price\"\:\s?\"(.*?)\"~',        // Something that looks like a price, in a json object, eg "price": "99.99"
                 '~>\$(\d+(\.\d{2})?)<~',            // Something that looks like a price, in a tag, eg >$99.99<
                 '~\$(\d+(\.\d{2})?)~',              // Something that looks like a price, not in a tag
             ],
         ],
         'image' => [
-            'selector' => [
+            ScraperStrategyType::SchemaOrg->value => [],
+            ScraperStrategyType::Selector->value => [
                 'meta[property="og:image"]|content',
                 'meta[property="og:image:secure_url"]|content',
             ],
-            'xpath' => [],
-            'regex' => [
+            ScraperStrategyType::xPath->value => [],
+            ScraperStrategyType::Regex->value => [
                 '~\"hiRes\":\"(.+?)\"~',            // Amazon
                 '~\"image\"\:\s?\"(.*?\.jpg)\"~',   // Something that looks like an image, in a json object, eg "price": "99.99"
                 '~\"image\"\:\s?\"(.*?\.png)\"~',   // Something that looks like an image, in a json object, eg "price": "99.99"

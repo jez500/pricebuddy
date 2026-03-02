@@ -127,6 +127,7 @@ services:
     type: phpmyadmin
     hosts:
       - database
+      - tests_db
     overrides:
       environment:
         PMA_USER: laravel

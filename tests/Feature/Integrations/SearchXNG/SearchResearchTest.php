@@ -53,7 +53,7 @@ class SearchResearchTest extends TestCase
 
         $this->assertSame($this->rawResultsCount, $service->getResults()->count());
 
-        $firstResult = $service->getResults()->first();
+        $firstResult = (array) $service->getResults()->first();
         $this->assertSame('https://www.apple.com/airpods/', $firstResult['url']);
         $this->assertSame('AirPods - Apple', $firstResult['title']);
         $this->assertArrayHasKey('content', $firstResult);

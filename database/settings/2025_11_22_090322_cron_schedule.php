@@ -10,14 +10,8 @@ return new class extends SettingsMigration
      */
     public function up(): void
     {
-        // Check if scrape_schedule already exists
-        $existingSchedule = DB::table('settings')
-            ->where('group', 'app')
-            ->where('name', 'scrape_schedule')
-            ->first();
-
-        // Only proceed if scrape_schedule doesn't exist yet
-        if (! $existingSchedule) {
+        // Do nothing if scrape_schedule already exists (it is now added in 2025_01_17_000005_create_app_settings)
+        if (! DB::table('settings')->where('group', 'app')->where('name', 'scrape_schedule')->exists()) {
             $existingTime = DB::table('settings')
                 ->where('group', 'app')
                 ->where('name', 'scrape_schedule_time')
@@ -35,7 +29,9 @@ return new class extends SettingsMigration
         }
 
         // Always try to delete the old setting if it exists
-        $this->migrator->delete('app.scrape_schedule_time');
+        if (DB::table('settings')->where('group', 'app')->where('name', 'scrape_schedule_time')->exists()) {
+            $this->migrator->delete('app.scrape_schedule_time');
+        }
     }
 
     /**
@@ -43,7 +39,9 @@ return new class extends SettingsMigration
      */
     public function down(): void
     {
-        $this->migrator->delete('app.scrape_schedule');
+        if (DB::table('settings')->where('group', 'app')->where('name', 'scrape_schedule')->exists()) {
+            $this->migrator->delete('app.scrape_schedule');
+        }
         $this->migrator->add('app.scrape_schedule_time', '06:00');
     }
 };

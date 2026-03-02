@@ -210,6 +210,30 @@ class AutoCreateStoreTest extends TestCase
         ], $autoCreateStore->strategyParse());
     }
 
+    public function test_rule_parse_schema_org()
+    {
+        $this->fakeResponse('schema-org');
+        $autoCreateStore = new AutoCreateStore($this->testUrl, $this->html);
+
+        $this->assertEquals([
+            'title' => [
+                'type' => 'schema_org',
+                'value' => null,
+                'data' => 'Schema Product',
+            ],
+            'price' => [
+                'type' => 'schema_org',
+                'value' => null,
+                'data' => '45.00',
+            ],
+            'image' => [
+                'type' => 'schema_org',
+                'value' => null,
+                'data' => 'https://example.com/schema-image.jpg',
+            ],
+        ], $autoCreateStore->strategyParse());
+    }
+
     protected function getHtml(string $name): string
     {
         return file_get_contents(__DIR__.'/../../Fixtures/AutoCreateStore/'.$name.'.html');

@@ -26,6 +26,7 @@ class ProductApiTest extends TestCase
         $this->withHeaders(['Authorization' => 'Bearer '.$token]);
 
         // Create a store for URL scraping
+        Store::query()->delete();
         Store::factory()->create([
             'domains' => [['domain' => 'example.com']],
         ]);
