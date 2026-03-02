@@ -32,8 +32,13 @@
                     </h3>
                     <div>
                         <span class="text-2xl font-semibold">
-                            {{ $latestPrice->getPriceFormatted() }}
+                            {{ $latestPrice->getUnitPriceFormatted() }}
                         </span>
+                        @if ($latestPrice->getPriceFactor() != 1)
+                            <span class="text-xs text-gray-400 dark:text-gray-500">
+                                {{ $latestPrice->getPriceFormatted() }} ({{ (float) $latestPrice->getPriceFactor() }} {{ $latestPrice->getUnitOfMeasure() ?? 'pk' }})
+                            </span>
+                        @endif
                         <span class="text-xs text-gray-500 dark:text-gray-400 font-bold display-block">
                             {{ '@'.$latestPrice->getStoreName() }}
                         </span>

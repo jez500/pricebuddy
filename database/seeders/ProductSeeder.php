@@ -51,6 +51,53 @@ class ProductSeeder extends Seeder
             'image' => 'https://m.media-amazon.com/images/I/812-y3MIhmL._AC_SX679_PIbundle-2,TopRight,0,0_SH20_.jpg',
             'tag' => 'Household',
         ],
+        [
+            'title' => 'Lavazza Napoli Premium Coffee Beans 500g',
+            'urls' => [
+                'https://www.coles.com.au/product/lavazza-tales-of-italy-alluring-napoli-premium-coffee-beans-500g-6277834' => ['22', '24', '22', '19', '22'],
+                'https://www.woolworths.com.au/shop/productdetails/309483/lavazza-tales-of-italy-alluring-napoli-coffee-beans' => ['23', '21', '23', '20', '21'],
+                'https://www.amazon.com.au/Lavazza-Espresso-Chocolate-Intensity-Australia/dp/B0C1JWVRG5?tag=pricebuddy-22' => ['66', '63', '69', '57', '63'],
+            ],
+            'image' => 'https://cdn.productimages.coles.com.au/productimages/6/6277834.jpg',
+            'tag' => 'Household',
+            'unit_of_measure' => 'bags',
+            'price_factors' => [
+                'https://www.amazon.com.au/Lavazza-Espresso-Chocolate-Intensity-Australia/dp/B0C1JWVRG5?tag=pricebuddy-22' => 3,
+            ],
+        ],
+        [
+            'title' => 'Finish Ultimate Lemon Dishwasher Tablets',
+            'urls' => [
+                // 34-pack
+                'https://www.woolworths.com.au/shop/productdetails/618643/finish-ultimate-lemon-dishwasher-tablets' => ['22', '20', '22', '18', '20', '20'],
+                'https://www.coles.com.au/product/finish-ultimate-dishwashing-tablets-lemon-sparkle-34-pack-7752503' => ['24', '22', '20', '22', '21', '20'],
+                // 16-pack
+                'https://www.woolworths.com.au/shop/productdetails/78637/finish-ultimate-lemon-dishwasher-tablets' => ['12', '11', '11.50', '12', '11', '10.50'],
+                'https://www.coles.com.au/product/finish-ultimate-lemon-dishwasher-tablets-16-pack-3679128' => ['23', '22', '23', '22.50', '22', '21'],
+                // 46-pack
+                'https://www.woolworths.com.au/shop/productdetails/148368/finish-ultimate-lemon-dishwasher-tablets' => ['27', '26', '25', '26', '25.50', '24.50'],
+                'https://www.coles.com.au/product/finish-ultimate-dishwasher-tablets-lemon-46-pack-3967235' => ['52', '50', '51', '50', '50', '49'],
+                // 62-pack
+                'https://www.woolworths.com.au/shop/productdetails/675840/finish-ultimate-lemon-dishwasher-tablets' => ['33', '32', '31', '32', '31', '30'],
+                'https://www.coles.com.au/product/finish-ultimate-dishwashing-tablets-lemon-sparkle-62-pack-7752489' => ['34', '33', '31', '32', '31', '30'],
+                // 70-pack
+                'https://www.woolworths.com.au/shop/productdetails/6019017/finish-ultimate-dishwasher-tablets-lemon' => ['35', '34', '33', '34', '33', '32'],
+            ],
+            'image' => 'https://assets.woolworths.com.au/images/1005/618643.jpg?impolicy=wowsmkqiema&w=600&h=600',
+            'tag' => 'Household',
+            'unit_of_measure' => 'tablets',
+            'price_factors' => [
+                'https://www.woolworths.com.au/shop/productdetails/618643/finish-ultimate-lemon-dishwasher-tablets' => 34,
+                'https://www.coles.com.au/product/finish-ultimate-dishwashing-tablets-lemon-sparkle-34-pack-7752503' => 34,
+                'https://www.woolworths.com.au/shop/productdetails/78637/finish-ultimate-lemon-dishwasher-tablets' => 16,
+                'https://www.coles.com.au/product/finish-ultimate-lemon-dishwasher-tablets-16-pack-3679128' => 16,
+                'https://www.woolworths.com.au/shop/productdetails/148368/finish-ultimate-lemon-dishwasher-tablets' => 46,
+                'https://www.coles.com.au/product/finish-ultimate-dishwasher-tablets-lemon-46-pack-3967235' => 46,
+                'https://www.woolworths.com.au/shop/productdetails/675840/finish-ultimate-lemon-dishwasher-tablets' => 62,
+                'https://www.coles.com.au/product/finish-ultimate-dishwashing-tablets-lemon-sparkle-62-pack-7752489' => 62,
+                'https://www.woolworths.com.au/shop/productdetails/6019017/finish-ultimate-dishwasher-tablets-lemon' => 70,
+            ],
+        ],
     ];
 
     /**
@@ -87,15 +134,18 @@ class ProductSeeder extends Seeder
 
         foreach ($this->dummy as $productData) {
             $factory = Product::factory();
+            $priceFactors = $productData['price_factors'] ?? [];
 
             foreach ($productData['urls'] as $url => $prices) {
-                $factory = $factory->addUrlWithPrices($url, $prices);
+                $priceFactor = $priceFactors[$url] ?? 1;
+                $factory = $factory->addUrlWithPrices($url, $prices, $priceFactor);
             }
 
             /** @var Product $product */
             $product = $factory->createOne([
                 'title' => $productData['title'],
                 'image' => $productData['image'],
+                'unit_of_measure' => $productData['unit_of_measure'] ?? null,
                 'user_id' => $userId,
             ]);
 

@@ -46,6 +46,7 @@ use Illuminate\Support\Str;
  * @property float $current_price
  * @property bool $is_last_scrape_successful
  * @property bool $is_notified_price
+ * @property ?string $unit_of_measure
  * @property Carbon $created_at
  * @property string $first_scrape_date
  */
@@ -344,7 +345,7 @@ class Product extends Model
     public function getPriceCache(): Collection
     {
         return collect($this->price_cache)
-            ->sortBy('price')
+            ->sortBy('unit_price')
             ->map(fn ($price) => PriceCacheDto::fromArray($price))
             ->values();
     }
@@ -405,13 +406,16 @@ class Product extends Model
                     'url' => $url->buy_url,
                     'trend' => $trend,
                     'price' => $urlHistory->last(),
+                    'unit_price' => $lastScrapedPrice->unit_price ?? $urlHistory->last(),
+                    'price_factor' => ($f = $url->price_factor ?: 1) == (int) $f ? (int) $f : $f,
                     'history' => $urlHistory->toArray(),
                     'last_scrape' => $lastScrapedTimestamp?->toDateTimeString(),
                     'locale' => $store->locale,
                     'currency' => $store->currency,
+                    'unit_of_measure' => $this->unit_of_measure,
                 ];
             })
-            ->sortBy('price')
+            ->sortBy('unit_price')
             ->values();
     }
 
@@ -449,6 +453,8 @@ class Product extends Model
             ->select(
                 'prices.id',
                 'prices.price',
+                'prices.unit_price',
+                'prices.price_factor',
                 'prices.created_at',
                 'urls.id as url_id',
                 'urls.store_id'
@@ -478,7 +484,7 @@ class Product extends Model
     public function updatePriceCache(): void
     {
         $priceCache = $this->buildPriceCache()->toArray();
-        $this->update(['price_cache' => $priceCache, 'current_price' => data_get($priceCache, '0.price', 0)]);
+        $this->update(['price_cache' => $priceCache, 'current_price' => data_get($priceCache, '0.unit_price', 0)]);
     }
 
     /**

@@ -151,18 +151,18 @@ class ProductTest extends TestCase
         $this->assertSame($base.'/fetch', $actionUrls['fetch']); // deprecated, uses livewire.
     }
 
-    public function test_price_cache_is_sorted_by_price()
+    public function test_price_cache_is_sorted_by_unit_price()
     {
         $product = Product::factory()->createOne(
             ['price_cache' => [
-                ['price' => 20, 'history' => []],
-                ['price' => 10, 'history' => []],
-                ['price' => 30, 'history' => []],
+                ['price' => 20, 'unit_price' => 20, 'history' => []],
+                ['price' => 10, 'unit_price' => 10, 'history' => []],
+                ['price' => 30, 'unit_price' => 30, 'history' => []],
             ]]);
 
         $priceCache = $product->getPriceCache();
-        $this->assertEquals(10.0, $priceCache->first()->getPrice());
-        $this->assertEquals(30.0, $priceCache->last()->getPrice());
+        $this->assertEquals(10.0, $priceCache->first()->getUnitPrice());
+        $this->assertEquals(30.0, $priceCache->last()->getUnitPrice());
     }
 
     public function test_price_cache_aggregate_calculates_correctly()
@@ -209,6 +209,46 @@ class ProductTest extends TestCase
 
         $product->updatePriceCache();
         $this->assertSame($priceCache->toArray(), $product->price_cache);
+    }
+
+    public function test_build_price_cache_includes_unit_price_and_factor()
+    {
+        Carbon::setTestNow(Carbon::create(2025, 1, 10));
+        $product = Product::factory()
+            ->addUrlWithPrices('https://example.com', [12, 18, 24], priceFactor: 6)
+            ->createOne();
+
+        $priceCache = $product->buildPriceCache();
+
+        $this->assertCount(1, $priceCache);
+        $first = $priceCache->first();
+        $this->assertEquals(6, $first['price_factor']);
+        $this->assertEquals(4.0, $first['unit_price']);
+    }
+
+    public function test_build_price_cache_includes_unit_of_measure()
+    {
+        Carbon::setTestNow(Carbon::create(2025, 1, 10));
+        $product = Product::factory()
+            ->addUrlWithPrices('https://example.com', [12, 18, 24])
+            ->createOne(['unit_of_measure' => 'tablets']);
+
+        $priceCache = $product->buildPriceCache();
+
+        $this->assertCount(1, $priceCache);
+        $this->assertSame('tablets', $priceCache->first()['unit_of_measure']);
+    }
+
+    public function test_build_price_cache_unit_of_measure_null_by_default()
+    {
+        Carbon::setTestNow(Carbon::create(2025, 1, 10));
+        $product = Product::factory()
+            ->addUrlWithPrices('https://example.com', [12, 18, 24])
+            ->createOne();
+
+        $priceCache = $product->buildPriceCache();
+
+        $this->assertNull($priceCache->first()['unit_of_measure']);
     }
 
     public function test_all_prices_query_returns_correct_data()

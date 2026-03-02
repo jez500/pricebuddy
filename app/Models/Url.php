@@ -20,6 +20,7 @@ use Illuminate\Support\Str;
  * Product URL.
  *
  * @property ?string $url
+ * @property float $price_factor
  * @property string $product_name_short
  * @property string $store_name
  * @property string $buy_url
@@ -147,7 +148,7 @@ class Url extends Model
         return $this->url ? ScrapeUrl::new($this->url)->scrape() : [];
     }
 
-    public static function createFromUrl(string $url, ?int $productId = null, ?int $userId = null, bool $createStore = true): Url|false
+    public static function createFromUrl(string $url, ?int $productId = null, ?int $userId = null, bool $createStore = true, float $priceFactor = 1): Url|false
     {
         $userId = $userId ?? auth()->id();
 
@@ -184,6 +185,7 @@ class Url extends Model
             'url' => $url,
             'store_id' => $store->getKey(),
             'product_id' => $productId,
+            'price_factor' => $priceFactor,
         ]);
 
         $urlModel->updatePrice(data_get($scrape, 'price'));
@@ -205,8 +207,13 @@ class Url extends Model
             return null;
         }
 
+        $priceFloat = CurrencyHelper::toFloat($price, locale: $this->store?->locale, iso: $this->store?->currency);
+        $priceFactor = $this->price_factor ?: 1;
+
         return $this->prices()->create([
-            'price' => CurrencyHelper::toFloat($price, locale: $this->store?->locale, iso: $this->store?->currency),
+            'price' => $priceFloat,
+            'unit_price' => $priceFloat / $priceFactor,
+            'price_factor' => $priceFactor,
             'store_id' => $this->store_id,
         ]);
     }

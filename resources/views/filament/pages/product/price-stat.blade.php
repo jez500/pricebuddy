@@ -56,10 +56,18 @@
     >
     <div class="flex mb-4 gap-4">
 
-        <div
-            class="fi-wi-stats-overview-stat-value {{ $firstCardValueStyle }}"
-        >
-            {{ $getValue() }}
+        <div>
+            <div
+                class="fi-wi-stats-overview-stat-value {{ $firstCardValueStyle }}"
+            >
+                {{ $getValue() }}
+            </div>
+            @if ($priceCache->getPriceFactor() != 1)
+                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {{ __('Retail') }}: {{ $priceCache->getPriceFormatted() }}
+                    <span class="text-gray-400 dark:text-gray-500">({{ (float) $priceCache->getPriceFactor() }} {{ $priceCache->getUnitOfMeasure() ?? 'pk' }})</span>
+                </div>
+            @endif
         </div>
 
         <div class="flex items-center gap-x-2 justify-start">
@@ -199,6 +207,7 @@
         <div class="pb-expandable-stat__actions px-3 pt-4 pb-3 flex gap-2 justify-start items-center text-gray-500 dark:text-gray-400">
             {{ ($this->viewAction)(['url' => $priceCache->getUrl()]) }}
             {{ ($this->fetchAction)(['url' => $priceCache->getUrlId()]) }}
+            {{ ($this->editAction)(['url' => $priceCache->getUrlId()]) }}
             {{ ($this->deleteAction)(['url' => $priceCache->getUrlId()]) }}
          </div>
         @include('components.price-aggregates', [
