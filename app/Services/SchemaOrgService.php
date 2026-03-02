@@ -29,7 +29,7 @@ class SchemaOrgService
             // First try for lowest, then price, finally priceSpecification price.
             'price' => data_get($schema, 'offers.lowPrice', data_get($schema, 'offers.price', data_get($schema, 'offers.priceSpecification.price'))),
             // Currency.
-            'price_currency' => data_get($schema, 'offers.priceCurrency', data_get($schema, 'offers.priceSpecification.price')),
+            'price_currency' => data_get($schema, 'offers.priceCurrency', data_get($schema, 'offers.priceSpecification.priceCurrency', 'USD')),
             // Image should be a string, sometimes array of strings.
             'image' => is_string(data_get($schema, 'image'))
                 ? data_get($schema, 'image')

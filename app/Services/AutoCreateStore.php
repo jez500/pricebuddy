@@ -163,7 +163,7 @@ class AutoCreateStore
             return CurrencyHelper::toFloat($value);
         };
 
-        if ($match = $this->attemptSchemaOrg('price')) {
+        if ($match = $this->attemptSchemaOrg('price', $validateCallback)) {
             return $match;
         }
 
