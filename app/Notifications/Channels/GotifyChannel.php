@@ -63,8 +63,8 @@ class GotifyChannel
             'extras' => [
                 'client::notification' => [
                     'click' => [
-						'url' => $url,
-					],
+                        'url' => $url,
+                    ],
                 ],
             ],
         ]);
