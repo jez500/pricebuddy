@@ -170,6 +170,10 @@ class ScrapeUrl
                 ->setUseCache($useCache)
                 ->setOptions($store->scraper_options);
 
+            if ($store->cookies) {
+                $scraper->setCookies($store->cookies);
+            }
+
             $page = $scraper->get();
 
             if ($errors = $scraper->getErrors()) {

@@ -92,6 +92,12 @@ class StoreResource extends Resource
                     ->columns(2)
                     ->schema(AppSettingsPage::getLocaleFormFields('settings.locale_settings')),
 
+                Forms\Components\Section::make('Cookies')->schema([
+                    TextInput::make('cookies')
+                        ->label('Cookies')
+                        ->hintIcon(Icons::Help->value, 'Any cookies to include in scrape requests for this store. Format as you would in an HTTP header, e.g. "cookie1=value; cookie2=value"'),
+                ])->description('Optional cookies to include in scrape requests for this store'),
+
                 Forms\Components\Section::make('Notes')->schema([
                     Forms\Components\RichEditor::make('notes')
                         ->hiddenLabel(true),
