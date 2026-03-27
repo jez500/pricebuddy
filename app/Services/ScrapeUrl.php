@@ -180,7 +180,7 @@ class ScrapeUrl
                 ->setUseCache($useCache)
                 ->setOptions($store->scraper_options);
 
-            if ($store->cookies) {
+            if ($store->cookies && method_exists($scraper, 'setCookies')) {
                 $scraper->setCookies($store->cookies);
             }
 

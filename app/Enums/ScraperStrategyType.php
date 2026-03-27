@@ -44,7 +44,7 @@ enum ScraperStrategyType: string implements HasDescription, HasLabel
         };
     }
 
-    public static function needsValue(string $type): bool
+    public static function needsValue(?string $type): bool
     {
         return match ($type) {
             self::SchemaOrg->value => false,

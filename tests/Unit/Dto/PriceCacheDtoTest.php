@@ -3,10 +3,10 @@
 namespace Tests\Unit\Dto;
 
 use App\Dto\PriceCacheDto;
-use App\Services\Helpers\SettingsHelper;
-use Illuminate\Support\Facades\Artisan;
 use App\Enums\StockStatus;
 use App\Enums\Trend;
+use App\Services\Helpers\SettingsHelper;
+use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 class PriceCacheDtoTest extends TestCase

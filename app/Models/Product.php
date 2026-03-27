@@ -350,10 +350,19 @@ class Product extends Model
     public function getPriceCache(): Collection
     {
         return collect($this->price_cache)
-            ->sortBy([
-                fn ($item) => StockStatus::fromScrapedValue($item['availability'] ?? null)->getSortOrder(),
-                ['unit_price', 'asc'],
-            ])
+            ->sort(function (array $left, array $right): int {
+                $leftStatus = StockStatus::fromScrapedValue($left['availability'] ?? null)->getSortOrder();
+                $rightStatus = StockStatus::fromScrapedValue($right['availability'] ?? null)->getSortOrder();
+
+                if ($leftStatus !== $rightStatus) {
+                    return $leftStatus <=> $rightStatus;
+                }
+
+                $leftPrice = (float) data_get($left, 'unit_price', data_get($left, 'price', 0));
+                $rightPrice = (float) data_get($right, 'unit_price', data_get($right, 'price', 0));
+
+                return $leftPrice <=> $rightPrice;
+            })
             ->map(fn ($price) => PriceCacheDto::fromArray($price))
             ->values();
     }
@@ -437,10 +446,19 @@ class Product extends Model
                     'availability' => $url->availability,
                 ];
             })
-            ->sortBy([
-                fn ($item) => StockStatus::fromScrapedValue($item['availability'] ?? null)->getSortOrder(),
-                ['unit_price', 'asc'],
-            ])
+            ->sort(function (array $left, array $right): int {
+                $leftStatus = StockStatus::fromScrapedValue($left['availability'] ?? null)->getSortOrder();
+                $rightStatus = StockStatus::fromScrapedValue($right['availability'] ?? null)->getSortOrder();
+
+                if ($leftStatus !== $rightStatus) {
+                    return $leftStatus <=> $rightStatus;
+                }
+
+                $leftPrice = (float) data_get($left, 'unit_price', data_get($left, 'price', 0));
+                $rightPrice = (float) data_get($right, 'unit_price', data_get($right, 'price', 0));
+
+                return $leftPrice <=> $rightPrice;
+            })
             ->values();
     }
 
