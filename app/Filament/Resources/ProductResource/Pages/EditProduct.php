@@ -43,11 +43,12 @@ class EditProduct extends EditRecord
         return 1;
     }
 
-    protected function afterUpdate(): void
+    protected function afterSave(): void
     {
         /** @var Product $product */
-        $product = $this->record;
+        $product = Product::find($this->record->getKey());
 
         $product->tags()->sync($this->data['tags']);
+        $product->updatePriceCache();
     }
 }

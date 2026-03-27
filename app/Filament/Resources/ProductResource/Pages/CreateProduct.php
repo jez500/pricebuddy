@@ -23,7 +23,8 @@ class CreateProduct extends CreateRecord
             url: $url,
             productId: $productId,
             userId: auth()->id(),
-            createStore: data_get($data, 'create_store', false)
+            createStore: data_get($data, 'create_store', false),
+            priceFactor: (float) data_get($data, 'price_factor', 1),
         );
 
         return $urlModel->product;

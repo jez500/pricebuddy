@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ProductResource\Widgets;
 
+use App\Dto\PriceCacheDto;
 use App\Models\Product;
 use App\Models\Url;
 use App\Providers\Filament\AdminPanelProvider;
@@ -35,18 +36,43 @@ class PriceHistoryChart extends ChartWidget
 
     protected static ?string $pollingInterval = null;
 
+    public ?string $filter = 'unit_price';
+
+    protected function getFilters(): ?array
+    {
+        return [
+            'unit_price' => 'Unit Price',
+            'retail_price' => 'Retail Price',
+        ];
+    }
+
     protected function getData(): array
     {
-        $history = $this->record->getPriceHistoryCached();
+        $priceCache = $this->record->getPriceCache();
+        $showUnitPrice = $this->filter === 'unit_price';
+
+        $history = $priceCache->mapWithKeys(fn (PriceCacheDto $price) => [
+            $price->getUrlId() => $price->getHistory(),
+        ]);
+
+        $priceFactors = $priceCache->mapWithKeys(fn (PriceCacheDto $price) => [
+            $price->getUrlId() => $price->getPriceFactor(),
+        ]);
 
         $datasets = [];
 
         $urls = Url::findMany($history->keys())->values();
 
         foreach ($urls as $idx => $url) {
+            $data = $history->get($url->id);
+            if ($showUnitPrice) {
+                $factor = $priceFactors->get($url->id, 1);
+                $data = $data->map(fn ($price) => round($price / $factor, 2));
+            }
+
             $datasets[] = [
                 'label' => $url->store?->name,
-                'data' => $history->get($url->id),
+                'data' => $data,
                 'backgroundColor' => 'rgba('.$this->getDatasetColor($idx).', 0.4)',
                 'borderColor' => 'rgba('.$this->getDatasetColor($idx).', 0.9)',
                 'fill' => true,
