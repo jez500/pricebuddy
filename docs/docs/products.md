@@ -18,6 +18,21 @@ URL to get the product details and price. You can then add more URLs to the prod
 
 You can also add a URL to an existing product.
 
+## Availability
+
+When supported by a store, PriceBuddy will also show the availability of each URL.
+This helps you tell the difference between the cheapest price and the best option
+that is actually available to buy.
+
+Possible availability states include:
+
+* In Stock
+* Pre-Order
+* Back Order
+* Special Order
+* Out of Stock
+* Discontinued
+
 ## Price History
 
 Each URL has a price history. This is a list of prices that the product has been
@@ -27,6 +42,9 @@ over time.
 When viewing a product the most recent price for each URL is displayed. The prices 
 are listed lowest price to highest price. This allows you to quickly see where the
 product is cheapest.
+
+If a URL is unavailable and there is no current price, PriceBuddy will show the
+availability status instead of displaying a misleading zero price.
 
 ## Price trends
 
@@ -39,6 +57,9 @@ you decide if you should buy the product now or wait for the price to drop.
 You can set up notifications for a product. This will email you when the price
 of the product drops below a certain price. This allows you to get the best deal on
 the product without having to constantly check the price yourself.
+
+Unavailable items do not trigger price alerts until they have a valid current
+price again.
 
 Notifications require the following settings:
 
