@@ -15,11 +15,17 @@ class StoreUrl implements DataAwareRule, ValidationRule
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
+        if (empty($value) || ! filter_var($value, FILTER_VALIDATE_URL)) {
+            $fail('The url must be a valid URL starting with http:// or https://');
+
+            return;
+        }
+
         $store = ScrapeUrl::new($value)->getStore();
 
         $shouldCreateStore = data_get($this->data, 'data.create_store', true);
 
-        if (empty($value) || (empty($store) && ! $shouldCreateStore)) {
+        if (empty($store) && ! $shouldCreateStore) {
             $fail('The domain does not belong to any stores');
         }
 
