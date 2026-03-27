@@ -62,7 +62,9 @@ class GotifyChannel
             'priority' => $priority,
             'extras' => [
                 'client::notification' => [
-                    'click' => $url,
+                    'click' => [
+                        'url' => $url,
+                    ],
                 ],
             ],
         ]);
