@@ -57,6 +57,11 @@
     <div class="flex mb-4 gap-4">
 
         <div>
+            @if ($priceCache->hasVisiblePrice())
+                <div class="text-[0.65rem] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">
+                    {{ __('Unit price') }}
+                </div>
+            @endif
             <div
                 class="fi-wi-stats-overview-stat-value {{ $firstCardValueStyle }}"
             >
@@ -65,7 +70,7 @@
             @if ($priceCache->hasVisiblePrice() && $priceCache->getPriceFactor() != 1)
                 <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {{ __('Retail') }}: {{ $priceCache->getPriceFormatted() }}
-                    <span class="text-gray-400 dark:text-gray-500">({{ (float) $priceCache->getPriceFactor() }} {{ $priceCache->getUnitOfMeasure() ?? 'pk' }})</span>
+                    <span class="text-gray-400 dark:text-gray-500">({{ (float) $priceCache->getPriceFactor() }} {{ $priceCache->getUnitOfMeasure() ?? __('units') }})</span>
                 </div>
             @endif
         </div>

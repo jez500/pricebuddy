@@ -22,7 +22,7 @@ class PriceCreatedListener
             return;
         }
 
-        if (! empty($url->availability)) {
+        if ($url->getAvailabilityStatus() !== null) {
             return;
         }
 

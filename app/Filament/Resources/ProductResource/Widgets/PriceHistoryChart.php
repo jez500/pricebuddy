@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\ProductResource\Widgets;
 
-use App\Dto\PriceCacheDto;
 use App\Models\Product;
 use App\Models\Url;
 use App\Providers\Filament\AdminPanelProvider;
@@ -48,16 +47,8 @@ class PriceHistoryChart extends ChartWidget
 
     protected function getData(): array
     {
-        $priceCache = $this->record->getPriceCache();
         $showUnitPrice = $this->filter === 'unit_price';
-
-        $history = $priceCache->mapWithKeys(fn (PriceCacheDto $price) => [
-            $price->getUrlId() => $price->getHistory(),
-        ]);
-
-        $priceFactors = $priceCache->mapWithKeys(fn (PriceCacheDto $price) => [
-            $price->getUrlId() => $price->getPriceFactor(),
-        ]);
+        $history = $this->record->getPriceHistoryCached($showUnitPrice ? 'unit_price' : 'price');
 
         $datasets = [];
 
@@ -65,10 +56,6 @@ class PriceHistoryChart extends ChartWidget
 
         foreach ($urls as $idx => $url) {
             $data = $history->get($url->id);
-            if ($showUnitPrice) {
-                $factor = $priceFactors->get($url->id, 1);
-                $data = $data->map(fn ($price) => round($price / $factor, 2));
-            }
 
             $datasets[] = [
                 'label' => $url->store?->name,

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Models;
 
+use App\Enums\StockStatus;
 use App\Models\Price;
 use App\Models\Product;
 use App\Models\Store;
@@ -129,6 +130,28 @@ class UrlTest extends TestCase
         $this->assertEquals(1, $priceModel->price_factor);
     }
 
+    public function test_sync_stored_prices_for_current_factor_recalculates_existing_prices_without_creating_new_rows()
+    {
+        $product = Product::factory()
+            ->addUrlWithPrices(self::TEST_URL, [12, 18, 24], priceFactor: 6)
+            ->createOne();
+
+        $url = $product->urls()->firstOrFail();
+        $originalLatestPriceId = $url->prices()->latest('id')->value('id');
+
+        $url->update(['price_factor' => 12]);
+        $url->syncStoredPricesForCurrentFactor();
+        $url->product->refresh()->updatePriceCache();
+
+        $latestPrice = $url->prices()->latest('id')->first();
+
+        $this->assertCount(3, $url->prices);
+        $this->assertSame($originalLatestPriceId, $url->prices()->latest('id')->value('id'));
+        $this->assertSame(2.0, $latestPrice->unit_price);
+        $this->assertSame(12.0, $latestPrice->price_factor);
+        $this->assertSame(2.0, $url->product->fresh()->getPriceCache()->first()->getUnitPrice());
+    }
+
     public function test_update_price_with_invalid_data()
     {
         $product = Product::factory()->create();
@@ -167,7 +190,7 @@ class UrlTest extends TestCase
         $urlModel = Url::createFromUrl(self::TEST_URL);
 
         $this->assertInstanceOf(Url::class, $urlModel);
-        $this->assertEquals('out_of_stock', $urlModel->availability);
+        $this->assertSame(StockStatus::OutOfStock, $urlModel->availability);
         $this->assertEquals('Out of Stock Product', $urlModel->product->title);
         $this->assertCount(0, $urlModel->prices);
         $this->assertCount(1, $urlModel->product->fresh()->getPriceCache());
@@ -201,7 +224,7 @@ class UrlTest extends TestCase
 
         $this->assertNull($priceModel);
         $this->assertCount(0, $url->prices);
-        $this->assertEquals('out_of_stock', $url->fresh()->availability);
+        $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
     }
 
     public function test_update_price_unavailable_to_in_stock_creates_price_and_clears_availability()
@@ -211,7 +234,7 @@ class UrlTest extends TestCase
             'url' => self::TEST_URL,
             'product_id' => $product->id,
             'store_id' => $this->store->id,
-            'availability' => 'out_of_stock',
+            'availability' => StockStatus::OutOfStock,
         ]);
 
         $this->store->update([
@@ -248,7 +271,7 @@ class UrlTest extends TestCase
         $url = Url::factory()->createOne([
             'product_id' => $product->id,
             'store_id' => $this->store->id,
-            'availability' => 'out_of_stock',
+            'availability' => StockStatus::OutOfStock,
         ]);
 
         Price::factory()->create([

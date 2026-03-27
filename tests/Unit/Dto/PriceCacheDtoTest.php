@@ -5,20 +5,10 @@ namespace Tests\Unit\Dto;
 use App\Dto\PriceCacheDto;
 use App\Enums\StockStatus;
 use App\Enums\Trend;
-use App\Services\Helpers\SettingsHelper;
-use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 class PriceCacheDtoTest extends TestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        Artisan::call('migrate');
-        SettingsHelper::setSetting('default_locale_settings', ['locale' => 'en', 'currency' => 'USD']);
-    }
-
     public function test_unit_of_measure_getter()
     {
         $dto = new PriceCacheDto(
@@ -26,6 +16,8 @@ class PriceCacheDtoTest extends TestCase
             unitPrice: 5.00,
             priceFactor: 2,
             unitOfMeasure: 'tablets',
+            locale: 'en',
+            currency: 'USD',
         );
 
         $this->assertSame('tablets', $dto->getUnitOfMeasure());
@@ -36,6 +28,8 @@ class PriceCacheDtoTest extends TestCase
         $dto = new PriceCacheDto(
             price: 10.00,
             unitPrice: 10.00,
+            locale: 'en',
+            currency: 'USD',
         );
 
         $this->assertNull($dto->getUnitOfMeasure());
@@ -47,6 +41,8 @@ class PriceCacheDtoTest extends TestCase
             'price' => 10.00,
             'history' => [],
             'unit_of_measure' => 'item',
+            'locale' => 'en',
+            'currency' => 'USD',
         ]);
 
         $this->assertSame('item', $dto->getUnitOfMeasure());
@@ -57,6 +53,8 @@ class PriceCacheDtoTest extends TestCase
         $dto = new PriceCacheDto(
             price: 10.00,
             unitOfMeasure: 'grams',
+            locale: 'en',
+            currency: 'USD',
         );
 
         $array = $dto->toArray();
@@ -68,6 +66,8 @@ class PriceCacheDtoTest extends TestCase
         $dto = PriceCacheDto::fromArray([
             'price' => 10.00,
             'history' => [],
+            'locale' => 'en',
+            'currency' => 'USD',
         ]);
 
         $this->assertNull($dto->getUnitOfMeasure());
@@ -75,7 +75,7 @@ class PriceCacheDtoTest extends TestCase
 
     public function test_availability_defaults_to_in_stock()
     {
-        $dto = new PriceCacheDto(price: 10.0);
+        $dto = new PriceCacheDto(price: 10.0, locale: 'en', currency: 'USD');
 
         $this->assertFalse($dto->isUnavailable());
         $this->assertSame(StockStatus::InStock, $dto->getStockStatus());
@@ -83,7 +83,7 @@ class PriceCacheDtoTest extends TestCase
 
     public function test_availability_can_be_set_via_constructor()
     {
-        $dto = new PriceCacheDto(price: 10.0, availability: 'OutOfStock');
+        $dto = new PriceCacheDto(price: 10.0, availability: StockStatus::OutOfStock, locale: 'en', currency: 'USD');
 
         $this->assertTrue($dto->isUnavailable());
         $this->assertSame(StockStatus::OutOfStock, $dto->getStockStatus());
@@ -94,7 +94,9 @@ class PriceCacheDtoTest extends TestCase
         $dto = PriceCacheDto::fromArray([
             'price' => 10.0,
             'history' => [],
-            'availability' => 'OutOfStock',
+            'availability' => StockStatus::OutOfStock,
+            'locale' => 'en',
+            'currency' => 'USD',
         ]);
 
         $this->assertTrue($dto->isUnavailable());
@@ -106,6 +108,8 @@ class PriceCacheDtoTest extends TestCase
         $dto = PriceCacheDto::fromArray([
             'price' => 10.0,
             'history' => [],
+            'locale' => 'en',
+            'currency' => 'USD',
         ]);
 
         $this->assertFalse($dto->isUnavailable());
@@ -114,7 +118,7 @@ class PriceCacheDtoTest extends TestCase
 
     public function test_to_array_includes_availability()
     {
-        $dto = new PriceCacheDto(price: 10.0, availability: 'OutOfStock');
+        $dto = new PriceCacheDto(price: 10.0, availability: StockStatus::OutOfStock, locale: 'en', currency: 'USD');
         $array = $dto->toArray();
 
         $this->assertArrayHasKey('availability', $array);
@@ -123,7 +127,7 @@ class PriceCacheDtoTest extends TestCase
 
     public function test_to_array_availability_null_by_default()
     {
-        $dto = new PriceCacheDto(price: 10.0);
+        $dto = new PriceCacheDto(price: 10.0, locale: 'en', currency: 'USD');
         $array = $dto->toArray();
 
         $this->assertArrayHasKey('availability', $array);
@@ -140,7 +144,9 @@ class PriceCacheDtoTest extends TestCase
             'url' => 'https://example.com',
             'trend' => Trend::None->value,
             'history' => [10.0, 20.0, 25.0],
-            'availability' => 'OutOfStock',
+            'availability' => StockStatus::OutOfStock,
+            'locale' => 'en',
+            'currency' => 'USD',
         ];
 
         $dto = PriceCacheDto::fromArray($data);
@@ -153,7 +159,7 @@ class PriceCacheDtoTest extends TestCase
 
     public function test_stock_status_convenience_methods()
     {
-        $dto = new PriceCacheDto(price: 10.0, availability: 'OutOfStock');
+        $dto = new PriceCacheDto(price: 10.0, availability: StockStatus::OutOfStock, locale: 'en', currency: 'USD');
 
         $this->assertSame('Out of Stock', $dto->getStockStatusLabel());
         $this->assertSame('danger', $dto->getStockStatusColor());
@@ -162,7 +168,7 @@ class PriceCacheDtoTest extends TestCase
 
     public function test_stock_status_convenience_methods_for_in_stock()
     {
-        $dto = new PriceCacheDto(price: 10.0);
+        $dto = new PriceCacheDto(price: 10.0, locale: 'en', currency: 'USD');
 
         $this->assertSame('In Stock', $dto->getStockStatusLabel());
         $this->assertSame('success', $dto->getStockStatusColor());
@@ -171,7 +177,7 @@ class PriceCacheDtoTest extends TestCase
 
     public function test_pre_order_scraped_value_maps_correctly()
     {
-        $dto = new PriceCacheDto(price: 10.0, availability: 'PreOrder');
+        $dto = new PriceCacheDto(price: 10.0, availability: StockStatus::PreOrder, locale: 'en', currency: 'USD');
 
         $this->assertTrue($dto->isUnavailable());
         $this->assertSame(StockStatus::PreOrder, $dto->getStockStatus());
@@ -185,6 +191,8 @@ class PriceCacheDtoTest extends TestCase
             'price' => 10.0,
             'history' => [],
             'availability' => StockStatus::OutOfStock->value,
+            'locale' => 'en',
+            'currency' => 'USD',
         ]);
 
         $this->assertTrue($dto->isUnavailable());

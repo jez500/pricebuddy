@@ -32,12 +32,15 @@
                     </h3>
                     <div>
                         @if ($latestPrice->hasVisiblePrice())
+                            <div class="text-[0.65rem] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                                {{ __('Unit price') }}
+                            </div>
                             <span class="text-2xl font-semibold">
                                 {{ $latestPrice->getUnitPriceFormatted() }}
                             </span>
                             @if ($latestPrice->getPriceFactor() != 1)
                                 <span class="text-xs text-gray-400 dark:text-gray-500">
-                                    {{ $latestPrice->getPriceFormatted() }} ({{ (float) $latestPrice->getPriceFactor() }} {{ $latestPrice->getUnitOfMeasure() ?? 'pk' }})
+                                    {{ __('Retail') }}: {{ $latestPrice->getPriceFormatted() }} ({{ (float) $latestPrice->getPriceFactor() }} {{ $latestPrice->getUnitOfMeasure() ?? __('units') }})
                                 </span>
                             @endif
                         @else

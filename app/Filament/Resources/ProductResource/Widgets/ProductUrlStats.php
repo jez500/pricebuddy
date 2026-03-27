@@ -133,7 +133,7 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
             ->action(function ($arguments, $data) {
                 $url = Url::find($arguments['url']);
                 $url->update(['price_factor' => $data['price_factor']]);
-                $url->updatePrice();
+                $url->syncStoredPricesForCurrentFactor();
                 $url->product->updatePriceCache();
 
                 Notification::make('price_factor_updated')

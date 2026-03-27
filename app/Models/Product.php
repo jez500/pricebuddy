@@ -400,15 +400,15 @@ class Product extends Model
             ->with('store')
             ->get();
 
+        /** @var EloquentCollection<int, Url> $urls */
         $urls = $this->urls()->whereIn('id', $history->keys())->with('store')->get()->merge($outOfStockUrls);
 
-        return $urls
-            ->filter(function ($url) {
-                /** @var Url $url */
+        /** @var Collection<int, array<string, mixed>> $priceCache */
+        $priceCache = $urls
+            ->filter(function (Url $url): bool {
                 return $url->store !== null;
             })
-            ->map(function ($url) use ($history): array {
-                /** @var Url $url */
+            ->map(function (Url $url) use ($history): array {
                 /** @var Collection $urlHistory */
                 $urlHistory = $history->get($url->getKey(), collect());
                 /** @var Store $store */
@@ -443,10 +443,10 @@ class Product extends Model
                     'locale' => $store->locale,
                     'currency' => $store->currency,
                     'unit_of_measure' => $this->unit_of_measure,
-                    'availability' => $url->availability,
+                    'availability' => $url->getAvailabilityStatus()?->value,
                 ];
             })
-            ->sort(function (array $left, array $right): int {
+            ->sort(function ($left, $right): int {
                 $leftStatus = StockStatus::fromScrapedValue($left['availability'] ?? null)->getSortOrder();
                 $rightStatus = StockStatus::fromScrapedValue($right['availability'] ?? null)->getSortOrder();
 
@@ -460,6 +460,8 @@ class Product extends Model
                 return $leftPrice <=> $rightPrice;
             })
             ->values();
+
+        return $priceCache;
     }
 
     public function getAggregateRange(): array
@@ -536,20 +538,22 @@ class Product extends Model
     /**
      * Get the price history for this product.
      */
-    public function getPriceHistory(): Collection
+    public function getPriceHistory(string $column = 'price'): Collection
     {
+        $priceColumn = $column === 'unit_price' ? 'unit_price' : 'price';
+
         return $this->getAllPricesQuery()
             ->whereDate('prices.created_at', '>=', now()->subYear())
             ->where('prices.price', '>', 0)
             ->orderBy('prices.created_at')
             ->get()
             ->groupBy('url_id')
-            ->mapWithKeys(function ($prices, int $storeId) {
+            ->mapWithKeys(function ($prices, int $storeId) use ($priceColumn) {
                 // All price entries for the store.
                 $storeHistory = $prices->sortBy('created_at')
                     ->groupBy('created_at')
                     ->mapWithKeys(fn ($prices, string $date) => [
-                        Carbon::parse($date)->toDateString() => $prices->pluck('price')->min(),
+                        Carbon::parse($date)->toDateString() => $prices->pluck($priceColumn)->min(),
                     ]);
 
                 // If only one price, extend back one day.
@@ -575,12 +579,15 @@ class Product extends Model
     /**
      * Get the cached price history for this product.
      */
-    public function getPriceHistoryCached(): Collection
+    public function getPriceHistoryCached(string $column = 'price'): Collection
     {
-        return $this->getPriceCache()
-            ->mapWithKeys(fn (PriceCacheDto $price) => [
-                $price->getUrlId() => $price->getHistory(),
-            ]);
+        if ($column === 'unit_price') {
+            return $this->getPriceHistory('unit_price');
+        }
+
+        return $this->getPriceCache()->mapWithKeys(fn (PriceCacheDto $price) => [
+            $price->getUrlId() => $price->getHistory(),
+        ]);
     }
 
     public function shouldNotifyOnPrice(Price $price): bool

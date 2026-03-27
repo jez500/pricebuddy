@@ -54,7 +54,7 @@ class PriceCacheDto
         ?float $unitPrice = null,
         float $priceFactor = 1,
         ?string $unitOfMeasure = null,
-        ?string $availability = null,
+        StockStatus|string|null $availability = null,
     ) {
         $this->storeId = $storeId;
         $this->storeName = $storeName;
@@ -69,7 +69,9 @@ class PriceCacheDto
         $this->locale = $locale ?? CurrencyHelper::getLocale();
         $this->currency = $currency ?? CurrencyHelper::getCurrency();
         $this->unitOfMeasure = $unitOfMeasure;
-        $this->stockStatus = StockStatus::fromScrapedValue($availability);
+        $this->stockStatus = $availability instanceof StockStatus
+            ? $availability
+            : StockStatus::fromScrapedValue($availability);
     }
 
     // Getters

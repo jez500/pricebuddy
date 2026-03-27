@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\Statuses;
+use App\Enums\StockStatus;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\Url;
@@ -38,7 +39,7 @@ class ProductFactory extends Factory
         ];
     }
 
-    public function addUrlWithPrices(string $url, array $prices, float $priceFactor = 1, ?string $availability = null): self
+    public function addUrlWithPrices(string $url, array $prices, float $priceFactor = 1, StockStatus|string|null $availability = null): self
     {
         return $this->afterCreating(function (Product $product) use ($url, $prices, $priceFactor, $availability) {
             $store = ScrapeUrl::new($url)->getStore() ?? Store::factory()->forUrl($url)->createOne();
@@ -48,7 +49,7 @@ class ProductFactory extends Factory
                 'url' => $url,
                 'store_id' => $store->id,
                 'price_factor' => $priceFactor,
-                'availability' => $availability,
+                'availability' => $availability instanceof StockStatus ? $availability->value : $availability,
             ]);
 
             $urlPriceFactor = $priceFactor ?: 1;

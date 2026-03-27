@@ -32,6 +32,7 @@ use Illuminate\Support\Str;
  * @property ?Product $product
  * @property ?int $store_id
  * @property ?int $product_id
+ * @property ?StockStatus $availability
  * @property Collection $prices
  * @property Carbon $updated_at
  * @property Carbon $created_at
@@ -56,7 +57,7 @@ class Url extends Model
         return [
             'updated_at' => 'datetime',
             'created_at' => 'datetime',
-            'availability' => 'string',
+            'availability' => StockStatus::class,
         ];
     }
 
@@ -150,6 +151,21 @@ class Url extends Model
         return $this->url ? ScrapeUrl::new($this->url)->scrape() : [];
     }
 
+    public function getAvailabilityStatus(): ?StockStatus
+    {
+        if ($this->availability instanceof StockStatus) {
+            return $this->availability;
+        }
+
+        $availability = $this->getRawOriginal('availability');
+
+        if (is_string($availability) && $availability !== '') {
+            return StockStatus::fromScrapedValue($availability);
+        }
+
+        return null;
+    }
+
     public static function createFromUrl(string $url, ?int $productId = null, ?int $userId = null, bool $createStore = true, float $priceFactor = 1): Url|false
     {
         $userId = $userId ?? auth()->id();
@@ -216,8 +232,8 @@ class Url extends Model
             $scrapedValue = data_get($scrapeResult, 'availability');
             $matchConfig = data_get($this->store, 'scrape_strategy.availability.match');
             $stockStatus = StockStatus::matchFromScrapedValue($scrapedValue, $matchConfig);
-            $availability = $stockStatus->isUnavailable() ? $stockStatus->value : null;
-            $availabilityChanged = $this->availability !== $availability;
+            $availability = $stockStatus->isUnavailable() ? $stockStatus : null;
+            $availabilityChanged = $this->getAvailabilityStatus() !== $availability;
 
             if ($availabilityChanged) {
                 $this->availability = $availability;
@@ -242,6 +258,21 @@ class Url extends Model
             'price_factor' => $priceFactor,
             'store_id' => $this->store_id,
         ]);
+    }
+
+    public function syncStoredPricesForCurrentFactor(): void
+    {
+        $priceFactor = $this->price_factor ?: 1;
+
+        /** @var Collection<int, Price> $prices */
+        $prices = $this->prices()->get();
+
+        $prices->each(function (Price $price) use ($priceFactor): void {
+            $price->forceFill([
+                'unit_price' => $price->price / $priceFactor,
+                'price_factor' => $priceFactor,
+            ])->saveQuietly();
+        });
     }
 
     /**

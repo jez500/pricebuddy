@@ -59,8 +59,7 @@ class UrlsTableWidget extends BaseWidget
                             ->required(),
                     ])
                     ->after(function (Url $record) {
-                        // Recalculate the latest price with the new factor.
-                        $record->updatePrice();
+                        $record->syncStoredPricesForCurrentFactor();
                         $record->product->updatePriceCache();
 
                         Notification::make('price_factor_updated')
