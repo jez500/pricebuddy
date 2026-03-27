@@ -204,6 +204,8 @@ class Url extends Model
             return null;
         }
 
+        $availabilityChanged = false;
+
         if (is_null($price) || $price === '') {
             $scrapeResult = $scrapeResult ?? $this->scrape();
             $price = data_get($scrapeResult, 'price');
@@ -214,18 +216,20 @@ class Url extends Model
             $scrapedValue = data_get($scrapeResult, 'availability');
             $matchConfig = data_get($this->store, 'scrape_strategy.availability.match');
             $stockStatus = StockStatus::matchFromScrapedValue($scrapedValue, $matchConfig);
-            $this->availability = $stockStatus->isUnavailable() ? $stockStatus->value : null;
-            $this->save();
+            $availability = $stockStatus->isUnavailable() ? $stockStatus->value : null;
+            $availabilityChanged = $this->availability !== $availability;
 
-            // If unavailable and no price scraped, use the most recent price or 0.
-            if ($stockStatus->isUnavailable() && (is_null($price) || $price === '')) {
-                /** @var ?Price $latestPrice */
-                $latestPrice = $this->prices()->first();
-                $price = $latestPrice !== null ? $latestPrice->price : 0;
+            if ($availabilityChanged) {
+                $this->availability = $availability;
+                $this->save();
             }
         }
 
         if (is_null($price) || $price === '') {
+            if ($availabilityChanged) {
+                $this->product?->updatePriceCache();
+            }
+
             return null;
         }
 

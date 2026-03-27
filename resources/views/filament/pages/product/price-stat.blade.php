@@ -60,9 +60,9 @@
             <div
                 class="fi-wi-stats-overview-stat-value {{ $firstCardValueStyle }}"
             >
-                {{ $getValue() }}
+                {{ $priceCache->hasVisiblePrice() ? $getValue() : __('Unavailable') }}
             </div>
-            @if ($priceCache->getPriceFactor() != 1)
+            @if ($priceCache->hasVisiblePrice() && $priceCache->getPriceFactor() != 1)
                 <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {{ __('Retail') }}: {{ $priceCache->getPriceFormatted() }}
                     <span class="text-gray-400 dark:text-gray-500">({{ (float) $priceCache->getPriceFactor() }} {{ $priceCache->getUnitOfMeasure() ?? 'pk' }})</span>

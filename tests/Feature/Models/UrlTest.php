@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Helpers\CurrencyHelper;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 use Tests\Traits\ScraperTrait;
 
@@ -168,10 +169,11 @@ class UrlTest extends TestCase
         $this->assertInstanceOf(Url::class, $urlModel);
         $this->assertEquals('out_of_stock', $urlModel->availability);
         $this->assertEquals('Out of Stock Product', $urlModel->product->title);
-        $this->assertEquals(0, $urlModel->prices()->first()->price);
+        $this->assertCount(0, $urlModel->prices);
+        $this->assertCount(1, $urlModel->product->fresh()->getPriceCache());
     }
 
-    public function test_update_price_unavailable_no_price_uses_zero()
+    public function test_update_price_unavailable_no_price_does_not_create_price()
     {
         $product = Product::factory()->create();
         $url = Url::factory()->createOne([
@@ -197,9 +199,65 @@ class UrlTest extends TestCase
 
         $priceModel = $url->updatePrice();
 
-        $this->assertInstanceOf(Price::class, $priceModel);
-        $this->assertEquals(0, $priceModel->price);
+        $this->assertNull($priceModel);
+        $this->assertCount(0, $url->prices);
         $this->assertEquals('out_of_stock', $url->fresh()->availability);
+    }
+
+    public function test_update_price_unavailable_to_in_stock_creates_price_and_clears_availability()
+    {
+        $product = Product::factory()->create();
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'availability' => 'out_of_stock',
+        ]);
+
+        $this->store->update([
+            'scrape_strategy' => array_merge($this->store->scrape_strategy ?? [], [
+                'availability' => [
+                    'type' => 'selector',
+                    'value' => '.availability',
+                    'match' => [
+                        'out_of_stock' => ['type' => 'match', 'value' => 'OutOfStock'],
+                        'default' => 'in_stock',
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->mockScrape('$25', 'foo', null, null);
+
+        $priceModel = $url->updatePrice();
+
+        $this->assertInstanceOf(Price::class, $priceModel);
+        $this->assertEquals(25.0, $priceModel->price);
+        $this->assertNull($url->fresh()->availability);
+    }
+
+    public function test_unavailable_url_does_not_send_notifications_for_new_price()
+    {
+        Notification::fake();
+
+        $product = Product::factory()->create([
+            'user_id' => $this->user->id,
+            'notify_price' => 100.0,
+        ]);
+
+        $url = Url::factory()->createOne([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'availability' => 'out_of_stock',
+        ]);
+
+        Price::factory()->create([
+            'url_id' => $url->id,
+            'store_id' => $this->store->id,
+            'price' => 50.0,
+        ]);
+
+        Notification::assertNothingSent();
     }
 
     public function test_product_name_short_returns_correct_value()

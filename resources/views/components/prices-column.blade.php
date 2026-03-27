@@ -41,8 +41,10 @@
                     <x-filament::icon :icon="$cache->getTrendIcon()" class="w-4 {{ $color }}"/>
 
                     <div class="hover:underline {{ $color }}" @if ($idx > 0) style="{{ Filament\Support\get_color_css_variables(Color::Gray, shades: [300, 500, 400, 600, 800]) }}" @endif>
-                        <strong class="text-[1.2em] font-bold">{{ $cache->getUnitPriceFormatted() }}</strong>
-                        @if ($cache->getPriceFactor() != 1)
+                        <strong class="text-[1.2em] font-bold">
+                            {{ $cache->hasVisiblePrice() ? $cache->getUnitPriceFormatted() : __('Unavailable') }}
+                        </strong>
+                        @if ($cache->hasVisiblePrice() && $cache->getPriceFactor() != 1)
                             <span class="text-xs text-gray-400 dark:text-gray-500">{{ $cache->getPriceFormatted() }} ({{ (float) $cache->getPriceFactor() }} {{ $cache->getUnitOfMeasure() ?? 'pk' }})</span>
                         @endif
                         ({{ $cache->getStoreName() }})
@@ -57,4 +59,3 @@
         @endforeach
     </ul>
 @endif
-

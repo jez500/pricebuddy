@@ -184,6 +184,10 @@ class Product extends Model
     {
         return Attribute::make(
             get: function (): string {
+                if ($this->current_price <= 0) {
+                    return Trend::None->value;
+                }
+
                 return Trend::calculateTrend(
                     $this->current_price,
                     $this->getPriceCacheAggregate('avg'),
@@ -505,7 +509,10 @@ class Product extends Model
     public function updatePriceCache(): void
     {
         $priceCache = $this->buildPriceCache()->toArray();
-        $this->update(['price_cache' => $priceCache, 'current_price' => data_get($priceCache, '0.unit_price', 0)]);
+        $currentPrice = collect($priceCache)
+            ->first(fn (array $item) => StockStatus::fromScrapedValue($item['availability'] ?? null)->isUnavailable() === false)['unit_price'] ?? 0;
+
+        $this->update(['price_cache' => $priceCache, 'current_price' => $currentPrice]);
     }
 
     /**

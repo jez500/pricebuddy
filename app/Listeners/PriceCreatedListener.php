@@ -22,6 +22,10 @@ class PriceCreatedListener
             return;
         }
 
+        if (! empty($url->availability)) {
+            return;
+        }
+
         try {
             // Notify the user if the price is within the range.
             if ($product->shouldNotifyOnPrice($event->price) && $url->shouldNotifyOnPrice($event->price)) {

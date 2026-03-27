@@ -425,6 +425,25 @@ class ProductTest extends TestCase
         $this->assertNull($first['availability']);
     }
 
+    public function test_build_price_cache_includes_unavailable_url_without_price_history()
+    {
+        Carbon::setTestNow(Carbon::create(2025, 1, 10));
+        $product = $this->createOneProductWithUrlAndPrices(prices: [50, 60, 70]);
+
+        Url::factory()->createOne([
+            'product_id' => $product->getKey(),
+            'url' => 'https://example-oos.com',
+            'availability' => 'out_of_stock',
+        ]);
+
+        $priceCache = $product->buildPriceCache();
+        $unavailableItem = collect($priceCache)->firstWhere('availability', 'out_of_stock');
+
+        $this->assertNotNull($unavailableItem);
+        $this->assertSame(0, $unavailableItem['price']);
+        $this->assertSame([], $unavailableItem['history']);
+    }
+
     public function test_build_price_cache_sorts_in_stock_before_unavailable()
     {
         Carbon::setTestNow(Carbon::create(2025, 1, 10));
@@ -463,6 +482,37 @@ class ProductTest extends TestCase
         $this->assertEquals(20.0, $priceCache->get(1)->getPrice());
         $this->assertTrue($priceCache->get(2)->isUnavailable());
         $this->assertEquals(5.0, $priceCache->get(2)->getPrice());
+    }
+
+    public function test_update_price_cache_ignores_unavailable_urls_when_setting_current_price()
+    {
+        $product = $this->createOneProductWithUrlAndPrices(prices: [50, 60, 70]);
+
+        Url::factory()->createOne([
+            'product_id' => $product->getKey(),
+            'url' => 'https://example-oos.com',
+            'availability' => 'out_of_stock',
+        ]);
+
+        $product->updatePriceCache();
+
+        $this->assertSame(70.0, $product->fresh()->current_price);
+    }
+
+    public function test_unavailable_price_cache_item_does_not_match_notifications_without_price()
+    {
+        $product = Product::factory()->createOne([
+            'notify_price' => 100.0,
+            'price_cache' => [
+                ['price' => 0, 'history' => [], 'availability' => 'out_of_stock'],
+            ],
+        ]);
+
+        $priceCacheItem = $product->getPriceCache()->first();
+
+        $this->assertTrue($priceCacheItem->isUnavailable());
+        $this->assertFalse($priceCacheItem->matchesNotification($product));
+        $this->assertFalse($priceCacheItem->hasVisiblePrice());
     }
 
     protected function createOneProductWithUrlAndPrices(string $url = self::DEFAULT_URL, array $prices = [10, 15, 20], array $attrs = []): Product

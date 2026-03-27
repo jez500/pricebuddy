@@ -143,6 +143,16 @@ class PriceCacheDto
         return $this->priceFactor;
     }
 
+    public function hasPriceHistory(): bool
+    {
+        return ! empty($this->history);
+    }
+
+    public function hasVisiblePrice(): bool
+    {
+        return ! ($this->isUnavailable() && ! $this->hasPriceHistory() && $this->getPrice() <= 0);
+    }
+
     public function getHistory(int $count = 365): Collection
     {
         return collect($this->history)->reverse()->take($count)->reverse();
@@ -208,6 +218,10 @@ class PriceCacheDto
 
     public function matchesNotification(Product $product): bool
     {
+        if ($this->isUnavailable()) {
+            return false;
+        }
+
         return $product->shouldNotifyOnPrice(new Price([
             'price' => $this->getPrice(),
         ]));

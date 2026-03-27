@@ -31,12 +31,18 @@
                         {{ $product->title }}
                     </h3>
                     <div>
-                        <span class="text-2xl font-semibold">
-                            {{ $latestPrice->getUnitPriceFormatted() }}
-                        </span>
-                        @if ($latestPrice->getPriceFactor() != 1)
-                            <span class="text-xs text-gray-400 dark:text-gray-500">
-                                {{ $latestPrice->getPriceFormatted() }} ({{ (float) $latestPrice->getPriceFactor() }} {{ $latestPrice->getUnitOfMeasure() ?? 'pk' }})
+                        @if ($latestPrice->hasVisiblePrice())
+                            <span class="text-2xl font-semibold">
+                                {{ $latestPrice->getUnitPriceFormatted() }}
+                            </span>
+                            @if ($latestPrice->getPriceFactor() != 1)
+                                <span class="text-xs text-gray-400 dark:text-gray-500">
+                                    {{ $latestPrice->getPriceFormatted() }} ({{ (float) $latestPrice->getPriceFactor() }} {{ $latestPrice->getUnitOfMeasure() ?? 'pk' }})
+                                </span>
+                            @endif
+                        @else
+                            <span class="text-lg font-semibold text-gray-500 dark:text-gray-400">
+                                {{ __('Unavailable') }}
                             </span>
                         @endif
                         <span class="text-xs text-gray-500 dark:text-gray-400 font-bold display-block">
