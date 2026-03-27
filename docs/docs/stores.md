@@ -154,6 +154,15 @@ Eg. `USD` for US Dollars or `EUR` for Euros.
 NOTE: Mixing currencies on the same product results in incorrect price 
 comparisons and aggregates.
 
+## Cookies
+
+Some stores only show the correct product page or price when a cookie is sent
+with the request.
+
+You can add cookies to a store so PriceBuddy includes them whenever it scrapes
+that site. This can help with stores that require a location, age check, login,
+or other session-based preference before they reveal the real product data.
+
 ## Scraper service
 
 This is what PriceBuddy uses get the HTML of the product page. There are two

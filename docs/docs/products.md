@@ -18,6 +18,24 @@ URL to get the product details and price. You can then add more URLs to the prod
 
 You can also add a URL to an existing product.
 
+## Unit pricing
+
+When a product comes in different pack sizes, you can add a **Price Factor**
+to a URL so PriceBuddy also shows the unit price.
+
+Example:
+
+* A 34-pack of tablets can use a price factor of `34`
+* A bundle of 3 coffee bags can use a price factor of `3`
+
+If you want, you can also add what the product is sold as, such as
+`tablets`, `bags`, or `100g`.
+
+PriceBuddy will then show:
+
+* The unit price as the main comparison
+* The normal retail price underneath
+
 ## Availability
 
 When supported by a store, PriceBuddy will also show the availability of each URL.
@@ -45,6 +63,8 @@ product is cheapest.
 
 If a URL is unavailable and there is no current price, PriceBuddy will show the
 availability status instead of displaying a misleading zero price.
+
+Price history charts can also switch between retail price and unit price.
 
 ## Price trends
 
