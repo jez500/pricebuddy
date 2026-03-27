@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
+use App\Enums\StockStatus;
 use App\Models\Store;
 use App\Services\Helpers\SettingsHelper;
 use App\Settings\AppSettings;
@@ -46,6 +47,7 @@ class ScrapeUrl
         'description',
         'price',
         'image',
+        'availability',
     ];
 
     public bool $sendUiNotifications = true;
@@ -129,7 +131,15 @@ class ScrapeUrl
             }
         }
 
+        $matchConfig = data_get($output, 'store.scrape_strategy.availability.match');
+        $isUnavailable = StockStatus::matchFromScrapedValue($output['availability'] ?? null, $matchConfig)->isUnavailable();
+
         foreach (['price', 'title'] as $required) {
+            // Skip price requirement when product is unavailable.
+            if ($required === 'price' && $isUnavailable) {
+                continue;
+            }
+
             if (empty($output[$required])) {
                 $this->errorLog('Error scraping URL '.$attempt.' times', [
                     'attempts' => $attempt,
@@ -169,6 +179,10 @@ class ScrapeUrl
                 ->setCacheMinsTtl(AppSettings::new()->scrape_cache_ttl)
                 ->setUseCache($useCache)
                 ->setOptions($store->scraper_options);
+
+            if ($store->cookies) {
+                $scraper->setCookies($store->cookies);
+            }
 
             $page = $scraper->get();
 

@@ -31,12 +31,36 @@
                         {{ $product->title }}
                     </h3>
                     <div>
-                        <span class="text-2xl font-semibold">
-                            {{ $latestPrice->getPriceFormatted() }}
-                        </span>
+                        @if ($latestPrice->hasVisiblePrice())
+                            <div class="text-[0.65rem] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                                {{ __('Unit price') }}
+                            </div>
+                            <span class="text-2xl font-semibold">
+                                {{ $latestPrice->getUnitPriceFormatted() }}
+                            </span>
+                            @if ($latestPrice->getPriceFactor() != 1)
+                                <span class="text-xs text-gray-400 dark:text-gray-500">
+                                    {{ __('Retail') }}: {{ $latestPrice->getPriceFormatted() }} ({{ (float) $latestPrice->getPriceFactor() }} {{ $latestPrice->getUnitOfMeasure() ?? __('units') }})
+                                </span>
+                            @endif
+                        @else
+                            <span class="text-lg font-semibold text-gray-500 dark:text-gray-400">
+                                {{ __('Unavailable') }}
+                            </span>
+                        @endif
                         <span class="text-xs text-gray-500 dark:text-gray-400 font-bold display-block">
                             {{ '@'.$latestPrice->getStoreName() }}
                         </span>
+                        @if ($latestPrice->isUnavailable())
+                            <div class="block mt-1">
+                                @include('components.icon-badge', [
+                                    'hoverText' => __('This item is currently :status', ['status' => strtolower($latestPrice->getStockStatusLabel())]),
+                                    'label' => __($latestPrice->getStockStatusLabel()),
+                                    'color' => $latestPrice->getStockStatusColor(),
+                                    'icon' => $latestPrice->getStockStatusIcon(),
+                                ])
+                            </div>
+                        @endif
                         <div class="block mb-2">
                             @include('components.product-badges', ['product' => $product])
                         </div>

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "58e80e30ead84c4a213fceed63f40d33",
+    "content-hash": "b1308c4b2ded8599342f32826588b5d2",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -2346,16 +2346,16 @@
         },
         {
             "name": "jez500/web-scraper-for-laravel",
-            "version": "1.0.8",
+            "version": "1.0.9",
             "source": {
                 "type": "git",
                 "url": "https://github.com/jez500/Web-scraper-for-Laravel.git",
-                "reference": "b2c943e718425bc5bda50787abef0970667e8df3"
+                "reference": "8ccef0e272cd0376cce25bc4115904f1fee13232"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/jez500/Web-scraper-for-Laravel/zipball/b2c943e718425bc5bda50787abef0970667e8df3",
-                "reference": "b2c943e718425bc5bda50787abef0970667e8df3",
+                "url": "https://api.github.com/repos/jez500/Web-scraper-for-Laravel/zipball/8ccef0e272cd0376cce25bc4115904f1fee13232",
+                "reference": "8ccef0e272cd0376cce25bc4115904f1fee13232",
                 "shasum": ""
             },
             "require": {
@@ -2394,9 +2394,9 @@
             "description": "A web scraper for laravel",
             "support": {
                 "issues": "https://github.com/jez500/Web-scraper-for-Laravel/issues",
-                "source": "https://github.com/jez500/Web-scraper-for-Laravel/tree/1.0.8"
+                "source": "https://github.com/jez500/Web-scraper-for-Laravel/tree/1.0.9"
             },
-            "time": "2026-03-01T03:40:07+00:00"
+            "time": "2026-03-22T23:08:13+00:00"
         },
         {
             "name": "kirschbaum-development/eloquent-power-joins",
@@ -13387,5 +13387,5 @@
         "ext-intl": "*"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }

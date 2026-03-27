@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\Statuses;
+use App\Enums\StockStatus;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\Url;
@@ -31,26 +32,33 @@ class ProductFactory extends Factory
             'notify_percent' => $this->faker->randomFloat(2, 10, 100),
             'favourite' => true,
             'only_official' => $this->faker->boolean,
+            'unit_of_measure' => null,
             'price_cache' => [],
             'ignored_urls' => [],
             'user_id' => User::factory(),
         ];
     }
 
-    public function addUrlWithPrices(string $url, array $prices): self
+    public function addUrlWithPrices(string $url, array $prices, float $priceFactor = 1, StockStatus|string|null $availability = null): self
     {
-        return $this->afterCreating(function (Product $product) use ($url, $prices) {
+        return $this->afterCreating(function (Product $product) use ($url, $prices, $priceFactor, $availability) {
             $store = ScrapeUrl::new($url)->getStore() ?? Store::factory()->forUrl($url)->createOne();
 
             /** @var Url $url */
             $url = $product->urls()->create([
                 'url' => $url,
                 'store_id' => $store->id,
+                'price_factor' => $priceFactor,
+                'availability' => $availability instanceof StockStatus ? $availability->value : $availability,
             ]);
+
+            $urlPriceFactor = $priceFactor ?: 1;
 
             foreach ($prices as $idx => $price) {
                 $url->prices()->create([
                     'price' => $price,
+                    'unit_price' => $price / $urlPriceFactor,
+                    'price_factor' => $urlPriceFactor,
                     'store_id' => $store->id,
                     'created_at' => Carbon::now()->subDays(count($prices) - $idx)->setTime(6, 0)->toDateTimeString(),
                 ]);
@@ -78,8 +86,11 @@ class ProductFactory extends Factory
                 // Create prices.
                 $mutableDate = Carbon::now()->toMutable();
                 for ($p = 0; $p < $priceCount; $p++) {
+                    $priceValue = self::generateRandomPriceVariation($price);
                     $url->prices()->create([
-                        'price' => self::generateRandomPriceVariation($price),
+                        'price' => $priceValue,
+                        'unit_price' => $priceValue,
+                        'price_factor' => 1,
                         'store_id' => $store->id,
                         'created_at' => $mutableDate->subDay()->toDateTimeString(),
                     ]);

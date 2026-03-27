@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\StockStatus;
 use App\Services\AutoCreateStore;
 use App\Services\Helpers\AffiliateHelper;
 use App\Services\Helpers\CurrencyHelper;
@@ -20,6 +21,7 @@ use Illuminate\Support\Str;
  * Product URL.
  *
  * @property ?string $url
+ * @property float $price_factor
  * @property string $product_name_short
  * @property string $store_name
  * @property string $buy_url
@@ -30,6 +32,7 @@ use Illuminate\Support\Str;
  * @property ?Product $product
  * @property ?int $store_id
  * @property ?int $product_id
+ * @property ?StockStatus $availability
  * @property Collection $prices
  * @property Carbon $updated_at
  * @property Carbon $created_at
@@ -54,6 +57,7 @@ class Url extends Model
         return [
             'updated_at' => 'datetime',
             'created_at' => 'datetime',
+            'availability' => StockStatus::class,
         ];
     }
 
@@ -147,7 +151,22 @@ class Url extends Model
         return $this->url ? ScrapeUrl::new($this->url)->scrape() : [];
     }
 
-    public static function createFromUrl(string $url, ?int $productId = null, ?int $userId = null, bool $createStore = true): Url|false
+    public function getAvailabilityStatus(): ?StockStatus
+    {
+        if ($this->availability instanceof StockStatus) {
+            return $this->availability;
+        }
+
+        $availability = $this->getRawOriginal('availability');
+
+        if (is_string($availability) && $availability !== '') {
+            return StockStatus::fromScrapedValue($availability);
+        }
+
+        return null;
+    }
+
+    public static function createFromUrl(string $url, ?int $productId = null, ?int $userId = null, bool $createStore = true, float $priceFactor = 1): Url|false
     {
         $userId = $userId ?? auth()->id();
 
@@ -160,7 +179,10 @@ class Url extends Model
         /** @var ?Store $store */
         $store = data_get($scrape, 'store');
 
-        if (! $store || ! data_get($scrape, 'price')) {
+        $matchConfig = data_get($store, 'scrape_strategy.availability.match');
+        $isUnavailable = StockStatus::matchFromScrapedValue(data_get($scrape, 'availability'), $matchConfig)->isUnavailable();
+
+        if (! $store || (! data_get($scrape, 'price') && ! $isUnavailable)) {
             return false;
         }
 
@@ -184,31 +206,73 @@ class Url extends Model
             'url' => $url,
             'store_id' => $store->getKey(),
             'product_id' => $productId,
+            'price_factor' => $priceFactor,
         ]);
 
-        $urlModel->updatePrice(data_get($scrape, 'price'));
+        $urlModel->updatePrice(data_get($scrape, 'price'), $scrape);
 
         return $urlModel;
     }
 
-    public function updatePrice(int|float|string|null $price = null): Price|Model|null
+    public function updatePrice(int|float|string|null $price = null, ?array $scrapeResult = null): Price|Model|null
     {
         if (! $this->store_id) {
             return null;
         }
 
+        $availabilityChanged = false;
+
         if (is_null($price) || $price === '') {
-            $price = data_get($this->scrape(), 'price');
+            $scrapeResult = $scrapeResult ?? $this->scrape();
+            $price = data_get($scrapeResult, 'price');
+        }
+
+        // Update out-of-stock status based on scrape result.
+        if ($scrapeResult) {
+            $scrapedValue = data_get($scrapeResult, 'availability');
+            $matchConfig = data_get($this->store, 'scrape_strategy.availability.match');
+            $stockStatus = StockStatus::matchFromScrapedValue($scrapedValue, $matchConfig);
+            $availability = $stockStatus->isUnavailable() ? $stockStatus : null;
+            $availabilityChanged = $this->getAvailabilityStatus() !== $availability;
+
+            if ($availabilityChanged) {
+                $this->availability = $availability;
+                $this->save();
+            }
         }
 
         if (is_null($price) || $price === '') {
+            if ($availabilityChanged) {
+                $this->product?->updatePriceCache();
+            }
+
             return null;
         }
 
+        $priceFloat = CurrencyHelper::toFloat($price, locale: $this->store?->locale, iso: $this->store?->currency);
+        $priceFactor = $this->price_factor ?: 1;
+
         return $this->prices()->create([
-            'price' => CurrencyHelper::toFloat($price, locale: $this->store?->locale, iso: $this->store?->currency),
+            'price' => $priceFloat,
+            'unit_price' => $priceFloat / $priceFactor,
+            'price_factor' => $priceFactor,
             'store_id' => $this->store_id,
         ]);
+    }
+
+    public function syncStoredPricesForCurrentFactor(): void
+    {
+        $priceFactor = $this->price_factor ?: 1;
+
+        /** @var Collection<int, Price> $prices */
+        $prices = $this->prices()->get();
+
+        $prices->each(function (Price $price) use ($priceFactor): void {
+            $price->forceFill([
+                'unit_price' => $price->price / $priceFactor,
+                'price_factor' => $priceFactor,
+            ])->saveQuietly();
+        });
     }
 
     /**

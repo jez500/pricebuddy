@@ -12,6 +12,22 @@ Stores can be scraped using CSS selectors, regular expressions or JSONPath.
 Add multiple urls to a product to compare prices from different stores
 (or even the same store - eg eBay listings).
 
+## Availability tracking
+
+PriceBuddy can also track product availability such as in stock, pre-order,
+back order, special order, out of stock or discontinued.
+
+Availability is shown next to each product source so you can quickly see
+whether the lowest listed option can actually be bought right now.
+
+## Unit pricing
+
+You can compare products by unit price instead of only the shelf price.
+
+This is useful for multi-packs, bundles, and products sold in different
+pack sizes. For example, PriceBuddy can show the price per tablet, bag,
+or other unit so cheaper-looking bundles do not hide a worse value.
+
 ## Price history
 
 Visualise price changes over time with charts. See the min, max and average prices

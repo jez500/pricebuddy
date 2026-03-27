@@ -32,6 +32,7 @@ use Spatie\Sluggable\SlugOptions;
  * @property Collection $urls
  * @property Collection $products
  * @property ?User $user
+ * @property ?string $cookies
  */
 class Store extends Model
 {
@@ -48,6 +49,7 @@ class Store extends Model
         'settings',
         'notes',
         'user_id',
+        'cookies',
     ];
 
     protected function casts(): array

@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\Icons;
 use App\Enums\ScraperService;
+use App\Enums\StockStatus;
 use App\Filament\Concerns\HasScraperTrait;
 use App\Filament\Pages\AppSettingsPage;
 use App\Filament\Resources\StoreResource\Pages\CreateStore;
@@ -17,6 +18,7 @@ use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Actions\BulkActionGroup;
@@ -81,6 +83,43 @@ class StoreResource extends Resource
                     Forms\Components\Section::make('Image strategy')->schema([
                         Forms\Components\Group::make(self::makeStrategyInput('image', self::DEFAULT_SELECTORS['image']))->columns(2),
                     ])->description('How to get the product image'),
+                    Forms\Components\Section::make('Availability strategy')->schema([
+                        Forms\Components\Group::make(self::makeStrategyInput('availability', required: false))->columns(2),
+                        Forms\Components\Section::make('Match values')
+                            ->schema(
+                                collect(StockStatus::nonInStockCases())->map(
+                                    fn (StockStatus $status) => Forms\Components\Group::make([
+                                        Forms\Components\Select::make('availability.match.'.$status->value.'.type')
+                                            ->label('Type')
+                                            ->options([
+                                                'match' => 'Exact match',
+                                                'regex' => 'Regex',
+                                            ])
+                                            ->default('match')
+                                            ->afterStateHydrated(fn (Forms\Components\Select $component, ?string $state) => $component->state($state ?? 'match'))
+                                            ->required(),
+                                        TextInput::make('availability.match.'.$status->value.'.value')
+                                            ->label($status->getLabel())
+                                            ->hintIcon($status->getIcon(), 'If the scraped text matches this value, the product will be marked as "'.$status->getLabel().'"'),
+                                    ])->columns(2)
+                                )->toArray()
+                            )
+                            ->description('Map scraped text values to stock statuses. Order is priority (first match wins).')
+                            ->columns(1)
+                            ->collapsed(fn (Get $get): bool => empty(array_filter(
+                                (array) $get('availability.match'),
+                                fn ($entry, $key) => $key !== 'default' && (is_array($entry) ? ($entry['value'] ?? '') !== '' : ($entry !== '' && $entry !== null)),
+                                ARRAY_FILTER_USE_BOTH,
+                            ))),
+                        Forms\Components\Select::make('availability.match.default')
+                            ->label('Default status')
+                            ->options(StockStatus::class)
+                            ->default(StockStatus::InStock->value)
+                            ->afterStateHydrated(fn (Forms\Components\Select $component, ?string $state) => $component->state($state ?? StockStatus::InStock->value))
+                            ->required()
+                            ->hintIcon(Icons::Help->value, 'The status to use when the scraped text does not match any of the values above'),
+                    ])->description('Optional: a selector that matches product availability.')
+                        ->collapsed(fn (Get $get): bool => ($get('availability.value') ?? '') === ''),
                 ])
                     ->label('Scrape Strategy')
                     ->statePath('scrape_strategy'),
@@ -91,6 +130,12 @@ class StoreResource extends Resource
                     ->description(__('Override region and locale settings for this store'))
                     ->columns(2)
                     ->schema(AppSettingsPage::getLocaleFormFields('settings.locale_settings')),
+
+                Forms\Components\Section::make('Cookies')->schema([
+                    TextInput::make('cookies')
+                        ->label('Cookies')
+                        ->hintIcon(Icons::Help->value, 'Any cookies to include in scrape requests for this store. Format as you would in an HTTP header, e.g. "cookie1=value; cookie2=value"'),
+                ])->description('Optional cookies to include in scrape requests for this store'),
 
                 Forms\Components\Section::make('Notes')->schema([
                     Forms\Components\RichEditor::make('notes')

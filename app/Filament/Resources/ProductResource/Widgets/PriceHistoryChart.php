@@ -35,18 +35,31 @@ class PriceHistoryChart extends ChartWidget
 
     protected static ?string $pollingInterval = null;
 
+    public ?string $filter = 'unit_price';
+
+    protected function getFilters(): ?array
+    {
+        return [
+            'unit_price' => 'Unit Price',
+            'retail_price' => 'Retail Price',
+        ];
+    }
+
     protected function getData(): array
     {
-        $history = $this->record->getPriceHistoryCached();
+        $showUnitPrice = $this->filter === 'unit_price';
+        $history = $this->record->getPriceHistoryCached($showUnitPrice ? 'unit_price' : 'price');
 
         $datasets = [];
 
         $urls = Url::findMany($history->keys())->values();
 
         foreach ($urls as $idx => $url) {
+            $data = $history->get($url->id);
+
             $datasets[] = [
                 'label' => $url->store?->name,
-                'data' => $history->get($url->id),
+                'data' => $data,
                 'backgroundColor' => 'rgba('.$this->getDatasetColor($idx).', 0.4)',
                 'borderColor' => 'rgba('.$this->getDatasetColor($idx).', 0.9)',
                 'fill' => true,

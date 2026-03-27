@@ -25,9 +25,9 @@ You can add more than one domain to a store, for example, `amazon.com` and
 
 ## Strategies
 
-These are the rules that PriceBuddy uses to extract the price, title and 
-image from the product page. There is multiple ways to extract these details
-and you can mix and match different strategies.
+These are the rules that PriceBuddy uses to extract the price, title, image
+and optionally availability from the product page. There is multiple ways to
+extract these details and you can mix and match different strategies.
 
 ### Schema.org (JSON-LD)
 
@@ -86,6 +86,20 @@ You would use the selector `.product|price` to get the value `10.00`.
 
 But every site is different.
 
+## Availability strategy
+
+Availability is optional, but recommended for stores where products can be
+pre-order, back order, sold out, or discontinued.
+
+To configure it:
+
+* Add an availability strategy to scrape the availability text from the page
+* Add match values to map that scraped text to a status
+* Choose a default status when no match is found
+
+This lets PriceBuddy show stock information in the product view and avoid
+treating unavailable items as normal price matches.
+
 ### Regex
 
 Regular expressions are a powerful way to extract data from a page. It is more 
@@ -139,6 +153,15 @@ Eg. `USD` for US Dollars or `EUR` for Euros.
 
 NOTE: Mixing currencies on the same product results in incorrect price 
 comparisons and aggregates.
+
+## Cookies
+
+Some stores only show the correct product page or price when a cookie is sent
+with the request.
+
+You can add cookies to a store so PriceBuddy includes them whenever it scrapes
+that site. This can help with stores that require a location, age check, login,
+or other session-based preference before they reveal the real product data.
 
 ## Scraper service
 

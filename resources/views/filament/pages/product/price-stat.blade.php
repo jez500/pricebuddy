@@ -56,10 +56,23 @@
     >
     <div class="flex mb-4 gap-4">
 
-        <div
-            class="fi-wi-stats-overview-stat-value {{ $firstCardValueStyle }}"
-        >
-            {{ $getValue() }}
+        <div>
+            @if ($priceCache->hasVisiblePrice())
+                <div class="text-[0.65rem] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">
+                    {{ __('Unit price') }}
+                </div>
+            @endif
+            <div
+                class="fi-wi-stats-overview-stat-value {{ $firstCardValueStyle }}"
+            >
+                {{ $priceCache->hasVisiblePrice() ? $getValue() : __('Unavailable') }}
+            </div>
+            @if ($priceCache->hasVisiblePrice() && $priceCache->getPriceFactor() != 1)
+                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {{ __('Retail') }}: {{ $priceCache->getPriceFormatted() }}
+                    <span class="text-gray-400 dark:text-gray-500">({{ (float) $priceCache->getPriceFactor() }} {{ $priceCache->getUnitOfMeasure() ?? __('units') }})</span>
+                </div>
+            @endif
         </div>
 
         <div class="flex items-center gap-x-2 justify-start">
@@ -98,8 +111,19 @@
         @endif
     </div>
 
-    @if (! $priceCache->isLastScrapeSuccessful() || $priceCache->matchesNotification($product))
+    @if ($priceCache->isUnavailable() || ! $priceCache->isLastScrapeSuccessful() || $priceCache->matchesNotification($product))
         <div class="mt-2 pb-4 inline-flex gap-2">
+            @if ($priceCache->isUnavailable())
+                <div class="mb-2">
+                    @include('components.icon-badge', [
+                        'hoverText' => __('This item is currently :status', ['status' => strtolower($priceCache->getStockStatusLabel())]),
+                        'label' => __($priceCache->getStockStatusLabel()),
+                        'color' => $priceCache->getStockStatusColor(),
+                        'icon' => $priceCache->getStockStatusIcon(),
+                    ])
+                </div>
+            @endif
+
             @if (! $priceCache->isLastScrapeSuccessful())
                 <div class="mb-2">
                     @include('components.icon-badge', [
@@ -199,6 +223,7 @@
         <div class="pb-expandable-stat__actions px-3 pt-4 pb-3 flex gap-2 justify-start items-center text-gray-500 dark:text-gray-400">
             {{ ($this->viewAction)(['url' => $priceCache->getUrl()]) }}
             {{ ($this->fetchAction)(['url' => $priceCache->getUrlId()]) }}
+            {{ ($this->editAction)(['url' => $priceCache->getUrlId()]) }}
             {{ ($this->deleteAction)(['url' => $priceCache->getUrlId()]) }}
          </div>
         @include('components.price-aggregates', [

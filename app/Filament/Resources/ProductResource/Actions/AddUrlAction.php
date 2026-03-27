@@ -36,6 +36,12 @@ class AddUrlAction extends Action
                 ->hiddenLabel(true)
                 ->placeholder('http://my-store.com/product')
                 ->rules([new StoreUrl]),
+            TextInput::make('price_factor')
+                ->label(__('Price Factor'))
+                ->numeric()
+                ->default(1)
+                ->minValue(0.01)
+                ->helperText(__('Number of items (unit price = price / factor)')),
         ]);
 
         $this->color('gray');
@@ -48,11 +54,18 @@ class AddUrlAction extends Action
             $product = $this->record;
 
             try {
-                Url::createFromUrl(
+                $urlModel = Url::createFromUrl(
                     url: $data['url'],
                     productId: $product->getKey(),
                     userId: auth()->id(),
+                    priceFactor: (float) ($data['price_factor'] ?? 1),
                 );
+
+                if ($urlModel === false) {
+                    $this->failure();
+
+                    return;
+                }
 
                 $this->success();
                 $this->redirect($product->view_url);

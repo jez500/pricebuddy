@@ -9,6 +9,8 @@ use Exception;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
@@ -40,7 +42,7 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
             ->map(function (PriceCacheDto $cache, $idx) use ($product) {
                 return ProductUrlStat::make(
                     '@ '.$cache->getStoreName().($idx === 0 ? ' (Lowest price)' : ''),
-                    $cache->getPriceFormatted()
+                    $cache->getUnitPriceFormatted()
                 )->setPriceCache($idx, $cache, $product);
             })->values();
 
@@ -97,6 +99,52 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
                         ->danger()->send();
                 }
 
+            });
+    }
+
+    public function editAction(): Action
+    {
+        return Action::make('edit')
+            ->size('sm')
+            ->color('gray')
+            ->icon('heroicon-o-pencil-square')
+            ->outlined(false)
+            ->fillForm(function ($arguments) {
+                $url = Url::find($arguments['url']);
+
+                return [
+                    'url' => $url->url,
+                    'price_factor' => $url->price_factor,
+                ];
+            })
+            ->form([
+                Placeholder::make('url')
+                    ->label('URL')
+                    ->content(fn ($get) => new \Illuminate\Support\HtmlString(
+                        '<span style="cursor:pointer" x-on:click="const range = document.createRange(); range.selectNodeContents($el); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range)">'.e($get('url')).'</span>'
+                    )),
+                TextInput::make('price_factor')
+                    ->label('Price Factor')
+                    ->numeric()
+                    ->default(1)
+                    ->minValue(0.01)
+                    ->required(),
+            ])
+            ->action(function ($arguments, $data) {
+                $url = Url::find($arguments['url']);
+                $url->update(['price_factor' => $data['price_factor']]);
+                $url->syncStoredPricesForCurrentFactor();
+                $url->product->updatePriceCache();
+
+                Notification::make('price_factor_updated')
+                    ->title('Price factor updated')
+                    ->success()
+                    ->send();
+
+                $backUrl = $url->product?->view_url;
+                if ($backUrl) {
+                    return redirect($backUrl);
+                }
             });
     }
 
