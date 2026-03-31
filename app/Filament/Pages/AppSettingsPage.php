@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\AiProvider;
 use App\Enums\Icons;
 use App\Enums\IntegratedServices;
 use App\Enums\NotificationMethods;
@@ -118,6 +119,7 @@ class AppSettingsPage extends SettingsPage
 
                 self::makeFormHeading('Integrations'),
 
+                $this->getAiSettings(),
                 $this->getSearXngSettings(),
             ]);
     }
@@ -274,6 +276,89 @@ class AppSettingsPage extends SettingsPage
                     ->default(SearchService::DEFAULT_MAX_PAGES),
             ],
             new HtmlString('Automatically search for additional products urls via <a href="https://searxng.org/" target="_blank">SearXng</a>')
+        );
+    }
+
+    protected function getAiSettings(): Section
+    {
+        return self::makeSettingsSection(
+            'AI',
+            self::INTEGRATED_SERVICES_KEY,
+            IntegratedServices::Ai->value,
+            [
+                Select::make('provider')
+                    ->label('Provider')
+                    ->options([
+                        AiProvider::OpenAI->value => 'OpenAI',
+                        AiProvider::Anthropic->value => 'Anthropic',
+                        AiProvider::Ollama->value => 'Ollama',
+                    ])
+                    ->required(fn (Get $get): bool => (bool) $get('enabled'))
+                    ->live(),
+                TextInput::make('default_model')
+                    ->label('Default model')
+                    ->placeholder('gpt-4.1-mini')
+                    ->required(fn (Get $get): bool => (bool) $get('enabled')),
+                TextInput::make('timeout_seconds')
+                    ->label('Timeout seconds')
+                    ->numeric()
+                    ->minValue(1)
+                    ->default(30)
+                    ->required(fn (Get $get): bool => (bool) $get('enabled')),
+                TextInput::make('max_tokens')
+                    ->label('Max tokens')
+                    ->numeric()
+                    ->minValue(1)
+                    ->default(2000)
+                    ->required(fn (Get $get): bool => (bool) $get('enabled')),
+                TextInput::make('temperature')
+                    ->label('Temperature')
+                    ->numeric()
+                    ->minValue(0)
+                    ->maxValue(2)
+                    ->default(0.2)
+                    ->required(fn (Get $get): bool => (bool) $get('enabled')),
+
+                TextInput::make('openai.base_url')
+                    ->label('OpenAI base URL')
+                    ->placeholder('https://api.openai.com/v1')
+                    ->url()
+                    ->dehydrated(fn (Get $get): bool => $get('provider') === AiProvider::OpenAI->value)
+                    ->hidden(fn (Get $get): bool => $get('provider') !== AiProvider::OpenAI->value),
+                TextInput::make('openai.api_key')
+                    ->label('OpenAI API key')
+                    ->password()
+                    ->required(fn (Get $get): bool => (bool) $get('enabled') && $get('provider') === AiProvider::OpenAI->value)
+                    ->dehydrated(fn (Get $get): bool => $get('provider') === AiProvider::OpenAI->value)
+                    ->hidden(fn (Get $get): bool => $get('provider') !== AiProvider::OpenAI->value),
+
+                TextInput::make('anthropic.base_url')
+                    ->label('Anthropic base URL')
+                    ->placeholder('https://api.anthropic.com')
+                    ->url()
+                    ->dehydrated(fn (Get $get): bool => $get('provider') === AiProvider::Anthropic->value)
+                    ->hidden(fn (Get $get): bool => $get('provider') !== AiProvider::Anthropic->value),
+                TextInput::make('anthropic.api_key')
+                    ->label('Anthropic API key')
+                    ->password()
+                    ->required(fn (Get $get): bool => (bool) $get('enabled') && $get('provider') === AiProvider::Anthropic->value)
+                    ->dehydrated(fn (Get $get): bool => $get('provider') === AiProvider::Anthropic->value)
+                    ->hidden(fn (Get $get): bool => $get('provider') !== AiProvider::Anthropic->value),
+
+                TextInput::make('ollama.base_url')
+                    ->label('Ollama base URL')
+                    ->placeholder('http://localhost:11434')
+                    ->url()
+                    ->required(fn (Get $get): bool => (bool) $get('enabled') && $get('provider') === AiProvider::Ollama->value)
+                    ->dehydrated(fn (Get $get): bool => $get('provider') === AiProvider::Ollama->value)
+                    ->hidden(fn (Get $get): bool => $get('provider') !== AiProvider::Ollama->value),
+                TextInput::make('ollama.model')
+                    ->label('Ollama model')
+                    ->placeholder('llama3.1')
+                    ->dehydrated(fn (Get $get): bool => $get('provider') === AiProvider::Ollama->value)
+                    ->hidden(fn (Get $get): bool => $get('provider') !== AiProvider::Ollama->value),
+            ],
+            __('Configure AI provider settings (OpenAI, Anthropic, Ollama)')
         );
     }
 
