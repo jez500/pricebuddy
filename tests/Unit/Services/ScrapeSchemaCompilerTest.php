@@ -102,7 +102,7 @@ class ScrapeSchemaCompilerTest extends TestCase
 
         $this->assertSame('Title: selector:h1:attr:content', $result['title']['value']);
         $this->assertSame('xpath://article/p', $result['description']['value']);
-        $this->assertSame('regex:\\$(\\d+\\.\\d{2}) USD', $result['price']['value']);
+        $this->assertSame('regex:~\\$(\\d+\\.\\d{2})~i USD', $result['price']['value']);
         $this->assertSame('json:data.price', $result['json_field']['value']);
         $this->assertSame('OutOfStock', $result['availability']['value']);
         $this->assertSame('Sold out', $result['availability_text']['value']);
@@ -145,5 +145,33 @@ class ScrapeSchemaCompilerTest extends TestCase
 
         $this->assertSame('available now', $result['availability']['value']);
         $this->assertSame('in_stock', $result['availability']['match']);
+    }
+
+    public function test_compiler_skips_invalid_fields_without_failing_valid_ones(): void
+    {
+        $scraper = new class
+        {
+            public function getSelector(string $selector, string $method = 'text', array $args = []): Collection
+            {
+                return collect(['selector:' . $selector]);
+            }
+        };
+
+        $schema = ScrapeSchemaDto::fromArray([
+            'title' => [
+                'type' => 'css',
+                'value' => 'h1',
+            ],
+            'broken_field' => [
+                'type' => 'regex',
+                'value' => '[broken',
+            ],
+        ]);
+
+        $result = (new ScrapeSchemaCompiler)->fromDto($schema, $scraper);
+
+        $this->assertSame('selector:h1', $result['title']['value']);
+        $this->assertNull($result['broken_field']['value']);
+        $this->assertNull($result['broken_field']['match']);
     }
 }

@@ -8,7 +8,6 @@ use App\Enums\StockStatus;
 use App\Dto\Scraping\FieldExtractionDto;
 use App\Models\Store;
 use App\Services\Helpers\SettingsHelper;
-use App\Settings\AppSettings;
 use Exception;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
@@ -180,7 +179,7 @@ class ScrapeUrl
             $this->setScraper($store->scraper_service);
 
             $scraper = $this->webScraper->from($this->url)
-                ->setCacheMinsTtl(AppSettings::new()->scrape_cache_ttl)
+                ->setCacheMinsTtl(SettingsHelper::getSetting('scrape_cache_ttl', 720))
                 ->setUseCache($useCache)
                 ->setOptions($store->scraper_options);
 

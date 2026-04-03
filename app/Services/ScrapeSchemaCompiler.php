@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Dto\Scraping\FieldExtractionDto;
 use App\Dto\Scraping\ScrapeSchemaDto;
+use App\Exceptions\ScrapeSchemaValidationException;
 use Illuminate\Support\Collection;
 
 class ScrapeSchemaCompiler
@@ -20,11 +21,22 @@ class ScrapeSchemaCompiler
      */
     public function fromDto(array|ScrapeSchemaDto $schema, object $scraper): array
     {
-        $dto = $this->validator->validate($schema);
+        $dto = $schema instanceof ScrapeSchemaDto ? $schema : ScrapeSchemaDto::fromArray($schema);
         $output = [];
 
         foreach ($dto->fields as $fieldName => $field) {
-            $output[$fieldName] = $this->compileField($fieldName, $field, $scraper);
+            $validatedField = $this->validateField($fieldName, $field);
+
+            if ($validatedField === null) {
+                $output[$fieldName] = [
+                    'value' => null,
+                    'match' => null,
+                ];
+
+                continue;
+            }
+
+            $output[$fieldName] = $this->compileField($fieldName, $validatedField, $scraper);
         }
 
         return $output;
@@ -35,13 +47,31 @@ class ScrapeSchemaCompiler
      */
     public function compileField(string $fieldName, FieldExtractionDto $field, object $scraper): array
     {
-        $value = $this->extractValue($fieldName, $field, $scraper);
+        try {
+            $value = $this->extractValue($fieldName, $field, $scraper);
+        } catch (\Throwable) {
+            $value = null;
+        }
+
         $value = $this->applyTransforms($value, $field);
 
         return [
             'value' => $value,
             'match' => $field->match?->resolve($value),
         ];
+    }
+
+    protected function validateField(string $fieldName, FieldExtractionDto $field): ?FieldExtractionDto
+    {
+        try {
+            $schema = $this->validator->validate(
+                ScrapeSchemaDto::fromArray([$fieldName => $field])
+            );
+
+            return $schema->fields[$fieldName] ?? null;
+        } catch (ScrapeSchemaValidationException) {
+            return null;
+        }
     }
 
     protected function extractValue(string $fieldName, FieldExtractionDto $field, object $scraper): ?string
@@ -55,7 +85,10 @@ class ScrapeSchemaCompiler
         $method = ScrapeUrl::getMethodFromType($type);
         $arguments = $type === 'selector'
             ? ScrapeUrl::parseSelector((string) $field->value)
-            : [(string) $field->value];
+            : [$type === 'regex'
+                ? $this->wrapRegex((string) $field->value)
+                : (string) $field->value
+            ];
 
         $result = call_user_func_array([$scraper, $method], $arguments);
 
@@ -82,5 +115,10 @@ class ScrapeSchemaCompiler
         $schema = $scraper->getSchemaOrg();
 
         return $schema instanceof Collection ? $schema : collect($schema);
+    }
+
+    protected function wrapRegex(string $pattern): string
+    {
+        return '~'.str_replace('~', '\~', $pattern).'~i';
     }
 }
