@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "33b1cb61dcca77e45236a79f5d96cfd0",
+    "content-hash": "4f9315c3ae9c1eb2eda0be0f6a934667",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -2347,16 +2347,16 @@
         },
         {
             "name": "jez500/web-scraper-for-laravel",
-            "version": "1.0.9",
+            "version": "1.0.11",
             "source": {
                 "type": "git",
                 "url": "https://github.com/jez500/Web-scraper-for-Laravel.git",
-                "reference": "8ccef0e272cd0376cce25bc4115904f1fee13232"
+                "reference": "7e58440c8da64a080b88aacf1387b6c31975bac4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/jez500/Web-scraper-for-Laravel/zipball/8ccef0e272cd0376cce25bc4115904f1fee13232",
-                "reference": "8ccef0e272cd0376cce25bc4115904f1fee13232",
+                "url": "https://api.github.com/repos/jez500/Web-scraper-for-Laravel/zipball/7e58440c8da64a080b88aacf1387b6c31975bac4",
+                "reference": "7e58440c8da64a080b88aacf1387b6c31975bac4",
                 "shasum": ""
             },
             "require": {
@@ -2395,9 +2395,9 @@
             "description": "A web scraper for laravel",
             "support": {
                 "issues": "https://github.com/jez500/Web-scraper-for-Laravel/issues",
-                "source": "https://github.com/jez500/Web-scraper-for-Laravel/tree/1.0.9"
+                "source": "https://github.com/jez500/Web-scraper-for-Laravel/tree/1.0.11"
             },
-            "time": "2026-03-22T23:08:13+00:00"
+            "time": "2026-04-03T09:46:36+00:00"
         },
         {
             "name": "kirschbaum-development/eloquent-power-joins",
