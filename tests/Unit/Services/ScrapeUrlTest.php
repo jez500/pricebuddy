@@ -208,4 +208,22 @@ HTML),
 
         $this->assertSame('$15.00 AUD', $result['price']);
     }
+
+    public function test_scrape_works_with_api_transport()
+    {
+        $this->store->update([
+            'settings' => array_merge($this->store->settings ?? [], [
+                'scraper_service' => 'api',
+            ]),
+        ]);
+
+        $this->mockScrape('$15.00', 'API Title', 'https://example.com/api.png');
+
+        $scrapeUrl = ScrapeUrl::new(self::TEST_URL);
+        $result = $scrapeUrl->scrape();
+
+        $this->assertSame('API Title', $result['title']);
+        $this->assertSame('$15.00', $result['price']);
+        $this->assertSame('https://example.com/api.png', $result['image']);
+    }
 }

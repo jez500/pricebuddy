@@ -17,6 +17,7 @@ retailers.
   and all the prices will be fetched from those urls daily
 * Visualise product price history with charts
 * Extract product information via CSS selectors, regular expressions or JSONPath
+* Define and validate scrape strategies as typed DTO schemas, including nested availability matching
 * Support for SPA/Javascript rendered sites via [SeleniumBase Scrapper](https://github.com/jez500/seleniumbase-scrapper)
 * Tagging of products for better organization
 * Multi-user support, each user has their own products
