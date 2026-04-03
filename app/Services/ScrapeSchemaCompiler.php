@@ -12,12 +12,12 @@ class ScrapeSchemaCompiler
     public function __construct(
         protected ?ScrapeSchemaValidator $validator = null,
     ) {
-        $this->validator ??= new ScrapeSchemaValidator();
+        $this->validator ??= new ScrapeSchemaValidator;
     }
 
     /**
      * @param  array<string, mixed>|ScrapeSchemaDto  $schema
-     * @return array<string, array{value: ?string, match: ?string}>
+     * @return array<string, array{value: ?string, match: ?string, errors?: array<int, string>}>
      */
     public function fromDto(array|ScrapeSchemaDto $schema, object $scraper): array
     {
@@ -25,12 +25,13 @@ class ScrapeSchemaCompiler
         $output = [];
 
         foreach ($dto->fields as $fieldName => $field) {
-            $validatedField = $this->validateField($fieldName, $field);
+            ['field' => $validatedField, 'errors' => $errors] = $this->validateField($fieldName, $field);
 
             if ($validatedField === null) {
                 $output[$fieldName] = [
                     'value' => null,
                     'match' => null,
+                    'errors' => $errors,
                 ];
 
                 continue;
@@ -61,16 +62,25 @@ class ScrapeSchemaCompiler
         ];
     }
 
-    protected function validateField(string $fieldName, FieldExtractionDto $field): ?FieldExtractionDto
+    /**
+     * @return array{field: ?FieldExtractionDto, errors: array<int, string>}
+     */
+    protected function validateField(string $fieldName, FieldExtractionDto $field): array
     {
         try {
             $schema = $this->validator->validate(
                 ScrapeSchemaDto::fromArray([$fieldName => $field])
             );
 
-            return $schema->fields[$fieldName] ?? null;
-        } catch (ScrapeSchemaValidationException) {
-            return null;
+            return [
+                'field' => $schema->fields[$fieldName] ?? null,
+                'errors' => [],
+            ];
+        } catch (ScrapeSchemaValidationException $exception) {
+            return [
+                'field' => null,
+                'errors' => $exception->errors(),
+            ];
         }
     }
 

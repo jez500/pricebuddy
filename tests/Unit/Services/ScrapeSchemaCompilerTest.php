@@ -23,28 +23,28 @@ class ScrapeSchemaCompilerTest extends TestCase
                     return collect(['Sold out']);
                 }
 
-                return collect(['selector:' . $selector . ':' . $method . ':' . implode(',', $args)]);
+                return collect(['selector:'.$selector.':'.$method.':'.implode(',', $args)]);
             }
 
             public function getXpath(string $value): Collection
             {
                 $this->calls[] = ['getXpath', $value];
 
-                return collect(['xpath:' . $value]);
+                return collect(['xpath:'.$value]);
             }
 
             public function getRegex(string $value): Collection
             {
                 $this->calls[] = ['getRegex', $value];
 
-                return collect(['regex:' . $value]);
+                return collect(['regex:'.$value]);
             }
 
             public function getJson(string $value): Collection
             {
                 $this->calls[] = ['getJson', $value];
 
-                return collect(['json:' . $value]);
+                return collect(['json:'.$value]);
             }
 
             public function getSchemaOrg(): Collection
@@ -153,7 +153,7 @@ class ScrapeSchemaCompilerTest extends TestCase
         {
             public function getSelector(string $selector, string $method = 'text', array $args = []): Collection
             {
-                return collect(['selector:' . $selector]);
+                return collect(['selector:'.$selector]);
             }
         };
 
@@ -173,5 +173,7 @@ class ScrapeSchemaCompilerTest extends TestCase
         $this->assertSame('selector:h1', $result['title']['value']);
         $this->assertNull($result['broken_field']['value']);
         $this->assertNull($result['broken_field']['match']);
+        $this->assertArrayHasKey('errors', $result['broken_field']);
+        $this->assertNotEmpty($result['broken_field']['errors']);
     }
 }
