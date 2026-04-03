@@ -7,6 +7,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Jez500\WebScraperForLaravel\Exceptions\DomSelectorException;
 use Jez500\WebScraperForLaravel\Facades\WebScraper;
+use Jez500\WebScraperForLaravel\Schema\SchemaCompiler;
 use Jez500\WebScraperForLaravel\WebScraperInterface;
 use Psr\Log\LoggerInterface;
 
@@ -107,18 +108,17 @@ class ProductSourceSearchService
     protected function scrapeOption(WebScraperInterface $scraper, array $options, bool $multiple = false): Collection
     {
         $type = data_get($options, 'type');
-        $value = data_get($options, 'value');
-
-        $value = match ($type) {
-            'selector' => ScrapeUrl::parseSelector($value),
-            default => [$value]
-        };
-
-        $method = ScrapeUrl::getMethodFromType($type);
+        $value = (string) data_get($options, 'value', '');
 
         try {
-            // Return a collection of values.
-            return call_user_func_array([$scraper, $method], $value);
+            return match ($type) {
+                'selector', 'css' => $scraper->getSelector(...SchemaCompiler::parseCssSelector($value)),
+                'regex' => $scraper->getRegex($value),
+                'json' => $scraper->getJson($value),
+                'xpath' => $scraper->getXpath($value),
+                'schema_org' => $scraper->getSchemaOrg(),
+                default => $scraper->getSelector(...SchemaCompiler::parseCssSelector($value)),
+            };
         } catch (DomSelectorException $e) {
             $this->errorLog('Error scraping URL', [
                 'error' => $e->getMessage(),

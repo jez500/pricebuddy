@@ -4,6 +4,7 @@ namespace App\Filament\Resources\StoreResource\Api\Requests;
 
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
+use App\Rules\ValidScrapeStrategy;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CreateStoreRequest extends FormRequest
@@ -29,6 +30,7 @@ class CreateStoreRequest extends FormRequest
     public static function getAllRules(): array
     {
         return array_merge([
+            'scrape_strategy' => ['required', 'array', new ValidScrapeStrategy],
             'name' => 'required|string|max:255',
             'slug' => 'nullable|string|max:255|unique:stores,slug',
             'initials' => 'nullable|string|max:2',

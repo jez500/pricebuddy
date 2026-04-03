@@ -12,6 +12,7 @@ use Exception;
 use Illuminate\Support\Uri;
 use Jez500\WebScraperForLaravel\Exceptions\DomSelectorException;
 use Jez500\WebScraperForLaravel\Facades\WebScraper;
+use Jez500\WebScraperForLaravel\Schema\SchemaCompiler;
 use Jez500\WebScraperForLaravel\WebScraperInterface;
 use Symfony\Component\DomCrawler\Crawler;
 
@@ -220,7 +221,7 @@ class AutoCreateStore
                 break;
             }
 
-            $selectorSettings = ScrapeUrl::parseSelector($selector);
+            $selectorSettings = SchemaCompiler::parseCssSelector($selector);
             $realSelector = $selectorSettings[0];
             $method = $selectorSettings[1] ?? 'text';
             $args = $selectorSettings[2] ?? [];

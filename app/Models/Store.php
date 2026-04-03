@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ScraperService;
 use App\Services\Helpers\CurrencyHelper;
+use App\Services\Helpers\ScrapeStrategyHelper;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,6 +16,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
+use Jez500\WebScraperForLaravel\Dto\ScrapeSchemaDto;
 use Spatie\Sluggable\HasSlug;
 use Spatie\Sluggable\SlugOptions;
 
@@ -24,6 +26,8 @@ use Spatie\Sluggable\SlugOptions;
  * @property array $domains
  * @property HtmlString $domains_html
  * @property array $scrape_strategy
+ * @property ScrapeSchemaDto $scrape_schema
+ * @property ?array $availability_match_config
  * @property array $settings
  * @property string $scraper_service
  * @property array $scraper_options
@@ -59,6 +63,20 @@ class Store extends Model
             'scrape_strategy' => 'array',
             'settings' => 'array',
         ];
+    }
+
+    protected function scrapeSchema(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => ScrapeStrategyHelper::toSchema($this->scrape_strategy ?? []),
+        );
+    }
+
+    protected function availabilityMatchConfig(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => ScrapeStrategyHelper::getAvailabilityMatch($this->scrape_strategy ?? []),
+        );
     }
 
     public static function booted()
