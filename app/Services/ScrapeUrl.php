@@ -6,6 +6,7 @@ use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
 use App\Enums\StockStatus;
 use App\Models\Store;
+use App\Services\Helpers\ScrapeStrategyHelper;
 use App\Services\Helpers\SettingsHelper;
 use App\Settings\AppSettings;
 use Exception;
@@ -126,7 +127,7 @@ class ScrapeUrl
             }
         }
 
-        $matchConfig = data_get($output, 'store.scrape_strategy.availability.match');
+        $matchConfig = ($output['store'] ?? null)?->availability_match_config;
         $isUnavailable = StockStatus::matchFromScrapedValue($output['availability'] ?? null, $matchConfig)->isUnavailable();
 
         foreach (['price', 'title'] as $required) {
@@ -209,20 +210,9 @@ class ScrapeUrl
 
             // Extract non-schema_org fields via package.
             if ($extractableFields) {
-                // Normalize fields for package compatibility:
-                // - Map 'selector' type to 'css'
-                // - Strip 'match' keys (handled post-extraction by StockStatus)
-                $normalizedFields = array_map(function (array $field) {
-                    if (($field['type'] ?? '') === ScraperStrategyType::Selector->value) {
-                        $field['type'] = 'css';
-                    }
-
-                    unset($field['match']);
-
-                    return $field;
-                }, $extractableFields);
-
-                $extracted = $page->fromDto($normalizedFields);
+                $extracted = $page->fromDto(
+                    ScrapeStrategyHelper::normalizeForExtraction($extractableFields)
+                );
 
                 foreach ($extractableFields as $key => $def) {
                     $output[$key] = $extracted->get($key);

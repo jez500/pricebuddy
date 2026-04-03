@@ -179,8 +179,7 @@ class Url extends Model
         /** @var ?Store $store */
         $store = data_get($scrape, 'store');
 
-        $matchConfig = data_get($store, 'scrape_strategy.availability.match');
-        $isUnavailable = StockStatus::matchFromScrapedValue(data_get($scrape, 'availability'), $matchConfig)->isUnavailable();
+        $isUnavailable = StockStatus::matchFromScrapedValue(data_get($scrape, 'availability'), $store?->availability_match_config)->isUnavailable();
 
         if (! $store || (! data_get($scrape, 'price') && ! $isUnavailable)) {
             return false;
@@ -230,8 +229,7 @@ class Url extends Model
         // Update out-of-stock status based on scrape result.
         if ($scrapeResult) {
             $scrapedValue = data_get($scrapeResult, 'availability');
-            $matchConfig = data_get($this->store, 'scrape_strategy.availability.match');
-            $stockStatus = StockStatus::matchFromScrapedValue($scrapedValue, $matchConfig);
+            $stockStatus = StockStatus::matchFromScrapedValue($scrapedValue, $this->store?->availability_match_config);
             $availability = $stockStatus->isUnavailable() ? $stockStatus : null;
             $availabilityChanged = $this->getAvailabilityStatus() !== $availability;
 

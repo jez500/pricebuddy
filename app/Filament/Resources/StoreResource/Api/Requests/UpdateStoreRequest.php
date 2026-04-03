@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\StoreResource\Api\Requests;
 
+use App\Rules\ValidScrapeStrategy;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateStoreRequest extends FormRequest
@@ -32,7 +33,7 @@ class UpdateStoreRequest extends FormRequest
             'settings.scraper_service_settings' => 'nullable|string',
             'settings.locale_settings.locale' => 'sometimes|string',
             'settings.locale_settings.currency' => 'sometimes|string',
-            'scrape_strategy' => 'sometimes|array',
+            'scrape_strategy' => ['sometimes', 'array', new ValidScrapeStrategy],
             'scrape_strategy.image.type' => 'sometimes|in:'.implode(',', \App\Enums\ScraperStrategyType::values()),
             'scrape_strategy.image.value' => 'required_with:scrape_strategy.image.type|string',
             'scrape_strategy.price.type' => 'sometimes|in:'.implode(',', \App\Enums\ScraperStrategyType::values()),
