@@ -1,0 +1,48 @@
+<?php
+
+namespace App\Http\Requests;
+
+use App\Enums\ScraperService;
+use App\Enums\ScraperStrategyType;
+use Illuminate\Foundation\Http\FormRequest;
+
+class MetaExtractionRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'url' => ['required', 'url'],
+            'store' => ['sometimes', 'array'],
+            'store.name' => ['sometimes', 'string', 'max:255'],
+            'store.domains' => ['sometimes', 'array'],
+            'store.domains.*.domain' => ['required_with:store.domains', 'string'],
+            'store.settings' => ['sometimes', 'array'],
+            'store.settings.scraper_service' => ['sometimes', 'in:'.implode(',', ScraperService::values())],
+            'store.settings.scraper_service_settings' => ['nullable', 'string'],
+            'store.settings.locale_settings.locale' => ['sometimes', 'string'],
+            'store.settings.locale_settings.currency' => ['sometimes', 'string'],
+            'store.settings.cookies' => ['nullable', 'string'],
+            'store.scrape_strategy' => ['sometimes', 'array'],
+            'store.scrape_strategy.title' => ['sometimes', 'array'],
+            'store.scrape_strategy.title.type' => ['sometimes', 'in:'.implode(',', ScraperStrategyType::values())],
+            'store.scrape_strategy.title.value' => ['required_with:store.scrape_strategy.title.type', 'string'],
+            'store.scrape_strategy.title.prepend' => ['nullable', 'string'],
+            'store.scrape_strategy.title.append' => ['nullable', 'string'],
+            'store.scrape_strategy.price' => ['sometimes', 'array'],
+            'store.scrape_strategy.price.type' => ['sometimes', 'in:'.implode(',', ScraperStrategyType::values())],
+            'store.scrape_strategy.price.value' => ['required_with:store.scrape_strategy.price.type', 'string'],
+            'store.scrape_strategy.price.prepend' => ['nullable', 'string'],
+            'store.scrape_strategy.price.append' => ['nullable', 'string'],
+            'store.scrape_strategy.image' => ['sometimes', 'array'],
+            'store.scrape_strategy.image.type' => ['sometimes', 'in:'.implode(',', ScraperStrategyType::values())],
+            'store.scrape_strategy.image.value' => ['required_with:store.scrape_strategy.image.type', 'string'],
+            'store.scrape_strategy.image.prepend' => ['nullable', 'string'],
+            'store.scrape_strategy.image.append' => ['nullable', 'string'],
+        ];
+    }
+}
