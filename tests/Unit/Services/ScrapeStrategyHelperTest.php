@@ -1,8 +1,8 @@
 <?php
 
-use App\Services\Helpers\ScrapeStrategyHelper;
 use App\Dto\Scraping\FieldExtractionDto;
 use App\Dto\Scraping\ScrapeSchemaDto;
+use App\Services\Helpers\ScrapeStrategyHelper;
 
 it('builds a ScrapeSchemaDto from a valid strategy', function () {
     $strategy = [

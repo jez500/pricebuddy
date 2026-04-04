@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\ProductSource;
-use App\Services\ScrapeUrl;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Jez500\WebScraperForLaravel\Exceptions\DomSelectorException;

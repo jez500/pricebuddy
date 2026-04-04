@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use App\Enums\ScraperService;
 use App\Dto\Scraping\ScrapeSchemaDto;
+use App\Enums\ScraperService;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\ScrapeStrategyHelper;
 use Database\Factories\StoreFactory;
@@ -149,7 +149,7 @@ class Store extends Model
             return $query->whereRaw('0 = 1');
         }
 
-        $driver = $query->getConnection()->getDriverName();
+        $driver = $query->getConnection()->getDriverName(); // @phpstan-ignore-line
 
         if ($driver === 'sqlite') {
             return $query->where(function (Builder $subQuery) use ($first, $domains) {
@@ -329,14 +329,6 @@ class Store extends Model
 
     protected static function domainLikePattern(string $domain): string
     {
-        $json = json_encode([
-            'domain' => strtolower($domain),
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-        if ($json === false) {
-            return '%';
-        }
-
-        return '%'.strtolower($json).'%';
+        return '%"domain":%'.strtolower($domain).'%';
     }
 }

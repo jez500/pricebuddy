@@ -2,8 +2,8 @@
 
 namespace App\Services\Helpers;
 
-use App\Enums\ScraperStrategyType;
 use App\Dto\Scraping\ScrapeSchemaDto;
+use App\Enums\ScraperStrategyType;
 use App\Exceptions\ScrapeSchemaValidationException;
 use App\Services\ScrapeSchemaValidator;
 
