@@ -9,13 +9,18 @@ trait ScraperTrait
 {
     protected function mockScrape(mixed $price, mixed $title = null, mixed $image = null, mixed $availability = null): void
     {
+        $html = View::make('tests.product-page', [
+            'price' => $price,
+            'title' => $title,
+            'image' => $image,
+            'availability' => $availability,
+        ])->render();
+
         Http::fake([
-            '*' => Http::response(View::make('tests.product-page', [
-                'price' => $price,
-                'title' => $title,
-                'image' => $image,
-                'availability' => $availability,
-            ])->render()),
+            '*/api/article*' => Http::response([
+                'fullContent' => $html,
+            ]),
+            '*' => Http::response($html),
         ]);
     }
 
