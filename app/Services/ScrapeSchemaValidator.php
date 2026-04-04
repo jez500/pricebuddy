@@ -111,6 +111,6 @@ class ScrapeSchemaValidator
 
     protected function wrapRegex(string $pattern): string
     {
-        return '~'.str_replace('~', '\~', $pattern).'~i';
+        return '~'.preg_replace_callback('/(?<!\\\\)~/', fn () => '\~', $pattern).'~i';
     }
 }

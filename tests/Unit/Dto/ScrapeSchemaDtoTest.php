@@ -3,6 +3,7 @@
 namespace Tests\Unit\Dto;
 
 use App\Dto\Scraping\ScrapeSchemaDto;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 class ScrapeSchemaDtoTest extends TestCase
@@ -39,5 +40,15 @@ class ScrapeSchemaDtoTest extends TestCase
         $this->assertSame('css', $dto->fields['title']->type);
         $this->assertSame('h1', $dto->fields['title']->value);
         $this->assertSame('Title: ', $dto->fields['title']->prepend);
+    }
+
+    public function test_from_array_rejects_non_array_field_definitions(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Scrape schema field [title] must be an array.');
+
+        ScrapeSchemaDto::fromArray([
+            'title' => 'not-an-array',
+        ]);
     }
 }

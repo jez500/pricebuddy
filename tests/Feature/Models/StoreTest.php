@@ -74,6 +74,20 @@ class StoreTest extends TestCase
         $this->assertEquals(['option1' => 'value1'], $store->scraper_options);
     }
 
+    public function test_find_by_domain_handles_normalized_lookup_without_loading_every_store(): void
+    {
+        Store::factory()->create([
+            'domains' => [
+                ['domain' => 'EXAMPLE.COM'],
+            ],
+        ]);
+
+        $matched = Store::findByDomain('www.example.com');
+
+        $this->assertNotNull($matched);
+        $this->assertSame('EXAMPLE.COM', $matched->domains[0]['domain']);
+    }
+
     public function test_deleting_store_cascades_to_urls_and_prices_and_updates_product_caches()
     {
         // Create a store with multiple URLs across multiple products

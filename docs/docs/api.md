@@ -36,7 +36,8 @@ Example request:
   "url": "https://example.com/product",
   "store": {
     "settings": {
-      "scraper_service": "http"
+      "scraper_service": "http",
+      "cookies": "sessionid=abc123"
     },
     "scrape_strategy": {
       "title": { "type": "selector", "value": "meta[property=\"og:title\"]|content" },
@@ -58,3 +59,5 @@ The response shape is:
   }
 }
 ```
+
+The `price` field is normalized to a numeric value in both the store-backed and auto-create paths.

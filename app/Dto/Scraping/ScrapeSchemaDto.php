@@ -2,6 +2,7 @@
 
 namespace App\Dto\Scraping;
 
+use InvalidArgumentException;
 use JsonSerializable;
 
 class ScrapeSchemaDto implements JsonSerializable
@@ -23,9 +24,17 @@ class ScrapeSchemaDto implements JsonSerializable
                 continue;
             }
 
-            $fields[$field] = $definition instanceof FieldExtractionDto
-                ? $definition
-                : FieldExtractionDto::fromArray(is_array($definition) ? $definition : []);
+            if ($definition instanceof FieldExtractionDto) {
+                $fields[$field] = $definition;
+
+                continue;
+            }
+
+            if (! is_array($definition)) {
+                throw new InvalidArgumentException("Scrape schema field [{$field}] must be an array.");
+            }
+
+            $fields[$field] = FieldExtractionDto::fromArray($definition);
         }
 
         return new self($fields);

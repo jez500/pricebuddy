@@ -99,6 +99,20 @@ class MetaExtractionApiTest extends TestCase
             ->assertJsonPath('data.image', 'https://example.com/override.jpg');
     }
 
+    public function test_auto_create_path_normalizes_the_price_output(): void
+    {
+        $this->mockScrape('$35.00', 'Example product', 'https://example.com/image.jpg');
+
+        $response = $this->postJson('/api/meta-extraction', [
+            'url' => $this->url,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.title', 'Example product')
+            ->assertJsonPath('data.price', 35)
+            ->assertJsonPath('data.image', 'https://example.com/image.jpg');
+    }
+
     public function test_validation_fails_without_a_url(): void
     {
         $response = $this->postJson('/api/meta-extraction', []);
