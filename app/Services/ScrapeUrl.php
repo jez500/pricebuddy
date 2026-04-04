@@ -2,18 +2,18 @@
 
 namespace App\Services;
 
+use App\Dto\Scraping\FieldExtractionDto;
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
 use App\Enums\StockStatus;
 use App\Models\Store;
-use App\Services\Helpers\ScrapeStrategyHelper;
 use App\Services\Helpers\SettingsHelper;
-use App\Settings\AppSettings;
 use Exception;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Uri;
+use Jez500\WebScraperForLaravel\Exceptions\DomSelectorException;
 use Jez500\WebScraperForLaravel\Facades\WebScraper;
 use Jez500\WebScraperForLaravel\WebScraperApi;
 use Jez500\WebScraperForLaravel\WebScraperInterface;
@@ -21,6 +21,10 @@ use Psr\Log\LoggerInterface;
 
 class ScrapeUrl
 {
+    public const string SELECTOR_ATTR_DELIMITER = '|';
+
+    public const string SELECTOR_HTML_PREFIX = '!';
+
     /**
      * For the title and image, limit the length.
      */
@@ -29,6 +33,8 @@ class ScrapeUrl
     protected WebScraperInterface $webScraper;
 
     protected LoggerInterface $logger;
+
+    protected ScrapeSchemaCompiler $schemaCompiler;
 
     protected int $scraperRequestTimeout = 30;
 
@@ -55,6 +61,7 @@ class ScrapeUrl
         // @phpstan-ignore-next-line - withContext is valid.
         $this->logger = Log::channel('db')->withContext(['url' => $url]);
         $this->maxAttempts = SettingsHelper::getSetting('max_attempts_to_scrape', 3);
+        $this->schemaCompiler = new ScrapeSchemaCompiler;
     }
 
     public static function new(string $url): self
@@ -127,7 +134,7 @@ class ScrapeUrl
             }
         }
 
-        $matchConfig = ($output['store'] ?? null)?->availability_match_config;
+        $matchConfig = data_get($output, 'store.scrape_strategy.availability.match');
         $isUnavailable = StockStatus::matchFromScrapedValue($output['availability'] ?? null, $matchConfig)->isUnavailable();
 
         foreach (['price', 'title'] as $required) {
@@ -168,11 +175,15 @@ class ScrapeUrl
             'store' => $store,
         ];
 
+        foreach ($this->keys as $key) {
+            $output[$key] = null;
+        }
+
         try {
             $this->setScraper($store->scraper_service);
 
             $scraper = $this->webScraper->from($this->url)
-                ->setCacheMinsTtl(AppSettings::new()->scrape_cache_ttl)
+                ->setCacheMinsTtl(SettingsHelper::getSetting('scrape_cache_ttl', 720))
                 ->setUseCache($useCache)
                 ->setOptions($store->scraper_options);
 
@@ -193,38 +204,13 @@ class ScrapeUrl
             }
 
             $strategy = data_get($store, 'scrape_strategy', []);
-
-            // Separate schema_org fields — they need SchemaOrgService post-processing.
-            $schemaOrgFields = [];
-            $extractableFields = [];
+            $compiledStrategy = $this->schemaCompiler->fromDto($strategy, $page);
 
             foreach ($this->keys as $key) {
-                if (empty($strategy[$key]) || ! is_array($strategy[$key])) {
+                if (! isset($compiledStrategy[$key])) {
                     $output[$key] = null;
-                } elseif (data_get($strategy[$key], 'type') === ScraperStrategyType::SchemaOrg->value) {
-                    $schemaOrgFields[] = $key;
                 } else {
-                    $extractableFields[$key] = $strategy[$key];
-                }
-            }
-
-            // Extract non-schema_org fields via package.
-            if ($extractableFields) {
-                $extracted = $page->fromDto(
-                    ScrapeStrategyHelper::normalizeForExtraction($extractableFields)
-                );
-
-                foreach ($extractableFields as $key => $def) {
-                    $output[$key] = $extracted->get($key);
-                }
-            }
-
-            // Extract schema_org fields via SchemaOrgService.
-            if ($schemaOrgFields) {
-                $schemaOrg = $page->getSchemaOrg();
-
-                foreach ($schemaOrgFields as $key) {
-                    $output[$key] = SchemaOrgService::parseSchemaOrg($schemaOrg, $key);
+                    $output[$key] = data_get($compiledStrategy, $key.'.value');
                 }
             }
 
@@ -243,7 +229,62 @@ class ScrapeUrl
     {
         $host = Uri::of($this->url)->host();
 
-        return Store::query()->domainFilter($host)->oldest()->first();
+        return Store::findByDomain($host);
+    }
+
+    protected function scrapeOption(WebScraperInterface $scraper, array $options, string $field): ?string
+    {
+        try {
+            $compiled = $this->schemaCompiler->compileField(
+                $field,
+                FieldExtractionDto::fromArray($options),
+                $scraper
+            );
+
+            return data_get($compiled, 'value');
+        } catch (DomSelectorException $e) {
+            $this->errorLog('Error scraping URL', [
+                'url' => $this->url,
+                'error' => $e->getMessage(),
+            ]);
+            $this->errorNotification($e->getMessage());
+        }
+
+        return null;
+    }
+
+    public static function getMethodFromType(string $type): string
+    {
+        return match ($type) {
+            'css', ScraperStrategyType::Selector->value => 'getSelector',
+            ScraperStrategyType::Regex->value => 'getRegex',
+            ScraperStrategyType::Json->value => 'getJson',
+            ScraperStrategyType::xPath->value => 'getXpath',
+            ScraperStrategyType::SchemaOrg->value => 'getSchemaOrg',
+            default => 'getSelector'
+        };
+    }
+
+    public static function parseSelector(string $selector): array
+    {
+        // If starts with exclamation !, return unsanitized HTML.
+        if (str_starts_with($selector, self::SELECTOR_HTML_PREFIX)) {
+            $selector = substr($selector, 1) ?: '';
+
+            return [$selector, 'html'];
+        }
+
+        // If contains a pipe | extract attribute.
+        if (! str_contains($selector, self::SELECTOR_ATTR_DELIMITER)) {
+            return [$selector, 'text'];
+        }
+
+        // We get the attribute value from the selector assuming format is
+        // .selector|attribute
+        $parts = explode(self::SELECTOR_ATTR_DELIMITER, $selector);
+        $attr = array_pop($parts);
+
+        return [implode(self::SELECTOR_ATTR_DELIMITER, $parts), 'attr', [$attr]];
     }
 
     protected function errorNotification(string $message): void

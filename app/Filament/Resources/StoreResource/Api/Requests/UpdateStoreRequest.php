@@ -2,7 +2,10 @@
 
 namespace App\Filament\Resources\StoreResource\Api\Requests;
 
+use App\Enums\ScraperService;
+use App\Enums\ScraperStrategyType;
 use App\Rules\ValidScrapeStrategy;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateStoreRequest extends FormRequest
@@ -18,7 +21,7 @@ class UpdateStoreRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -29,16 +32,16 @@ class UpdateStoreRequest extends FormRequest
             'domains' => 'sometimes|array',
             'domains.*.domain' => 'required_with:domains|string',
             'settings' => 'sometimes|array',
-            'settings.scraper_service' => 'sometimes|in:'.implode(',', \App\Enums\ScraperService::values()),
+            'settings.scraper_service' => 'sometimes|in:'.implode(',', ScraperService::values()),
             'settings.scraper_service_settings' => 'nullable|string',
             'settings.locale_settings.locale' => 'sometimes|string',
             'settings.locale_settings.currency' => 'sometimes|string',
             'scrape_strategy' => ['sometimes', 'array', new ValidScrapeStrategy],
-            'scrape_strategy.image.type' => 'sometimes|in:'.implode(',', \App\Enums\ScraperStrategyType::values()),
+            'scrape_strategy.image.type' => 'sometimes|in:'.implode(',', ScraperStrategyType::values()),
             'scrape_strategy.image.value' => 'required_with:scrape_strategy.image.type|string',
-            'scrape_strategy.price.type' => 'sometimes|in:'.implode(',', \App\Enums\ScraperStrategyType::values()),
+            'scrape_strategy.price.type' => 'sometimes|in:'.implode(',', ScraperStrategyType::values()),
             'scrape_strategy.price.value' => 'required_with:scrape_strategy.price.type|string',
-            'scrape_strategy.title.type' => 'sometimes|in:'.implode(',', \App\Enums\ScraperStrategyType::values()),
+            'scrape_strategy.title.type' => 'sometimes|in:'.implode(',', ScraperStrategyType::values()),
             'scrape_strategy.title.value' => 'required_with:scrape_strategy.title.type|string',
             'notes' => 'sometimes|string',
             'user_id' => 'sometimes|exists:users,id|in:'.auth()->id(),

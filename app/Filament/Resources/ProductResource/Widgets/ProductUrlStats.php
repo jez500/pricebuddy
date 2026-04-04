@@ -16,6 +16,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\HtmlString;
 
 class ProductUrlStats extends BaseWidget implements HasActions, HasForms
 {
@@ -120,7 +121,7 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
             ->form([
                 Placeholder::make('url')
                     ->label('URL')
-                    ->content(fn ($get) => new \Illuminate\Support\HtmlString(
+                    ->content(fn ($get) => new HtmlString(
                         '<span style="cursor:pointer" x-on:click="const range = document.createRange(); range.selectNodeContents($el); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range)">'.e($get('url')).'</span>'
                     )),
                 TextInput::make('price_factor')

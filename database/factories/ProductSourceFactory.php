@@ -4,12 +4,13 @@ namespace Database\Factories;
 
 use App\Enums\ProductSourceStatus;
 use App\Enums\ProductSourceType;
+use App\Models\ProductSource;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\ProductSource>
+ * @extends Factory<ProductSource>
  */
 class ProductSourceFactory extends Factory
 {

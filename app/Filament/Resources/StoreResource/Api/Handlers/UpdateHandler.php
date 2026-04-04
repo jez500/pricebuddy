@@ -5,6 +5,7 @@ namespace App\Filament\Resources\StoreResource\Api\Handlers;
 use App\Filament\Resources\StoreResource;
 use App\Filament\Resources\StoreResource\Api\Requests\UpdateStoreRequest;
 use Dedoc\Scramble\Attributes\Group;
+use Illuminate\Http\JsonResponse;
 use Rupadana\ApiService\Http\Handlers;
 
 #[Group(StoreResource::API_GROUP)]
@@ -27,7 +28,7 @@ class UpdateHandler extends Handlers
     /**
      * Update Store
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function handler(UpdateStoreRequest $request)
     {

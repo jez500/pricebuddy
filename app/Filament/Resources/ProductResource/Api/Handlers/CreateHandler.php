@@ -7,6 +7,7 @@ use App\Filament\Resources\ProductResource\Api\Requests\CreateProductRequest;
 use App\Filament\Resources\ProductResource\Api\Transformers\ProductTransformer;
 use App\Models\Url;
 use Dedoc\Scramble\Attributes\Group;
+use Illuminate\Http\JsonResponse;
 use Rupadana\ApiService\Http\Handlers;
 
 #[Group(ProductResource::API_GROUP)]
@@ -29,7 +30,7 @@ class CreateHandler extends Handlers
     /**
      * Create Product
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function handler(CreateProductRequest $request)
     {

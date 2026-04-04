@@ -3,11 +3,12 @@
 namespace Database\Factories;
 
 use App\Models\Store;
+use App\Models\Tag;
 use App\Models\Url;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Tag>
+ * @extends Factory<Tag>
  */
 class PriceFactory extends Factory
 {

@@ -1,8 +1,8 @@
 <?php
 
+use App\Dto\Scraping\FieldExtractionDto;
+use App\Dto\Scraping\ScrapeSchemaDto;
 use App\Services\Helpers\ScrapeStrategyHelper;
-use Jez500\WebScraperForLaravel\Dto\FieldExtractionDto;
-use Jez500\WebScraperForLaravel\Dto\ScrapeSchemaDto;
 
 it('builds a ScrapeSchemaDto from a valid strategy', function () {
     $strategy = [

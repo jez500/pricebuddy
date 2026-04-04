@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Dto\Scraping\ScrapeSchemaDto;
 use App\Enums\ScraperService;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\ScrapeStrategyHelper;
+use Database\Factories\StoreFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,7 +18,6 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
-use Jez500\WebScraperForLaravel\Dto\ScrapeSchemaDto;
 use Spatie\Sluggable\HasSlug;
 use Spatie\Sluggable\SlugOptions;
 
@@ -40,7 +41,7 @@ use Spatie\Sluggable\SlugOptions;
  */
 class Store extends Model
 {
-    /** @use HasFactory<\Database\Factories\StoreFactory> */
+    /** @use HasFactory<StoreFactory> */
     use HasFactory;
 
     use HasSlug;
@@ -136,8 +137,34 @@ class Store extends Model
 
     public function scopeDomainFilter(Builder $query, string|array $domains): Builder
     {
-        $domains = Arr::wrap($domains);
-        $first = array_shift($domains);
+        $domains = collect(Arr::wrap($domains))
+            ->filter()
+            ->flatMap(fn (string $domain) => static::domainCandidates($domain))
+            ->unique()
+            ->values();
+
+        $first = $domains->shift();
+
+        if ($first === null) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        $driver = $query->getConnection()->getDriverName(); // @phpstan-ignore-line
+
+        if ($driver === 'sqlite') {
+            return $query->where(function (Builder $subQuery) use ($first, $domains) {
+                $candidates = collect([$first])
+                    ->merge($domains)
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                foreach ($candidates as $candidate) {
+                    $needle = static::domainLikePattern($candidate);
+                    $subQuery->orWhere('domains', 'like', $needle);
+                }
+            });
+        }
 
         return $query->where(function (Builder $subQuery) use ($first, $domains) {
             $subQuery->whereJsonContains('domains', ['domain' => $first]);
@@ -146,6 +173,44 @@ class Store extends Model
                 $subQuery->orWhereJsonContains('domains', ['domain' => $domain]);
             }
         });
+    }
+
+    public static function findByDomain(string|array $domains): ?self
+    {
+        $domains = collect(Arr::wrap($domains))
+            ->filter()
+            ->map(fn (string $domain) => static::normalizeDomain($domain))
+            ->unique()
+            ->values();
+
+        if ($domains->isEmpty()) {
+            return null;
+        }
+
+        $store = static::query()->domainFilter($domains->all())->oldest()->first();
+
+        if ($store) {
+            return $store;
+        }
+
+        $domainPatterns = $domains
+            ->flatMap(fn (string $domain) => static::domainCandidates($domain))
+            ->map(fn (string $domain) => static::domainLikePattern($domain))
+            ->unique()
+            ->values();
+
+        if ($domainPatterns->isEmpty()) {
+            return null;
+        }
+
+        return static::query()
+            ->where(function (Builder $query) use ($domainPatterns) {
+                foreach ($domainPatterns as $pattern) {
+                    $query->orWhereRaw('LOWER(domains) LIKE ?', [$pattern]);
+                }
+            })
+            ->oldest()
+            ->first();
     }
 
     /***************************************************
@@ -235,6 +300,35 @@ class Store extends Model
     {
         return collect($this->domains)
             ->pluck('domain')
-            ->contains($domain);
+            ->map(fn ($value) => static::normalizeDomain((string) $value))
+            ->contains(static::normalizeDomain((string) $domain));
+    }
+
+    protected static function normalizeDomain(string $domain): string
+    {
+        $domain = strtolower(trim($domain));
+
+        return str_starts_with($domain, 'www.')
+            ? substr($domain, 4)
+            : $domain;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected static function domainCandidates(string $domain): array
+    {
+        $normalized = static::normalizeDomain($domain);
+
+        return array_values(array_unique([
+            strtolower(trim($domain)),
+            $normalized,
+            'www.'.$normalized,
+        ]));
+    }
+
+    protected static function domainLikePattern(string $domain): string
+    {
+        return '%"domain":%'.strtolower($domain).'%';
     }
 }

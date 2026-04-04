@@ -2,9 +2,10 @@
 
 namespace App\Services\Helpers;
 
+use App\Dto\Scraping\ScrapeSchemaDto;
 use App\Enums\ScraperStrategyType;
-use Jez500\WebScraperForLaravel\Dto\ScrapeSchemaDto;
-use Jez500\WebScraperForLaravel\Exceptions\SchemaValidationException;
+use App\Exceptions\ScrapeSchemaValidationException;
+use App\Services\ScrapeSchemaValidator;
 
 class ScrapeStrategyHelper
 {
@@ -25,8 +26,8 @@ class ScrapeStrategyHelper
         }
 
         try {
-            return ScrapeSchemaDto::fromArray($fields);
-        } catch (SchemaValidationException) {
+            return (new ScrapeSchemaValidator)->validate($fields);
+        } catch (ScrapeSchemaValidationException) {
             return new ScrapeSchemaDto;
         }
     }
@@ -79,10 +80,10 @@ class ScrapeStrategyHelper
         }
 
         try {
-            ScrapeSchemaDto::fromArray($fields);
+            (new ScrapeSchemaValidator)->validate($fields);
 
             return true;
-        } catch (SchemaValidationException $e) {
+        } catch (ScrapeSchemaValidationException $e) {
             return $e->errors();
         }
     }

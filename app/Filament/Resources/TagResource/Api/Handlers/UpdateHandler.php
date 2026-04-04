@@ -5,6 +5,7 @@ namespace App\Filament\Resources\TagResource\Api\Handlers;
 use App\Filament\Resources\TagResource;
 use App\Filament\Resources\TagResource\Api\Requests\UpdateTagRequest;
 use Dedoc\Scramble\Attributes\Group;
+use Illuminate\Http\JsonResponse;
 use Rupadana\ApiService\Http\Handlers;
 
 #[Group(TagResource::API_GROUP)]
@@ -27,7 +28,7 @@ class UpdateHandler extends Handlers
     /**
      * Update Tag
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function handler(UpdateTagRequest $request)
     {

@@ -5,14 +5,17 @@ namespace Tests\Unit\Services;
 use App\Models\Store;
 use App\Models\User;
 use App\Services\ScrapeUrl;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\View;
 use Tests\TestCase;
 use Tests\Traits\ScraperTrait;
 use Yoeriboven\LaravelLogDb\Models\LogMessage;
 
 class ScrapeUrlTest extends TestCase
 {
+    use RefreshDatabase;
     use ScraperTrait;
 
     const TEST_URL = 'https://example.com/product';
@@ -207,5 +210,32 @@ HTML),
         $result = ScrapeUrl::new(self::TEST_URL)->scrape();
 
         $this->assertSame('$15.00 AUD', $result['price']);
+    }
+
+    public function test_scrape_works_with_api_transport()
+    {
+        $this->store->update([
+            'settings' => array_merge($this->store->settings ?? [], [
+                'scraper_service' => 'api',
+            ]),
+        ]);
+
+        Http::fake([
+            '*' => Http::response([
+                'fullContent' => View::make('tests.product-page', [
+                    'price' => '$15.00',
+                    'title' => 'API Title',
+                    'image' => 'https://example.com/api.png',
+                    'availability' => null,
+                ])->render(),
+            ]),
+        ]);
+
+        $scrapeUrl = ScrapeUrl::new(self::TEST_URL);
+        $result = $scrapeUrl->scrape();
+
+        $this->assertSame('API Title', $result['title']);
+        $this->assertSame('$15.00', $result['price']);
+        $this->assertSame('https://example.com/api.png', $result['image']);
     }
 }

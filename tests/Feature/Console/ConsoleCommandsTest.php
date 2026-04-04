@@ -14,6 +14,7 @@ use Database\Seeders\StoreSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ConsoleCommandsTest extends TestCase
@@ -87,7 +88,7 @@ class ConsoleCommandsTest extends TestCase
         if (! empty($storeData)) {
             $firstStore = $storeData[0];
             Store::factory()->create([
-                'slug' => $firstStore['slug'] ?? \Illuminate\Support\Str::slug($firstStore['name']),
+                'slug' => $firstStore['slug'] ?? Str::slug($firstStore['name']),
                 'name' => $firstStore['name'],
             ]);
 
@@ -111,7 +112,7 @@ class ConsoleCommandsTest extends TestCase
         if (! empty($storeData)) {
             $firstStore = $storeData[0];
             $store = Store::factory()->create([
-                'slug' => $firstStore['slug'] ?? \Illuminate\Support\Str::slug($firstStore['name']),
+                'slug' => $firstStore['slug'] ?? Str::slug($firstStore['name']),
                 'name' => 'Old Name',
             ]);
 
