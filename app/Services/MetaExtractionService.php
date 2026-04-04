@@ -64,7 +64,7 @@ class MetaExtractionService
     protected function resolveStore(string $url, array $storeOverride = []): ?Store
     {
         $host = Uri::of($url)->host();
-        $store = Store::query()->domainFilter($host)->first();
+        $store = Store::findByDomain($host);
 
         if (empty($storeOverride)) {
             return $store;

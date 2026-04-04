@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ScraperService;
+use App\Dto\Scraping\ScrapeSchemaDto;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\ScrapeStrategyHelper;
 use Illuminate\Database\Eloquent\Builder;
@@ -16,7 +17,6 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
-use Jez500\WebScraperForLaravel\Dto\ScrapeSchemaDto;
 use Spatie\Sluggable\HasSlug;
 use Spatie\Sluggable\SlugOptions;
 
@@ -136,8 +136,34 @@ class Store extends Model
 
     public function scopeDomainFilter(Builder $query, string|array $domains): Builder
     {
-        $domains = Arr::wrap($domains);
-        $first = array_shift($domains);
+        $domains = collect(Arr::wrap($domains))
+            ->filter()
+            ->flatMap(fn (string $domain) => static::domainCandidates($domain))
+            ->unique()
+            ->values();
+
+        $first = $domains->shift();
+
+        if ($first === null) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        $driver = $query->getConnection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            return $query->where(function (Builder $subQuery) use ($first, $domains) {
+                $candidates = collect([$first])
+                    ->merge($domains)
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                foreach ($candidates as $candidate) {
+                    $needle = '%"domain":"'.addslashes($candidate).'"%';
+                    $subQuery->orWhere('domains', 'like', $needle);
+                }
+            });
+        }
 
         return $query->where(function (Builder $subQuery) use ($first, $domains) {
             $subQuery->whereJsonContains('domains', ['domain' => $first]);
@@ -146,6 +172,29 @@ class Store extends Model
                 $subQuery->orWhereJsonContains('domains', ['domain' => $domain]);
             }
         });
+    }
+
+    public static function findByDomain(string|array $domains): ?self
+    {
+        $domains = collect(Arr::wrap($domains))
+            ->filter()
+            ->map(fn (string $domain) => static::normalizeDomain($domain))
+            ->unique()
+            ->values();
+
+        if ($domains->isEmpty()) {
+            return null;
+        }
+
+        $store = static::query()->domainFilter($domains->all())->oldest()->first();
+
+        if ($store) {
+            return $store;
+        }
+
+        return static::query()
+            ->get()
+            ->first(fn (self $store) => $domains->contains(fn (string $domain) => $store->hasDomain($domain)));
     }
 
     /***************************************************
@@ -235,6 +284,30 @@ class Store extends Model
     {
         return collect($this->domains)
             ->pluck('domain')
-            ->contains($domain);
+            ->map(fn ($value) => static::normalizeDomain((string) $value))
+            ->contains(static::normalizeDomain((string) $domain));
+    }
+
+    protected static function normalizeDomain(string $domain): string
+    {
+        $domain = strtolower(trim($domain));
+
+        return str_starts_with($domain, 'www.')
+            ? substr($domain, 4)
+            : $domain;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected static function domainCandidates(string $domain): array
+    {
+        $normalized = static::normalizeDomain($domain);
+
+        return array_values(array_unique([
+            strtolower(trim($domain)),
+            $normalized,
+            'www.'.$normalized,
+        ]));
     }
 }

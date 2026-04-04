@@ -225,7 +225,7 @@ class ScrapeUrl
     {
         $host = Uri::of($this->url)->host();
 
-        return Store::query()->domainFilter($host)->oldest()->first();
+        return Store::findByDomain($host);
     }
 
     protected function scrapeOption(WebScraperInterface $scraper, array $options, string $field): ?string

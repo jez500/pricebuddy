@@ -3,11 +3,11 @@
 namespace App\Services;
 
 use App\Models\ProductSource;
+use App\Services\ScrapeUrl;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Jez500\WebScraperForLaravel\Exceptions\DomSelectorException;
 use Jez500\WebScraperForLaravel\Facades\WebScraper;
-use Jez500\WebScraperForLaravel\Schema\SchemaCompiler;
 use Jez500\WebScraperForLaravel\WebScraperInterface;
 use Psr\Log\LoggerInterface;
 
@@ -112,12 +112,12 @@ class ProductSourceSearchService
 
         try {
             return match ($type) {
-                'selector', 'css' => $scraper->getSelector(...SchemaCompiler::parseCssSelector($value)),
+                'selector', 'css' => $scraper->getSelector(...ScrapeUrl::parseSelector($value)),
                 'regex' => $scraper->getRegex($value),
                 'json' => $scraper->getJson($value),
                 'xpath' => $scraper->getXpath($value),
                 'schema_org' => $scraper->getSchemaOrg(),
-                default => $scraper->getSelector(...SchemaCompiler::parseCssSelector($value)),
+                default => $scraper->getSelector(...ScrapeUrl::parseSelector($value)),
             };
         } catch (DomSelectorException $e) {
             $this->errorLog('Error scraping URL', [
