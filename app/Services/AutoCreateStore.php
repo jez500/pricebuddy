@@ -12,7 +12,6 @@ use Exception;
 use Illuminate\Support\Uri;
 use Jez500\WebScraperForLaravel\Exceptions\DomSelectorException;
 use Jez500\WebScraperForLaravel\Facades\WebScraper;
-use Jez500\WebScraperForLaravel\Schema\SchemaCompiler;
 use Jez500\WebScraperForLaravel\WebScraperInterface;
 use Symfony\Component\DomCrawler\Crawler;
 
@@ -64,7 +63,7 @@ class AutoCreateStore
         // Check if store exists.
         $host = strtolower(Uri::of($url)->host());
 
-        if ($existing = Store::query()->domainFilter($host)->first()) {
+        if ($existing = Store::findByDomain($host)) {
             return $existing;
         }
 
@@ -221,10 +220,7 @@ class AutoCreateStore
                 break;
             }
 
-            $selectorSettings = SchemaCompiler::parseCssSelector($selector);
-            $realSelector = $selectorSettings[0];
-            $method = $selectorSettings[1] ?? 'text';
-            $args = $selectorSettings[2] ?? [];
+            [$realSelector, $method, $args] = array_pad(ScrapeUrl::parseSelector($selector), 3, []);
 
             try {
                 $results = $dom->filter($realSelector)

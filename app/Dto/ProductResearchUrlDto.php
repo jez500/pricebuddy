@@ -141,7 +141,7 @@ class ProductResearchUrlDto
             return $this->store;
         }
 
-        $this->store = Store::query()->domainFilter($this->uri->host())->first();
+        $this->store = Store::findByDomain($this->uri->host());
 
         return $this->store;
     }
