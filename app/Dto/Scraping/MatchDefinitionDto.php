@@ -85,8 +85,34 @@ class MatchDefinitionDto implements JsonSerializable
             return false;
         }
 
-        $wrapped = '~'.str_replace('~', '\~', $pattern).'~i';
+        $wrapped = '~'.$this->escapeRegexDelimiter($pattern).'~i';
 
         return (bool) @preg_match($wrapped, $value);
+    }
+
+    private function escapeRegexDelimiter(string $pattern, string $delimiter = '~'): string
+    {
+        $escaped = '';
+        $length = strlen($pattern);
+
+        for ($index = 0; $index < $length; $index++) {
+            $character = $pattern[$index];
+
+            if ($character === $delimiter) {
+                $backslashes = 0;
+
+                for ($offset = $index - 1; $offset >= 0 && $pattern[$offset] === '\\'; $offset--) {
+                    $backslashes++;
+                }
+
+                if ($backslashes % 2 === 0) {
+                    $escaped .= '\\';
+                }
+            }
+
+            $escaped .= $character;
+        }
+
+        return $escaped;
     }
 }

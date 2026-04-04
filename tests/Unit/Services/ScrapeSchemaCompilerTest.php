@@ -198,4 +198,26 @@ class ScrapeSchemaCompilerTest extends TestCase
 
         $this->assertSame('regex:~foo\~bar~i', $result['title']['value']);
     }
+
+    public function test_compiler_preserves_double_escaped_tildes_in_regex_patterns(): void
+    {
+        $scraper = new class
+        {
+            public function getRegex(string $value): Collection
+            {
+                return collect(['regex:'.$value]);
+            }
+        };
+
+        $schema = ScrapeSchemaDto::fromArray([
+            'title' => [
+                'type' => 'regex',
+                'value' => 'foo\\\\~bar',
+            ],
+        ]);
+
+        $result = (new ScrapeSchemaCompiler)->fromDto($schema, $scraper);
+
+        $this->assertSame('regex:~foo'.str_repeat('\\', 3).'~bar~i', $result['title']['value']);
+    }
 }

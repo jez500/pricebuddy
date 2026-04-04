@@ -111,6 +111,32 @@ class ScrapeSchemaValidator
 
     protected function wrapRegex(string $pattern): string
     {
-        return '~'.preg_replace_callback('/(?<!\\\\)~/', fn () => '\~', $pattern).'~i';
+        return '~'.$this->escapeRegexDelimiter($pattern).'~i';
+    }
+
+    protected function escapeRegexDelimiter(string $pattern, string $delimiter = '~'): string
+    {
+        $escaped = '';
+        $length = strlen($pattern);
+
+        for ($index = 0; $index < $length; $index++) {
+            $character = $pattern[$index];
+
+            if ($character === $delimiter) {
+                $backslashes = 0;
+
+                for ($offset = $index - 1; $offset >= 0 && $pattern[$offset] === '\\'; $offset--) {
+                    $backslashes++;
+                }
+
+                if ($backslashes % 2 === 0) {
+                    $escaped .= '\\';
+                }
+            }
+
+            $escaped .= $character;
+        }
+
+        return $escaped;
     }
 }

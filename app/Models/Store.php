@@ -159,7 +159,7 @@ class Store extends Model
                     ->values();
 
                 foreach ($candidates as $candidate) {
-                    $needle = '%"domain":"'.addslashes($candidate).'"%';
+                    $needle = static::domainLikePattern($candidate);
                     $subQuery->orWhere('domains', 'like', $needle);
                 }
             });
@@ -194,7 +194,7 @@ class Store extends Model
 
         $domainPatterns = $domains
             ->flatMap(fn (string $domain) => static::domainCandidates($domain))
-            ->map(fn (string $domain) => '%"domain":"'.strtolower(addslashes($domain)).'"%')
+            ->map(fn (string $domain) => static::domainLikePattern($domain))
             ->unique()
             ->values();
 
@@ -324,5 +324,18 @@ class Store extends Model
             $normalized,
             'www.'.$normalized,
         ]));
+    }
+
+    protected static function domainLikePattern(string $domain): string
+    {
+        $json = json_encode([
+            'domain' => strtolower($domain),
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        if ($json === false) {
+            return '%';
+        }
+
+        return '%'.strtolower($json).'%';
     }
 }
