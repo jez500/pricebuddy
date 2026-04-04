@@ -60,4 +60,14 @@ class ScrapeSchemaValidatorTest extends TestCase
             $this->assertContains('availability.match.out_of_stock.value must be a valid regular expression', $exception->errors());
         }
     }
+
+    public function test_wrap_regex_preserves_escaped_tildes(): void
+    {
+        $validator = new ScrapeSchemaValidator;
+        $method = new \ReflectionMethod($validator, 'wrapRegex');
+        $method->setAccessible(true);
+
+        $this->assertSame('~foo\~bar~i', $method->invoke($validator, 'foo\~bar'));
+        $this->assertSame('~foo\~bar~i', $method->invoke($validator, 'foo~bar'));
+    }
 }

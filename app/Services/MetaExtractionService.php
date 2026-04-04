@@ -53,10 +53,13 @@ class MetaExtractionService
             ->setLogErrors(false);
 
         $result = $autoCreateStore->strategyParse();
+        $price = data_get($result, 'price.data');
 
         return [
             'title' => data_get($result, 'title.data'),
-            'price' => data_get($result, 'price.data'),
+            'price' => $price === null || $price === ''
+                ? null
+                : CurrencyHelper::toFloat($price),
             'image' => data_get($result, 'image.data'),
         ];
     }
@@ -69,6 +72,8 @@ class MetaExtractionService
         if (empty($storeOverride)) {
             return $store;
         }
+
+        $overrideCookies = data_get($storeOverride, 'settings.cookies', data_get($storeOverride, 'cookies', $store?->cookies));
 
         $merged = [
             'name' => data_get($storeOverride, 'name', $store?->name ?? ucfirst($host)),
@@ -85,8 +90,8 @@ class MetaExtractionService
             ),
         ];
 
-        if (! is_null(data_get($storeOverride, 'cookies', $store?->cookies))) {
-            $merged['cookies'] = data_get($storeOverride, 'cookies', $store?->cookies);
+        if (! is_null($overrideCookies)) {
+            $merged['cookies'] = $overrideCookies;
         }
 
         return new Store($merged);

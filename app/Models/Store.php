@@ -192,9 +192,24 @@ class Store extends Model
             return $store;
         }
 
+        $domainPatterns = $domains
+            ->flatMap(fn (string $domain) => static::domainCandidates($domain))
+            ->map(fn (string $domain) => '%"domain":"'.strtolower(addslashes($domain)).'"%')
+            ->unique()
+            ->values();
+
+        if ($domainPatterns->isEmpty()) {
+            return null;
+        }
+
         return static::query()
-            ->get()
-            ->first(fn (self $store) => $domains->contains(fn (string $domain) => $store->hasDomain($domain)));
+            ->where(function (Builder $query) use ($domainPatterns) {
+                foreach ($domainPatterns as $pattern) {
+                    $query->orWhereRaw('LOWER(domains) LIKE ?', [$pattern]);
+                }
+            })
+            ->oldest()
+            ->first();
     }
 
     /***************************************************
