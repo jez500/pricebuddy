@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
+use App\Dto\Scraping\FieldExtractionDto;
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
 use App\Enums\StockStatus;
-use App\Dto\Scraping\FieldExtractionDto;
 use App\Models\Store;
 use App\Services\Helpers\SettingsHelper;
 use Exception;
@@ -61,7 +61,7 @@ class ScrapeUrl
         // @phpstan-ignore-next-line - withContext is valid.
         $this->logger = Log::channel('db')->withContext(['url' => $url]);
         $this->maxAttempts = SettingsHelper::getSetting('max_attempts_to_scrape', 3);
-        $this->schemaCompiler = new ScrapeSchemaCompiler();
+        $this->schemaCompiler = new ScrapeSchemaCompiler;
     }
 
     public static function new(string $url): self

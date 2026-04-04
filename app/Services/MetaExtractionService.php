@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Store;
 use App\Services\Helpers\CurrencyHelper;
-use Illuminate\Support\Str;
 use Illuminate\Support\Uri;
 
 class MetaExtractionService
@@ -71,16 +70,16 @@ class MetaExtractionService
         }
 
         $merged = [
-            'name' => data_get($storeOverride, 'name', $store?->name ?? ucfirst($host)),
-            'domains' => data_get($storeOverride, 'domains', $store?->domains ?? [
+            'name' => data_get($storeOverride, 'name', $store->name ?? ucfirst($host)),
+            'domains' => data_get($storeOverride, 'domains', $store->domains ?? [
                 ['domain' => $host],
             ]),
             'scrape_strategy' => array_replace_recursive(
-                $store?->scrape_strategy ?? [],
+                $store->scrape_strategy ?? [],
                 data_get($storeOverride, 'scrape_strategy', [])
             ),
             'settings' => array_replace_recursive(
-                $store?->settings ?? [],
+                $store->settings ?? [],
                 data_get($storeOverride, 'settings', [])
             ),
         ];

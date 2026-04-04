@@ -97,7 +97,7 @@ class ScrapeSchemaCompiler
             ? ScrapeUrl::parseSelector((string) $field->value)
             : [$type === 'regex'
                 ? $this->wrapRegex((string) $field->value)
-                : (string) $field->value
+                : (string) $field->value,
             ];
 
         $result = call_user_func_array([$scraper, $method], $arguments);
