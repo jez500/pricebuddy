@@ -68,6 +68,7 @@ class ScrapeSchemaValidatorTest extends TestCase
         $method->setAccessible(true);
 
         $this->assertSame('~foo\~bar~i', $method->invoke($validator, 'foo\~bar'));
+        $this->assertSame('~foo'.str_repeat('\\', 3).'~bar~i', $method->invoke($validator, 'foo\\\\~bar'));
         $this->assertSame('~foo\~bar~i', $method->invoke($validator, 'foo~bar'));
     }
 }

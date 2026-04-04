@@ -99,6 +99,40 @@ class MetaExtractionApiTest extends TestCase
             ->assertJsonPath('data.image', 'https://example.com/override.jpg');
     }
 
+    public function test_can_extract_meta_using_schema_org_strategies_with_null_values(): void
+    {
+        $this->mockScrapeSchema('$42.50', 'Schema product', 'https://example.com/schema.jpg');
+
+        $response = $this->postJson('/api/meta-extraction', [
+            'url' => $this->url,
+            'store' => [
+                'settings' => [
+                    'scraper_service' => 'http',
+                    'scraper_service_settings' => '',
+                ],
+                'scrape_strategy' => [
+                    'title' => [
+                        'type' => 'schema_org',
+                        'value' => null,
+                    ],
+                    'price' => [
+                        'type' => 'schema_org',
+                        'value' => null,
+                    ],
+                    'image' => [
+                        'type' => 'schema_org',
+                        'value' => null,
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.title', 'Schema product')
+            ->assertJsonPath('data.price', 42.5)
+            ->assertJsonPath('data.image', 'https://example.com/schema.jpg');
+    }
+
     public function test_auto_create_path_normalizes_the_price_output(): void
     {
         $this->mockScrape('$35.00', 'Example product', 'https://example.com/image.jpg');
