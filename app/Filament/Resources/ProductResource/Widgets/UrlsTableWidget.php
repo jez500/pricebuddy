@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ProductResource\Widgets;
 
 use App\Models\Product;
 use App\Models\Url;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -48,10 +49,10 @@ class UrlsTableWidget extends BaseWidget
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->form([
-                        \Filament\Forms\Components\TextInput::make('url')
+                        TextInput::make('url')
                             ->label('URL')
                             ->disabled(),
-                        \Filament\Forms\Components\TextInput::make('price_factor')
+                        TextInput::make('price_factor')
                             ->label('Price Factor')
                             ->numeric()
                             ->default(1)

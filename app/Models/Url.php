@@ -8,6 +8,7 @@ use App\Services\Helpers\AffiliateHelper;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\ScrapeUrl;
 use Carbon\Carbon;
+use Database\Factories\UrlFactory;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -39,7 +40,7 @@ use Illuminate\Support\Str;
  */
 class Url extends Model
 {
-    /** @use HasFactory<\Database\Factories\UrlFactory> */
+    /** @use HasFactory<UrlFactory> */
     use HasFactory;
 
     public static function booted()
@@ -179,8 +180,7 @@ class Url extends Model
         /** @var ?Store $store */
         $store = data_get($scrape, 'store');
 
-        $matchConfig = data_get($store, 'scrape_strategy.availability.match');
-        $isUnavailable = StockStatus::matchFromScrapedValue(data_get($scrape, 'availability'), $matchConfig)->isUnavailable();
+        $isUnavailable = StockStatus::matchFromScrapedValue(data_get($scrape, 'availability'), $store?->availability_match_config)->isUnavailable();
 
         if (! $store || (! data_get($scrape, 'price') && ! $isUnavailable)) {
             return false;
@@ -230,8 +230,7 @@ class Url extends Model
         // Update out-of-stock status based on scrape result.
         if ($scrapeResult) {
             $scrapedValue = data_get($scrapeResult, 'availability');
-            $matchConfig = data_get($this->store, 'scrape_strategy.availability.match');
-            $stockStatus = StockStatus::matchFromScrapedValue($scrapedValue, $matchConfig);
+            $stockStatus = StockStatus::matchFromScrapedValue($scrapedValue, $this->store?->availability_match_config);
             $availability = $stockStatus->isUnavailable() ? $stockStatus : null;
             $availabilityChanged = $this->getAvailabilityStatus() !== $availability;
 

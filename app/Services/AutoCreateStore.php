@@ -63,7 +63,7 @@ class AutoCreateStore
         // Check if store exists.
         $host = strtolower(Uri::of($url)->host());
 
-        if ($existing = Store::query()->domainFilter($host)->first()) {
+        if ($existing = Store::findByDomain($host)) {
             return $existing;
         }
 
@@ -220,10 +220,7 @@ class AutoCreateStore
                 break;
             }
 
-            $selectorSettings = ScrapeUrl::parseSelector($selector);
-            $realSelector = $selectorSettings[0];
-            $method = $selectorSettings[1] ?? 'text';
-            $args = $selectorSettings[2] ?? [];
+            [$realSelector, $method, $args] = array_pad(ScrapeUrl::parseSelector($selector), 3, []);
 
             try {
                 $results = $dom->filter($realSelector)

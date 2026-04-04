@@ -4,6 +4,7 @@ namespace App\Filament\Resources\TagResource\Api\Handlers;
 
 use App\Filament\Resources\TagResource;
 use Dedoc\Scramble\Attributes\Group;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Rupadana\ApiService\Http\Handlers;
 
@@ -27,7 +28,7 @@ class DeleteHandler extends Handlers
     /**
      * Delete Tag
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function handler(Request $request)
     {

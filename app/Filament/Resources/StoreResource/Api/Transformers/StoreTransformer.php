@@ -6,6 +6,7 @@ use App\Filament\Resources\ProductResource\Api\Transformers\ProductTransformer;
 use App\Http\Resources\UrlResource;
 use App\Http\Resources\UserResource;
 use App\Models\Store;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
@@ -16,7 +17,7 @@ class StoreTransformer extends JsonResource
     /**
      * Transform the resource into an array.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  Request  $request
      *
      * @SuppressWarnings("UnusedFormalParameter")
      *

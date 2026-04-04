@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ProductSourceResource\Api\Requests;
 use App\Enums\ProductSourceStatus;
 use App\Enums\ProductSourceType;
 use App\Rules\ContainsSearchTermPlaceholder;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CreateProductSourceRequest extends FormRequest
@@ -20,7 +21,7 @@ class CreateProductSourceRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {

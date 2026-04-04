@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\NotificationMethods;
+use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Filament\Panel\Concerns\HasNotifications;
@@ -19,7 +20,7 @@ use Laravel\Sanctum\HasApiTokens;
  */
 class User extends Authenticatable implements FilamentUser
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, HasNotifications, Notifiable;
 
     /**

@@ -5,13 +5,17 @@ namespace Tests\Unit\Services;
 use App\Models\Store;
 use App\Models\User;
 use App\Services\ScrapeUrl;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\View;
 use Tests\TestCase;
 use Tests\Traits\ScraperTrait;
 use Yoeriboven\LaravelLogDb\Models\LogMessage;
 
 class ScrapeUrlTest extends TestCase
 {
+    use RefreshDatabase;
     use ScraperTrait;
 
     const TEST_URL = 'https://example.com/product';
@@ -107,17 +111,6 @@ class ScrapeUrlTest extends TestCase
         $this->assertEquals($this->store->id, $result->id);
     }
 
-    public function test_scrape_option_returns_correct_value()
-    {
-        $this->mockScrape('$10.00', 'Example Title');
-
-        $scrapeUrl = ScrapeUrl::new(self::TEST_URL);
-        $result = $scrapeUrl->scrape();
-
-        $this->assertEquals('Example Title', $result['title']);
-        $this->assertEquals('$10.00', $result['price']);
-    }
-
     public function test_scrape_schema_org()
     {
         $this->store->update([
@@ -136,5 +129,113 @@ class ScrapeUrlTest extends TestCase
         $this->assertEquals('Schema Title', $result['title']);
         $this->assertEquals('49.99', $result['price']);
         $this->assertEquals('https://example.com/schema.jpg', $result['image']);
+    }
+
+    public function test_scrape_with_pipe_delimiter_extracts_attributes()
+    {
+        $this->store->update([
+            'scrape_strategy' => [
+                'title' => ['type' => 'selector', 'value' => 'meta[property=og:title]|content'],
+                'price' => ['type' => 'selector', 'value' => 'meta[property=og:price:amount]|content'],
+                'image' => ['type' => 'selector', 'value' => 'meta[property=og:image]|content'],
+            ],
+        ]);
+
+        $this->mockScrape('$29.99', 'Pipe Test Title', 'https://example.com/pipe.png');
+
+        $result = ScrapeUrl::new(self::TEST_URL)->scrape();
+
+        $this->assertSame('Pipe Test Title', $result['title']);
+        $this->assertSame('$29.99', $result['price']);
+        $this->assertSame('https://example.com/pipe.png', $result['image']);
+    }
+
+    public function test_scrape_mixed_strategy_types()
+    {
+        $this->store->update([
+            'scrape_strategy' => [
+                'title' => ['type' => 'selector', 'value' => 'meta[property=og:title]|content'],
+                'price' => ['type' => 'schema_org', 'value' => null],
+                'image' => ['type' => 'schema_org', 'value' => null],
+            ],
+        ]);
+
+        $json = json_encode([
+            '@context' => 'https://schema.org/',
+            '@type' => 'Product',
+            'name' => 'Schema Name',
+            'image' => 'https://example.com/schema-img.jpg',
+            'offers' => [
+                '@type' => 'Offer',
+                'price' => '39.99',
+            ],
+        ]);
+
+        Http::fake([
+            '*' => Http::response(<<<HTML
+<html>
+<head>
+    <meta property="og:title" content="Selector Title">
+    <script type="application/ld+json">{$json}</script>
+</head>
+<body></body>
+</html>
+HTML),
+        ]);
+
+        $result = ScrapeUrl::new(self::TEST_URL)->scrape();
+
+        $this->assertSame('Selector Title', $result['title']);
+        $this->assertSame('39.99', $result['price']);
+        $this->assertSame('https://example.com/schema-img.jpg', $result['image']);
+    }
+
+    public function test_scrape_with_prepend_and_append()
+    {
+        $this->store->update([
+            'scrape_strategy' => [
+                'title' => ['type' => 'selector', 'value' => 'meta[property=og:title]|content'],
+                'price' => [
+                    'type' => 'selector',
+                    'value' => 'meta[property=og:price:amount]|content',
+                    'prepend' => '$',
+                    'append' => ' AUD',
+                ],
+                'image' => ['type' => 'selector', 'value' => 'meta[property=og:image]|content'],
+            ],
+        ]);
+
+        $this->mockScrape('15.00', 'Test Title', 'https://example.com/img.png');
+
+        $result = ScrapeUrl::new(self::TEST_URL)->scrape();
+
+        $this->assertSame('$15.00 AUD', $result['price']);
+    }
+
+    public function test_scrape_works_with_api_transport()
+    {
+        $this->store->update([
+            'settings' => array_merge($this->store->settings ?? [], [
+                'scraper_service' => 'api',
+            ]),
+        ]);
+
+        Http::fake([
+            '*' => Http::response([
+                'fullContent' => View::make('tests.product-page', [
+                    'price' => '$15.00',
+                    'title' => 'API Title',
+                    'image' => 'https://example.com/api.png',
+                    'availability' => null,
+                ])->render(),
+            ]),
+        ]);
+
+        $scrapeUrl = ScrapeUrl::new(self::TEST_URL);
+        $result = $scrapeUrl->scrape();
+
+        $this->assertSame('API Title', $result['title']);
+        $this->assertSame('$15.00', $result['price']);
+        $this->assertSame('https://example.com/api.png', $result['image']);
     }
 }

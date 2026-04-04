@@ -63,7 +63,7 @@ class ProductResource extends Resource
         $components = [];
 
         if (is_null($productId)) {
-            $components[] = Forms\Components\Select::make('product_id')
+            $components[] = Select::make('product_id')
                 ->label('Existing product')
                 ->searchable(['title'])
                 ->getSearchResultsUsing(fn (string $search): array => auth()->user()->products()->where('title', 'like', "%{$search}%")
@@ -115,7 +115,7 @@ class ProductResource extends Resource
                     ->maxLength(50)
                     ->hintIcon(Icons::Help->value, 'Displayed after the price factor, e.g. (2 tablets)'),
 
-                Forms\Components\Select::make('status')
+                Select::make('status')
                     ->options(Statuses::class)
                     ->default(Statuses::Published)
                     ->preload()
@@ -163,7 +163,7 @@ class ProductResource extends Resource
                     ->placeholder('Search tags or create new...')
                     ->noSearchResultsMessage('No tags found'),
 
-                Forms\Components\Select::make('weight')
+                Select::make('weight')
                     ->label('Homepage sort order')
                     ->hintIcon(Icons::Help->value, 'The lower the number the higher it will appear on the homepage')
                     ->default('0')

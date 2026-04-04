@@ -107,18 +107,17 @@ class ProductSourceSearchService
     protected function scrapeOption(WebScraperInterface $scraper, array $options, bool $multiple = false): Collection
     {
         $type = data_get($options, 'type');
-        $value = data_get($options, 'value');
-
-        $value = match ($type) {
-            'selector' => ScrapeUrl::parseSelector($value),
-            default => [$value]
-        };
-
-        $method = ScrapeUrl::getMethodFromType($type);
+        $value = (string) data_get($options, 'value', '');
 
         try {
-            // Return a collection of values.
-            return call_user_func_array([$scraper, $method], $value);
+            return match ($type) {
+                'selector', 'css' => $scraper->getSelector(...ScrapeUrl::parseSelector($value)),
+                'regex' => $scraper->getRegex($value),
+                'json' => $scraper->getJson($value),
+                'xpath' => $scraper->getXpath($value),
+                'schema_org' => $scraper->getSchemaOrg(),
+                default => $scraper->getSelector(...ScrapeUrl::parseSelector($value)),
+            };
         } catch (DomSelectorException $e) {
             $this->errorLog('Error scraping URL', [
                 'error' => $e->getMessage(),

@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
+use App\Dto\Scraping\FieldExtractionDto;
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
 use App\Enums\StockStatus;
 use App\Models\Store;
 use App\Services\Helpers\SettingsHelper;
-use App\Settings\AppSettings;
 use Exception;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
@@ -34,6 +34,8 @@ class ScrapeUrl
 
     protected LoggerInterface $logger;
 
+    protected ScrapeSchemaCompiler $schemaCompiler;
+
     protected int $scraperRequestTimeout = 30;
 
     protected int $scraperConnectTimeout = 30;
@@ -59,6 +61,7 @@ class ScrapeUrl
         // @phpstan-ignore-next-line - withContext is valid.
         $this->logger = Log::channel('db')->withContext(['url' => $url]);
         $this->maxAttempts = SettingsHelper::getSetting('max_attempts_to_scrape', 3);
+        $this->schemaCompiler = new ScrapeSchemaCompiler;
     }
 
     public static function new(string $url): self
@@ -172,11 +175,15 @@ class ScrapeUrl
             'store' => $store,
         ];
 
+        foreach ($this->keys as $key) {
+            $output[$key] = null;
+        }
+
         try {
             $this->setScraper($store->scraper_service);
 
             $scraper = $this->webScraper->from($this->url)
-                ->setCacheMinsTtl(AppSettings::new()->scrape_cache_ttl)
+                ->setCacheMinsTtl(SettingsHelper::getSetting('scrape_cache_ttl', 720))
                 ->setUseCache($useCache)
                 ->setOptions($store->scraper_options);
 
@@ -197,12 +204,13 @@ class ScrapeUrl
             }
 
             $strategy = data_get($store, 'scrape_strategy', []);
+            $compiledStrategy = $this->schemaCompiler->fromDto($strategy, $page);
 
             foreach ($this->keys as $key) {
-                if (empty($strategy[$key]) || ! is_array($strategy[$key])) {
+                if (! isset($compiledStrategy[$key])) {
                     $output[$key] = null;
                 } else {
-                    $output[$key] = $this->scrapeOption($page, $strategy[$key], $key);
+                    $output[$key] = data_get($compiledStrategy, $key.'.value');
                 }
             }
 
@@ -221,31 +229,19 @@ class ScrapeUrl
     {
         $host = Uri::of($this->url)->host();
 
-        return Store::query()->domainFilter($host)->oldest()->first();
+        return Store::findByDomain($host);
     }
 
     protected function scrapeOption(WebScraperInterface $scraper, array $options, string $field): ?string
     {
-        $type = data_get($options, 'type');
-        $value = data_get($options, 'value');
-
-        $method = self::getMethodFromType($type);
-
-        $value = match ($type) {
-            ScraperStrategyType::Selector->value => self::parseSelector($value),
-            default => [$value]
-        };
-
         try {
-            if ($type === ScraperStrategyType::SchemaOrg->value) {
-                return SchemaOrgService::parseSchemaOrg($scraper->getSchemaOrg(), $field);
-            }
+            $compiled = $this->schemaCompiler->compileField(
+                $field,
+                FieldExtractionDto::fromArray($options),
+                $scraper
+            );
 
-            return implode('', [
-                data_get($options, 'prepend', ''),
-                call_user_func_array([$scraper, $method], $value)?->first(),
-                data_get($options, 'append', ''),
-            ]);
+            return data_get($compiled, 'value');
         } catch (DomSelectorException $e) {
             $this->errorLog('Error scraping URL', [
                 'url' => $this->url,
@@ -260,6 +256,7 @@ class ScrapeUrl
     public static function getMethodFromType(string $type): string
     {
         return match ($type) {
+            'css', ScraperStrategyType::Selector->value => 'getSelector',
             ScraperStrategyType::Regex->value => 'getRegex',
             ScraperStrategyType::Json->value => 'getJson',
             ScraperStrategyType::xPath->value => 'getXpath',

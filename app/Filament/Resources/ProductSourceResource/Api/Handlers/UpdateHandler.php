@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ProductSourceResource\Api\Handlers;
 use App\Filament\Resources\ProductSourceResource;
 use App\Filament\Resources\ProductSourceResource\Api\Requests\UpdateProductSourceRequest;
 use Dedoc\Scramble\Attributes\Group;
+use Illuminate\Http\JsonResponse;
 use Rupadana\ApiService\Http\Handlers;
 
 #[Group('ProductSource')]
@@ -27,7 +28,7 @@ class UpdateHandler extends Handlers
     /**
      * Update Product Source
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function handler(UpdateProductSourceRequest $request)
     {
