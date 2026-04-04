@@ -175,6 +175,10 @@ class ScrapeUrl
             'store' => $store,
         ];
 
+        foreach ($this->keys as $key) {
+            $output[$key] = null;
+        }
+
         try {
             $this->setScraper($store->scraper_service);
 

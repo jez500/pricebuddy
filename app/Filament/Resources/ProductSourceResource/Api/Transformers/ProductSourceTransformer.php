@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ProductSourceResource\Api\Transformers;
 use App\Http\Resources\StoreResource;
 use App\Http\Resources\UserResource;
 use App\Models\ProductSource;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
@@ -15,7 +16,7 @@ class ProductSourceTransformer extends JsonResource
     /**
      * Transform the resource into an array.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  Request  $request
      * @return array
      */
     public function toArray($request)

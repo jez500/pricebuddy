@@ -7,6 +7,7 @@ use App\Filament\Resources\StoreResource;
 use App\Filament\Resources\StoreResource\Api\Requests\CreateStoreRequest;
 use App\Filament\Resources\StoreResource\Api\Transformers\StoreTransformer;
 use Dedoc\Scramble\Attributes\Group;
+use Illuminate\Http\JsonResponse;
 use Rupadana\ApiService\Http\Handlers;
 
 #[Group(StoreResource::API_GROUP)]
@@ -29,7 +30,7 @@ class CreateHandler extends Handlers
     /**
      * Create Store
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function handler(CreateStoreRequest $request)
     {

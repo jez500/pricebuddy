@@ -55,7 +55,7 @@ class StoreResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Basics')->schema([
+                Section::make('Basics')->schema([
                     TextInput::make('name')
                         ->label('Name')
                         ->hintIcon(Icons::Help->value, 'The name of the store')
@@ -65,7 +65,7 @@ class StoreResource extends Resource
                     ->description(__('Stores are shared between all users in :name', ['name' => config('app.name')]))
                     ->live(),
 
-                Forms\Components\Section::make('Domains')->schema([
+                Section::make('Domains')->schema([
                     Forms\Components\Repeater::make('domains')
                         ->schema([
                             TextInput::make('domain')->label('Domain'),
@@ -74,18 +74,18 @@ class StoreResource extends Resource
                     ->description('What domains does this store apply to'),
 
                 Forms\Components\Group::make([
-                    Forms\Components\Section::make('Title strategy')->schema([
+                    Section::make('Title strategy')->schema([
                         Forms\Components\Group::make(self::makeStrategyInput('title', self::DEFAULT_SELECTORS['title']))->columns(2),
                     ])->description('How to get the product title'),
-                    Forms\Components\Section::make('Price strategy')->schema([
+                    Section::make('Price strategy')->schema([
                         Forms\Components\Group::make(self::makeStrategyInput('price', self::DEFAULT_SELECTORS['price']))->columns(2),
                     ])->description('How to get the product price'),
-                    Forms\Components\Section::make('Image strategy')->schema([
+                    Section::make('Image strategy')->schema([
                         Forms\Components\Group::make(self::makeStrategyInput('image', self::DEFAULT_SELECTORS['image']))->columns(2),
                     ])->description('How to get the product image'),
-                    Forms\Components\Section::make('Availability strategy')->schema([
+                    Section::make('Availability strategy')->schema([
                         Forms\Components\Group::make(self::makeStrategyInput('availability', required: false))->columns(2),
-                        Forms\Components\Section::make('Match values')
+                        Section::make('Match values')
                             ->schema(
                                 collect(StockStatus::nonInStockCases())->map(
                                     fn (StockStatus $status) => Forms\Components\Group::make([
@@ -131,13 +131,13 @@ class StoreResource extends Resource
                     ->columns(2)
                     ->schema(AppSettingsPage::getLocaleFormFields('settings.locale_settings')),
 
-                Forms\Components\Section::make('Cookies')->schema([
+                Section::make('Cookies')->schema([
                     TextInput::make('cookies')
                         ->label('Cookies')
                         ->hintIcon(Icons::Help->value, 'Any cookies to include in scrape requests for this store. Format as you would in an HTTP header, e.g. "cookie1=value; cookie2=value"'),
                 ])->description('Optional cookies to include in scrape requests for this store'),
 
-                Forms\Components\Section::make('Notes')->schema([
+                Section::make('Notes')->schema([
                     Forms\Components\RichEditor::make('notes')
                         ->hiddenLabel(true),
                 ])->description('Additional notes regarding this store and how to scrape its content'),
@@ -148,7 +148,7 @@ class StoreResource extends Resource
     public static function testForm(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Test url scrape')->schema([
+            Section::make('Test url scrape')->schema([
                 TextInput::make('test_url')
                     ->label('Product URL')
                     ->hintIcon(Icons::Help->value, 'The URL to scrape')

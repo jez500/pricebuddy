@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ScraperService;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\ScrapeStrategyHelper;
+use Database\Factories\StoreFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -40,7 +41,7 @@ use Spatie\Sluggable\SlugOptions;
  */
 class Store extends Model
 {
-    /** @use HasFactory<\Database\Factories\StoreFactory> */
+    /** @use HasFactory<StoreFactory> */
     use HasFactory;
 
     use HasSlug;
