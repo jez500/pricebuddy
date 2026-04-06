@@ -231,7 +231,8 @@ class ScrapeUrl
 
         if (empty($value)) {
         return null;
-
+        }
+        
         $method = self::getMethodFromType($type);
 
         $value = match ($type) {
