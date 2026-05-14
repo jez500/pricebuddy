@@ -118,6 +118,50 @@ class ScrapeUrlTest extends TestCase
         $this->assertEquals('$10.00', $result['price']);
     }
 
+    public static function regexDelimiterCases(): array
+    {
+        return [
+            'bare alphanumeric start is wrapped' => ['https?://schema.org/(\w+)', '#https?://schema.org/(\w+)#'],
+            'bare backslash start is wrapped' => ['\d+', '#\d+#'],
+            'slash-delimited passes through' => ['/foo/', '/foo/'],
+            'slash-delimited with flags passes through' => ['/foo/i', '/foo/i'],
+            'hash-delimited passes through' => ['#https?://schema.org/(\w+)#', '#https?://schema.org/(\w+)#'],
+            'tilde-delimited passes through' => ['~foo~', '~foo~'],
+            'pattern containing # picks the next available delimiter' => ['fragment#section', '~fragment#section~'],
+            'empty string is returned unchanged' => ['', ''],
+        ];
+    }
+
+    /**
+     * @dataProvider regexDelimiterCases
+     */
+    public function test_ensure_regex_delimiters(string $input, string $expected)
+    {
+        $this->assertSame($expected, ScrapeUrl::ensureRegexDelimiters($input));
+    }
+
+    public function test_scrape_regex_strategy_accepts_bare_pattern()
+    {
+        // Store strategies historically saved availability as a bare regex
+        // (no delimiters), e.g. `https?://schema.org/(\w+)`. Without the fix,
+        // preg_match_all warns "Delimiter must not be alphanumeric" and the
+        // availability is silently null. This regression-tests that.
+        $this->store->update([
+            'scrape_strategy' => [
+                'title' => ['type' => 'selector', 'value' => 'meta[property=og:title]|content'],
+                'price' => ['type' => 'selector', 'value' => 'meta[property=og:price:amount]|content'],
+                'image' => ['type' => 'selector', 'value' => 'meta[property=og:image]|content'],
+                'availability' => ['type' => 'regex', 'value' => 'https?://schema.org/(\w+)'],
+            ],
+        ]);
+
+        $this->mockScrape('$10.00', 'Example Title', 'https://example.com/x.png', 'http://schema.org/OutOfStock');
+
+        $result = ScrapeUrl::new(self::TEST_URL)->scrape();
+
+        $this->assertSame('OutOfStock', $result['availability']);
+    }
+
     public function test_scrape_schema_org()
     {
         $this->store->update([

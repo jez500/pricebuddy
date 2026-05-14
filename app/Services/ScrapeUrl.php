@@ -233,6 +233,7 @@ class ScrapeUrl
 
         $value = match ($type) {
             ScraperStrategyType::Selector->value => self::parseSelector($value),
+            ScraperStrategyType::Regex->value => [self::ensureRegexDelimiters($value)],
             default => [$value]
         };
 
@@ -266,6 +267,35 @@ class ScrapeUrl
             ScraperStrategyType::SchemaOrg->value => 'getSchemaOrg',
             default => 'getSelector'
         };
+    }
+
+    /**
+     * Wrap a user-supplied regex pattern in delimiters if it doesn't already have them.
+     *
+     * PHP's preg_* functions require pattern delimiters; bare patterns saved in the
+     * store strategy config (e.g. `https?://schema.org/(\w+)`) raise a warning and
+     * silently return no matches. Picks a delimiter that does not appear in the pattern.
+     */
+    public static function ensureRegexDelimiters(string $regex): string
+    {
+        if ($regex === '') {
+            return $regex;
+        }
+
+        $first = $regex[0];
+
+        // First char is a valid PHP regex delimiter — assume already delimited.
+        if (! ctype_alnum($first) && $first !== '\\' && ! ctype_space($first)) {
+            return $regex;
+        }
+
+        foreach (['#', '~', '%', '@', '!'] as $delimiter) {
+            if (! str_contains($regex, $delimiter)) {
+                return $delimiter.$regex.$delimiter;
+            }
+        }
+
+        return '#'.str_replace('#', '\\#', $regex).'#';
     }
 
     public static function parseSelector(string $selector): array
