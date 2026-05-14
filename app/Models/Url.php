@@ -221,6 +221,7 @@ class Url extends Model
         }
 
         $availabilityChanged = false;
+        $stockStatus = null;
 
         if (is_null($price) || $price === '') {
             $scrapeResult = $scrapeResult ?? $this->scrape();
@@ -244,6 +245,15 @@ class Url extends Model
         if (is_null($price) || $price === '') {
             if ($availabilityChanged) {
                 $this->product?->updatePriceCache();
+            }
+
+            // An out-of-stock product with no scraped price is the expected
+            // outcome, not a failure. Keep the existing price history (we
+            // don't insert a new row) and return the latest known Price so
+            // the parent `Product::updatePrices()` doesn't count this URL
+            // as failed and trigger a scrape-error notification.
+            if ($stockStatus?->isUnavailable()) {
+                return $this->prices()->latest('id')->first();
             }
 
             return null;

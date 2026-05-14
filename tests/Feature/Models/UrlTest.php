@@ -227,6 +227,89 @@ class UrlTest extends TestCase
         $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
     }
 
+    public function test_update_price_unavailable_with_existing_price_returns_latest_and_keeps_history()
+    {
+        // Regression: when a URL with an existing price history goes out of
+        // stock, `updatePrice` previously returned null. `Product::updatePrices`
+        // counts null returns as failures, which would surface as a "scrape
+        // error" on the product page for a product that is just out of stock.
+        // The latest known price should be returned so the parent doesn't
+        // consider this URL failed, and no new price row should be inserted.
+        $product = Product::factory()->create();
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+        ]);
+        /** @var Price $existing */
+        $existing = $url->prices()->create([
+            'price' => 12.5,
+            'unit_price' => 12.5,
+            'price_factor' => 1,
+            'store_id' => $this->store->id,
+        ]);
+
+        $this->store->update([
+            'scrape_strategy' => array_merge($this->store->scrape_strategy ?? [], [
+                'availability' => [
+                    'type' => 'selector',
+                    'value' => '.availability',
+                    'match' => [
+                        'out_of_stock' => ['type' => 'match', 'value' => 'OutOfStock'],
+                        'default' => 'in_stock',
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->mockScrape('', 'foo', null, 'OutOfStock');
+
+        $priceModel = $url->updatePrice();
+
+        $this->assertInstanceOf(Price::class, $priceModel);
+        $this->assertSame($existing->id, $priceModel->id);
+        $this->assertCount(1, $url->fresh()->prices);
+        $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
+    }
+
+    public function test_product_update_prices_is_successful_when_only_url_goes_out_of_stock()
+    {
+        // Regression for the same path at the product level: a product with a
+        // single URL that goes out of stock should not be reported as a
+        // failed scrape (which fires ScrapeFailNotification + UI error).
+        $product = Product::factory()->create();
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+        ]);
+        $url->prices()->create([
+            'price' => 9.99,
+            'unit_price' => 9.99,
+            'price_factor' => 1,
+            'store_id' => $this->store->id,
+        ]);
+
+        $this->store->update([
+            'scrape_strategy' => array_merge($this->store->scrape_strategy ?? [], [
+                'availability' => [
+                    'type' => 'selector',
+                    'value' => '.availability',
+                    'match' => [
+                        'out_of_stock' => ['type' => 'match', 'value' => 'OutOfStock'],
+                        'default' => 'in_stock',
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->mockScrape('', 'foo', null, 'OutOfStock');
+
+        $successful = $product->fresh()->updatePrices();
+
+        $this->assertTrue($successful);
+    }
+
     public function test_update_price_unavailable_to_in_stock_creates_price_and_clears_availability()
     {
         $product = Product::factory()->create();
