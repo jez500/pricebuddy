@@ -229,6 +229,15 @@ class ScrapeUrl
         $type = data_get($options, 'type');
         $value = data_get($options, 'value');
 
+        // A strategy entry can exist with `type` left null (e.g. an incomplete
+        // store config where the availability slot has the match table set but
+        // no extraction type). Without this guard, `getMethodFromType(null)`
+        // throws a TypeError and the whole scrape — including unrelated fields —
+        // fails with a 500.
+        if (! is_string($type) || $type === '') {
+            return null;
+        }
+
         $method = self::getMethodFromType($type);
 
         $value = match ($type) {

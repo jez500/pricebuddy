@@ -162,6 +162,35 @@ class ScrapeUrlTest extends TestCase
         $this->assertSame('OutOfStock', $result['availability']);
     }
 
+    public function test_scrape_skips_strategy_entry_with_null_type()
+    {
+        // Real-world: a seeded store can have a strategy slot (e.g. availability)
+        // with the match table populated but `type` left null. Before the guard,
+        // this raised a TypeError in getMethodFromType and the whole scrape — for
+        // every field, not just availability — bailed with a 500.
+        $this->store->update([
+            'scrape_strategy' => [
+                'title' => ['type' => 'selector', 'value' => 'meta[property=og:title]|content'],
+                'price' => ['type' => 'selector', 'value' => 'meta[property=og:price:amount]|content'],
+                'image' => ['type' => 'selector', 'value' => 'meta[property=og:image]|content'],
+                'availability' => [
+                    'type' => null,
+                    'value' => null,
+                    'match' => ['default' => 'in_stock'],
+                ],
+            ],
+        ]);
+
+        $this->mockScrape('$10.00', 'Example Title', 'https://example.com/x.png');
+
+        $result = ScrapeUrl::new(self::TEST_URL)->scrape();
+
+        // Other fields scrape normally; availability is skipped (null).
+        $this->assertSame('Example Title', $result['title']);
+        $this->assertSame('$10.00', $result['price']);
+        $this->assertNull($result['availability']);
+    }
+
     public function test_scrape_schema_org()
     {
         $this->store->update([
