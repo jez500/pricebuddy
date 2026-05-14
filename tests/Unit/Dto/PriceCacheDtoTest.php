@@ -200,4 +200,51 @@ class PriceCacheDtoTest extends TestCase
         $this->assertTrue($dto->isUnavailable());
         $this->assertSame(StockStatus::OutOfStock, $dto->getStockStatus());
     }
+
+    public function test_unavailable_url_is_considered_successfully_scraped_despite_stale_price_row()
+    {
+        // Regression: OOS URLs don't get new price rows inserted by
+        // Url::updatePrice, so last_scrape lags arbitrarily far behind.
+        // The "Scrape error" badge in the product UI is gated on
+        // isLastScrapeSuccessful(); without this guard an OOS product is
+        // permanently flagged as a scrape failure.
+        $dto = PriceCacheDto::fromArray([
+            'price' => 10.0,
+            'history' => [],
+            'availability' => StockStatus::OutOfStock->value,
+            'last_scrape' => now()->subMonths(3)->toDateTimeString(),
+            'locale' => 'en',
+            'currency' => 'USD',
+        ]);
+
+        $this->assertTrue($dto->isUnavailable());
+        $this->assertTrue($dto->isLastScrapeSuccessful());
+    }
+
+    public function test_in_stock_url_with_stale_price_row_is_unsuccessful()
+    {
+        $dto = PriceCacheDto::fromArray([
+            'price' => 10.0,
+            'history' => [],
+            'last_scrape' => now()->subDays(2)->toDateTimeString(),
+            'locale' => 'en',
+            'currency' => 'USD',
+        ]);
+
+        $this->assertFalse($dto->isUnavailable());
+        $this->assertFalse($dto->isLastScrapeSuccessful());
+    }
+
+    public function test_in_stock_url_with_recent_price_row_is_successful()
+    {
+        $dto = PriceCacheDto::fromArray([
+            'price' => 10.0,
+            'history' => [],
+            'last_scrape' => now()->subHours(2)->toDateTimeString(),
+            'locale' => 'en',
+            'currency' => 'USD',
+        ]);
+
+        $this->assertTrue($dto->isLastScrapeSuccessful());
+    }
 }
