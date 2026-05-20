@@ -9,6 +9,7 @@ use App\Models\Store;
 use App\Models\UrlResearch;
 use App\Services\Helpers\IntegrationHelper;
 use Exception;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -25,6 +26,8 @@ class SearchService
     public const int LOG_TTL_MINS = 60; // 1 hour
 
     public const int DEFAULT_MAX_PAGES = 1;
+
+    public const int DEFAULT_MAX_PRICED_RESULTS = 10;
 
     public Collection $results;
 
@@ -119,6 +122,14 @@ class SearchService
     public function getMaxPages(): int
     {
         return data_get(self::getSettings(), 'max_pages', self::DEFAULT_MAX_PAGES);
+    }
+
+    public function getMaxPricedResults(): int
+    {
+        return max(
+            1,
+            (int) data_get(self::getSettings(), 'max_priced_results', self::DEFAULT_MAX_PRICED_RESULTS)
+        );
     }
 
     public function getProductSourceResults(): self
@@ -261,30 +272,26 @@ class SearchService
         $this->log('Hydrating results');
 
         $existing = $this->getUrlResearch();
+        $maxPricedResults = $this->getMaxPricedResults();
+        $pricedResultsCount = 0;
+        $hydratedResults = collect();
 
-        $this->results = $this->results
-            ->map(function ($result) use ($existing) {
-                $logArgs = collect($result)->only(['title', 'url', 'domain'])->all();
+        foreach ($this->results as $result) {
+            $logArgs = collect($result)->only(['title', 'url', 'domain'])->all();
+            $cachedResult = $existing->get($result['url']);
 
-                if ($existing->get($result['url'])) {
-                    $this->log(__('Using cache ":title" (:domain)', $logArgs), ['subtitle' => $result['url'], 'icon' => Icons::Database->value]);
+            if ($cachedResult) {
+                $this->log(__('Using cache ":title" (:domain)', $logArgs), ['subtitle' => $result['url'], 'icon' => Icons::Database->value]);
 
-                    return $result;
-                }
-
+                $result = array_merge($result, Arr::only($cachedResult->toArray(), [
+                    'html', 'image', 'price', 'store_id', 'strategies', 'execution_time',
+                ]));
+            } else {
                 $timeStart = microtime(true);
                 $this->log(__('Analyzing ":title" (:domain)', $logArgs), ['subtitle' => $result['url']]);
 
                 try {
-                    $dto = new ProductResearchUrlDto(url: $result['url'], cached: true);
-
-                    $result = array_merge($result, [
-                        'price' => $dto->getPrice(),
-                        'image' => $dto->getImage(),
-                        'strategies' => $dto->getStrategies(),
-                        'is_product_page' => $dto->getIsProductPage()->value,
-                        'html' => $dto->getHtml(),
-                    ]);
+                    $result = array_merge($result, $this->getHydratedResultData($result));
 
                     if (! empty($result['price'])) {
                         $this->replaceLastLogEntry(__('Price found ":title" (:domain)', $logArgs));
@@ -297,11 +304,52 @@ class SearchService
                 }
 
                 $result['execution_time'] = (microtime(true) - $timeStart);
+            }
 
-                return $result;
-            });
+            $hydratedResults->push($result);
+            $this->persistUrlResearchResult($result);
+
+            if (empty($result['price'])) {
+                continue;
+            }
+
+            $pricedResultsCount++;
+
+            if ($pricedResultsCount < $maxPricedResults) {
+                continue;
+            }
+
+            $this->log(__('Stopping search after finding :count priced results', ['count' => $pricedResultsCount]));
+
+            break;
+        }
+
+        $this->results = $hydratedResults;
 
         return $this;
+    }
+
+    protected function getHydratedResultData(array $result): array
+    {
+        $dto = new ProductResearchUrlDto(url: $result['url'], cached: true);
+
+        return [
+            'price' => $dto->getPrice(),
+            'image' => $dto->getImage(),
+            'strategies' => $dto->getStrategies(),
+            'is_product_page' => $dto->getIsProductPage()->value,
+            'html' => $dto->getHtml(),
+        ];
+    }
+
+    protected function persistUrlResearchResult(array $result): void
+    {
+        UrlResearch::updateOrCreate(
+            ['url' => $result['url']],
+            collect($result)->only([
+                'html', 'title', 'image', 'price', 'store_id', 'strategies', 'execution_time',
+            ])->all()
+        );
     }
 
     public static function getSettings(): array
