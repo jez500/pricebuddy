@@ -51,7 +51,7 @@ it('stops hydrating after the configured number of priced results', function () 
         'https://example.com/priced-2',
     ]);
 
-    expect(UrlResearch::query()->pluck('url')->all())->toBe([
+    expect(UrlResearch::query()->orderBy('id')->pluck('url')->all())->toBe([
         'https://example.com/priced-1',
         'https://example.com/no-price',
         'https://example.com/priced-2',
