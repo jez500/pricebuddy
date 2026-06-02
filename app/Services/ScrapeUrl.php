@@ -229,14 +229,22 @@ class ScrapeUrl
         $type = data_get($options, 'type');
         $value = data_get($options, 'value');
 
-        if (empty($value)) {
-        return null;
+        if (! is_string($type) || $type === '') {
+            return null;
         }
-        
+
+        // A strategy slot can have its type set but value left null; the scraper
+        // methods (getRegex, getSelector, ...) are typed `string`, so skip rather
+        // than passing null and triggering a TypeError. SchemaOrg ignores value.
+        if (! is_string($value) && $type !== ScraperStrategyType::SchemaOrg->value) {
+            return null;
+        }
+
         $method = self::getMethodFromType($type);
 
         $value = match ($type) {
             ScraperStrategyType::Selector->value => self::parseSelector($value),
+            ScraperStrategyType::Regex->value => [self::ensureRegexDelimiters($value)],
             default => [$value]
         };
 
@@ -270,6 +278,70 @@ class ScrapeUrl
             ScraperStrategyType::SchemaOrg->value => 'getSchemaOrg',
             default => 'getSelector'
         };
+    }
+
+    /**
+     * Wrap a user-supplied regex pattern in delimiters if it doesn't already have them.
+     *
+     * PHP's preg_* functions require pattern delimiters; bare patterns saved in the
+     * store strategy config (e.g. `https?://schema.org/(\w+)`) raise a warning and
+     * silently return no matches. Picks a delimiter that does not appear in the pattern.
+     */
+    public static function ensureRegexDelimiters(string $regex): string
+    {
+        if ($regex === '') {
+            return $regex;
+        }
+
+        if (self::hasMatchingDelimiters($regex)) {
+            return $regex;
+        }
+
+        foreach (['#', '~', '%', '@', '!'] as $delimiter) {
+            if (! str_contains($regex, $delimiter)) {
+                return $delimiter.$regex.$delimiter;
+            }
+        }
+
+        return '#'.str_replace('#', '\\#', $regex).'#';
+    }
+
+    /**
+     * Determine whether a pattern is already wrapped in valid PHP regex delimiters.
+     *
+     * Accepts a known single-char delimiter (/ # ~ % @ ! |) repeated at the end, or
+     * an opening paired delimiter ( { [ < closed by its partner ) } ] > — in either
+     * case optionally followed by valid modifier letters. A bare pattern that merely
+     * starts with a non-alphanumeric char (e.g. `$([0-9.]+)`) is NOT treated as
+     * delimited, so it gets wrapped instead of failing preg_* silently.
+     */
+    private static function hasMatchingDelimiters(string $regex): bool
+    {
+        if (strlen($regex) < 2) {
+            return false;
+        }
+
+        $paired = ['(' => ')', '{' => '}', '[' => ']', '<' => '>'];
+        $single = ['/', '#', '~', '%', '@', '!', '|'];
+
+        $first = $regex[0];
+
+        if (isset($paired[$first])) {
+            $closing = $paired[$first];
+        } elseif (in_array($first, $single, true)) {
+            $closing = $first;
+        } else {
+            return false;
+        }
+
+        // Walk back over trailing modifier letters to find the closing delimiter.
+        $index = strlen($regex) - 1;
+        while ($index > 0 && str_contains('imsxADSUXJun', $regex[$index])) {
+            $index--;
+        }
+
+        // The closing delimiter must sit past the opening one (non-empty body).
+        return $index >= 1 && $regex[$index] === $closing;
     }
 
     public static function parseSelector(string $selector): array

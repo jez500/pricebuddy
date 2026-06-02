@@ -3,12 +3,13 @@
 namespace Database\Factories;
 
 use App\Enums\ScraperService;
+use App\Models\Store;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 use Illuminate\Support\Uri;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Store>
+ * @extends Factory<Store>
  */
 class StoreFactory extends Factory
 {

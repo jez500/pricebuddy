@@ -4,6 +4,7 @@ namespace App\Filament\Resources\StoreResource\Api\Handlers;
 
 use App\Filament\Resources\StoreResource;
 use Dedoc\Scramble\Attributes\Group;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Rupadana\ApiService\Http\Handlers;
 
@@ -27,7 +28,7 @@ class DeleteHandler extends Handlers
     /**
      * Delete Store
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function handler(Request $request)
     {

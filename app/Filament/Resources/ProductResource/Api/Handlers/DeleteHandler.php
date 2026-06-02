@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ProductResource\Api\Handlers;
 
 use App\Filament\Resources\ProductResource;
 use Dedoc\Scramble\Attributes\Group;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Rupadana\ApiService\Http\Handlers;
@@ -28,7 +29,7 @@ class DeleteHandler extends Handlers
     /**
      * Delete Product
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function handler(Request $request)
     {

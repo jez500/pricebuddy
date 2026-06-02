@@ -201,6 +201,15 @@ class PriceCacheDto
 
     public function isLastScrapeSuccessful(): bool
     {
+        // Out-of-stock URLs don't get fresh Price rows by design (`Url::updatePrice`
+        // doesn't insert when the scrape returns no price), so the price-history
+        // timestamp will lag arbitrarily far behind reality. Treat them as fresh
+        // so the product doesn't show a "scrape error" badge while it's just
+        // genuinely unavailable.
+        if ($this->isUnavailable()) {
+            return true;
+        }
+
         $hours = $this->getHoursSinceLastScrape();
 
         return $hours && $hours < 24;

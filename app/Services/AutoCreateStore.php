@@ -261,7 +261,7 @@ class AutoCreateStore
             }
 
             try {
-                preg_match_all($regex, $this->html, $matches);
+                preg_match_all(ScrapeUrl::ensureRegexDelimiters($regex), $this->html, $matches);
                 $extracted = data_get($matches, '1.0');
 
                 $value = is_null($validateValue)
