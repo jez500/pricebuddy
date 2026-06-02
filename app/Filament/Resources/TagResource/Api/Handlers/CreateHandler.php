@@ -6,6 +6,7 @@ use App\Filament\Resources\TagResource;
 use App\Filament\Resources\TagResource\Api\Requests\CreateTagRequest;
 use App\Filament\Resources\TagResource\Api\Transformers\TagTransformer;
 use Dedoc\Scramble\Attributes\Group;
+use Illuminate\Http\JsonResponse;
 use Rupadana\ApiService\Http\Handlers;
 
 #[Group(TagResource::API_GROUP)]
@@ -28,7 +29,7 @@ class CreateHandler extends Handlers
     /**
      * Create Tag
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function handler(CreateTagRequest $request)
     {

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ProductSourceResource\Api\Transformers;
 
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
@@ -14,7 +15,7 @@ class ProductSourceResultsTransformer extends JsonResource
     /**
      * Search for product via the product source.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  Request  $request
      */
     public function toArray($request)
     {

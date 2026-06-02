@@ -5,6 +5,7 @@ use App\Models\UrlResearch;
 use App\Services\Helpers\IntegrationHelper;
 use App\Services\SearchService;
 use Illuminate\Database\Migrations\Migration;
+use Spatie\LaravelSettings\Exceptions\MissingSettings;
 
 return new class extends Migration
 {
@@ -20,7 +21,7 @@ return new class extends Migration
             data_set($settings, IntegratedServices::SearXng->value.'.max_pages', SearchService::DEFAULT_MAX_PAGES);
 
             IntegrationHelper::setSettings($settings);
-        } catch (\Spatie\LaravelSettings\Exceptions\MissingSettings $e) {
+        } catch (MissingSettings $e) {
             // Settings not fully migrated yet, skip this migration
             // It will be handled when settings are properly configured
         }

@@ -8,6 +8,7 @@ use App\Services\Helpers\AffiliateHelper;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\ScrapeUrl;
 use Carbon\Carbon;
+use Database\Factories\UrlFactory;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -39,7 +40,7 @@ use Illuminate\Support\Str;
  */
 class Url extends Model
 {
-    /** @use HasFactory<\Database\Factories\UrlFactory> */
+    /** @use HasFactory<UrlFactory> */
     use HasFactory;
 
     public static function booted()

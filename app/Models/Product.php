@@ -10,6 +10,7 @@ use App\Filament\Actions\BaseAction;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\ScrapeUrl;
 use Carbon\Carbon;
+use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -53,7 +54,7 @@ use Illuminate\Support\Str;
  */
 class Product extends Model
 {
-    /** @use HasFactory<\Database\Factories\ProductFactory> */
+    /** @use HasFactory<ProductFactory> */
     use HasFactory;
 
     protected $guarded = [
@@ -393,7 +394,7 @@ class Product extends Model
         $history = $this->getPriceHistory();
 
         // Include out-of-stock URLs that have no price history (e.g. price 0).
-        /** @var \Illuminate\Database\Eloquent\Collection<int, Url> $outOfStockUrls */
+        /** @var EloquentCollection<int, Url> $outOfStockUrls */
         $outOfStockUrls = $this->urls()
             ->whereNotNull('availability')
             ->whereNotIn('id', $history->keys())
