@@ -233,6 +233,13 @@ class ScrapeUrl
             return null;
         }
 
+        // A strategy slot can have its type set but value left null; the scraper
+        // methods (getRegex, getSelector, ...) are typed `string`, so skip rather
+        // than passing null and triggering a TypeError. SchemaOrg ignores value.
+        if (! is_string($value) && $type !== ScraperStrategyType::SchemaOrg->value) {
+            return null;
+        }
+
         $method = self::getMethodFromType($type);
 
         $value = match ($type) {
@@ -286,10 +293,7 @@ class ScrapeUrl
             return $regex;
         }
 
-        $first = $regex[0];
-
-        // First char is a valid PHP regex delimiter — assume already delimited.
-        if (! ctype_alnum($first) && $first !== '\\' && ! ctype_space($first)) {
+        if (self::hasMatchingDelimiters($regex)) {
             return $regex;
         }
 
@@ -300,6 +304,44 @@ class ScrapeUrl
         }
 
         return '#'.str_replace('#', '\\#', $regex).'#';
+    }
+
+    /**
+     * Determine whether a pattern is already wrapped in valid PHP regex delimiters.
+     *
+     * Accepts a known single-char delimiter (/ # ~ % @ ! |) repeated at the end, or
+     * an opening paired delimiter ( { [ < closed by its partner ) } ] > — in either
+     * case optionally followed by valid modifier letters. A bare pattern that merely
+     * starts with a non-alphanumeric char (e.g. `$([0-9.]+)`) is NOT treated as
+     * delimited, so it gets wrapped instead of failing preg_* silently.
+     */
+    private static function hasMatchingDelimiters(string $regex): bool
+    {
+        if (strlen($regex) < 2) {
+            return false;
+        }
+
+        $paired = ['(' => ')', '{' => '}', '[' => ']', '<' => '>'];
+        $single = ['/', '#', '~', '%', '@', '!', '|'];
+
+        $first = $regex[0];
+
+        if (isset($paired[$first])) {
+            $closing = $paired[$first];
+        } elseif (in_array($first, $single, true)) {
+            $closing = $first;
+        } else {
+            return false;
+        }
+
+        // Walk back over trailing modifier letters to find the closing delimiter.
+        $index = strlen($regex) - 1;
+        while ($index > 0 && str_contains('imsxADSUXJun', $regex[$index])) {
+            $index--;
+        }
+
+        // The closing delimiter must sit past the opening one (non-empty body).
+        return $index >= 1 && $regex[$index] === $closing;
     }
 
     public static function parseSelector(string $selector): array

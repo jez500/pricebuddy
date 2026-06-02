@@ -129,6 +129,11 @@ class ScrapeUrlTest extends TestCase
             'tilde-delimited passes through' => ['~foo~', '~foo~'],
             'pattern containing # picks the next available delimiter' => ['fragment#section', '~fragment#section~'],
             'empty string is returned unchanged' => ['', ''],
+            'dollar-anchored bare pattern is wrapped, not treated as delimited' => ['$([0-9.]+)', '#$([0-9.]+)#'],
+            'single delimiter with no closing delimiter is wrapped' => ['/foo', '#/foo#'],
+            'paired parens delimiter passes through' => ['(\d+)', '(\d+)'],
+            'paired braces delimiter passes through' => ['{\d+}', '{\d+}'],
+            'bare char class with quantifier is wrapped' => ['[0-9]+', '#[0-9]+#'],
         ];
     }
 
@@ -186,6 +191,30 @@ class ScrapeUrlTest extends TestCase
         $result = ScrapeUrl::new(self::TEST_URL)->scrape();
 
         // Other fields scrape normally; availability is skipped (null).
+        $this->assertSame('Example Title', $result['title']);
+        $this->assertSame('$10.00', $result['price']);
+        $this->assertNull($result['availability']);
+    }
+
+    public function test_scrape_regex_strategy_with_null_value_does_not_throw()
+    {
+        // A regex strategy slot can have its `type` set but `value` left null.
+        // ensureRegexDelimiters() is typed `string`, so passing the null value
+        // straight through the Regex match arm raised an uncaught TypeError and
+        // failed the whole scrape. The arm now guards on is_string().
+        $this->store->update([
+            'scrape_strategy' => [
+                'title' => ['type' => 'selector', 'value' => 'meta[property=og:title]|content'],
+                'price' => ['type' => 'selector', 'value' => 'meta[property=og:price:amount]|content'],
+                'image' => ['type' => 'selector', 'value' => 'meta[property=og:image]|content'],
+                'availability' => ['type' => 'regex', 'value' => null],
+            ],
+        ]);
+
+        $this->mockScrape('$10.00', 'Example Title', 'https://example.com/x.png');
+
+        $result = ScrapeUrl::new(self::TEST_URL)->scrape();
+
         $this->assertSame('Example Title', $result['title']);
         $this->assertSame('$10.00', $result['price']);
         $this->assertNull($result['availability']);
