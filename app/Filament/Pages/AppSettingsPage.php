@@ -245,7 +245,7 @@ class AppSettingsPage extends SettingsPage
                 TextInput::make('max_priced_results')
                     ->label('Stop after this many priced results')
                     ->hintIcon(Icons::Help->value, __('Search will stop once this many results with detected prices have been found'))
-                    ->numeric()
+                    ->integer()
                     ->minValue(1)
                     ->required()
                     ->default(SearchService::DEFAULT_MAX_PRICED_RESULTS),
