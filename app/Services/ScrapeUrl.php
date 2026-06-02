@@ -229,6 +229,10 @@ class ScrapeUrl
         $type = data_get($options, 'type');
         $value = data_get($options, 'value');
 
+        if (empty($value)) {
+        return null;
+        }
+        
         $method = self::getMethodFromType($type);
 
         $value = match ($type) {
