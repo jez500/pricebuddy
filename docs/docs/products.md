@@ -115,3 +115,11 @@ A notification method configured, eg email smtp settings.
 #### User settings
 
 The user has enabled notification methods they want.
+
+#### Notification history
+
+Every alert that gets sent (price drops, target prices, back-in-stock and scrape
+errors) is recorded under **Notifications** in the System menu. You can browse
+your own history, filter by type, open the related product, mark everything as
+read, and clear old entries. Recent notifications also appear in the bell menu in
+the top bar.
