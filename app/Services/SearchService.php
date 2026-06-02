@@ -80,7 +80,6 @@ class SearchService
                 ->normalizeStructure()
                 ->addStores()
                 ->hydrateWithScrapedData()
-                ->saveUrlResearch()
                 ->log('Completed research for: '.$searchQuery)
                 ->setIsComplete(true);
         } catch (Exception $e) {
@@ -96,22 +95,6 @@ class SearchService
     public function getResults(): Collection
     {
         return $this->results;
-    }
-
-    public function saveUrlResearch(): self
-    {
-        $this->log('Saving URL research');
-
-        $this->results->each(function ($result) {
-            UrlResearch::updateOrCreate(
-                ['url' => $result['url']],
-                collect($result)->only([
-                    'html', 'title', 'image', 'price', 'store_id', 'strategies', 'execution_time',
-                ])->all()
-            );
-        });
-
-        return $this;
     }
 
     public function getSearchUrl(): ?string

@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\UrlResearch;
-use App\Services\Helpers\IntegrationHelper;
 use App\Services\SearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -9,14 +8,13 @@ use Tests\TestCase;
 uses(RefreshDatabase::class, TestCase::class);
 
 it('stops hydrating after the configured number of priced results', function () {
-    IntegrationHelper::setSettings([
-        'searxng' => [
-            'max_priced_results' => 2,
-        ],
-    ]);
-
     $service = new class('laptop') extends SearchService
     {
+        public function getMaxPricedResults(): int
+        {
+            return 2;
+        }
+
         protected function getHydratedResultData(array $result): array
         {
             $price = match ($result['url']) {
@@ -43,7 +41,19 @@ it('stops hydrating after the configured number of priced results', function () 
         ['title' => 'Four', 'url' => 'https://example.com/priced-3', 'domain' => 'example.com'],
     ]);
 
+    $savedUrls = [];
+    UrlResearch::saved(function (UrlResearch $research) use (&$savedUrls) {
+        $savedUrls[] = $research->url;
+    });
+
     $service->hydrateWithScrapedData();
+
+    // Each processed result must be persisted exactly once (guards against double hydration/persistence).
+    expect($savedUrls)->toBe([
+        'https://example.com/priced-1',
+        'https://example.com/no-price',
+        'https://example.com/priced-2',
+    ]);
 
     expect($service->results->pluck('url')->all())->toBe([
         'https://example.com/priced-1',
