@@ -51,8 +51,21 @@ who want to track their own products.
 
 ## Notifications
 
-Support for multiple notification methods so users can be updated when a product
-price changes to match their preferences.
+Set a target price or a price-drop threshold per product and get alerted when
+it's met. PriceBuddy supports a wide range of notification methods so you can be
+reached however you prefer:
+
+- In-app notifications
+- Email
+- [Pushover](https://pushover.net)
+- [Gotify](https://gotify.net)
+- [Apprise](https://github.com/caronc/apprise)
+- [Telegram](https://telegram.org)
+- [Discord](https://discord.com) (via webhooks)
+- [ntfy](https://ntfy.sh) (including self-hosted servers)
+
+Each method is enabled globally by an admin, then opted into per user, so
+everyone controls how they're notified.
 
 ## Modern UI
 

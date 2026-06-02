@@ -46,15 +46,28 @@ to work, it must first be enabled, then the appropriate settings added.
 
 **Email** - Configure the SMTP settings for sending emails.
 
-**Pushover** - Configure the Pushover settings for sending push notifications.
+**Pushover** - Configure the Pushover application token for sending push notifications.
 
-**Gotify** - Configure the Gotify settings for sending and testing push notifications.
+**Gotify** - Configure the Gotify server URL and application token for sending and testing push notifications.
 
-**Apprise** - Configure the settings for sending notifications via Apprise.
+**Apprise** - Configure the Apprise API server URL and configuration token.
+
+**Telegram** - Configure the bot token used to send messages. Create a bot with
+[@BotFather](https://t.me/botfather) and paste the token here. Each user then adds
+their own chat ID in their account settings. Use the **Test bot token** button to
+verify the token is valid.
+
+**Discord** - Optionally configure a default channel webhook URL. Each user can
+override this with their own webhook in their account settings. Use the **Test**
+button to send a sample message.
+
+**ntfy** - Optionally configure a server URL (leave blank to use the public
+[ntfy.sh](https://ntfy.sh)) and, for protected self-hosted servers, a username and
+password. Each user subscribes to their own topic in their account settings.
 
 Note: these are global settings, each user must enable the notification method in their
 own account settings. Depending on the notification method, they may also need to configure
-additional settings.
+additional settings (such as their Telegram chat ID, ntfy topic, or a personal Discord webhook).
 
 ## Integrations
 

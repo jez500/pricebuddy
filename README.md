@@ -1,105 +1,134 @@
 # <img src="public/images/logo-full.svg" width="250" height="auto" alt="PriceBuddy">
 
-PriceBuddy is an open source, self-hostable, web application that allows users
-to compare prices of products from different online retailers. Users can search
-for a product and view the prices of that product from different online 
-retailers.
+**Stop overpaying. PriceBuddy watches the price of anything you want to buy and
+tells you the moment it drops.**
 
-## Docs
+PriceBuddy is a free, open source, self-hostable price tracker. Add a product
+from almost any online store, and PriceBuddy will check the price for you every
+day, chart its history, and notify you when it hits the price you've been
+waiting for — all running on your own server, with your data staying yours.
 
-[Read the docs](https://pricebuddy.jez.me?ref=pb-gh) for all the details.
+[**📖 Read the docs**](https://pricebuddy.jez.me?ref=pb-gh) &nbsp;•&nbsp;
+[**🚀 Install in minutes**](#installation) &nbsp;•&nbsp;
+[**✨ Features**](#why-youll-like-it)
 
-## Features
+![Dashboard](docs/docs/.vuepress/public/screenshots/dashboard.png)
 
-* Create and manage stores, you should be able to fetch products from almost any
-  store that has a product page.
-* Create and manage products, each product can have multiple urls added
-  and all the prices will be fetched from those urls daily
-* Visualise product price history with charts
-* Extract product information via CSS selectors, regular expressions or JSONPath
-* Support for SPA/Javascript rendered sites via [SeleniumBase Scrapper](https://github.com/jez500/seleniumbase-scrapper)
-* Tagging of products for better organization
-* Multi-user support, each user has their own products
-* Get notifications via the app, email, apprise or pushover/gotify when a product price changes to 
-  match your preferences
-* Light and dark mode & Mobile friendly
-* Integration with [SearXNG](https://github.com/searxng/searxng) to search for products
-  and add urls within the app.
-* Simple setup via docker
-* Open source and self-hostable
+## Why you'll like it
+
+### 🛒 Works with almost any store
+No waiting for someone to add support for your favourite retailer. If a store
+has a product page, PriceBuddy can almost certainly track it — out of the box or
+with a few clicks. Many popular stores work the moment you paste a link.
+
+### 💰 Compare prices across stores
+Track the same product across multiple retailers (or multiple listings on the
+same site, like eBay) and instantly see where it's cheapest right now.
+
+### 📉 Know exactly when to buy
+Every price is recorded over time and charted, so you can see the lows, the
+highs, and the trend at a glance — and avoid a "sale" that isn't really a sale.
+
+### 🔔 Get notified, your way
+Set a target price or a price-drop threshold and let PriceBuddy do the watching.
+Alerts can reach you in the app, by email, or through
+**Pushover, Gotify, Apprise, Telegram, Discord and ntfy** — pick the ones you
+already use.
+
+### 📦 Availability tracking
+See whether the cheapest option is actually buyable. PriceBuddy detects in
+stock, pre-order, back order, special order, out of stock and discontinued so a
+tempting price on an unavailable item doesn't fool you.
+
+### ⚖️ Fair unit pricing
+Comparing a 3-pack against a 10-pack? PriceBuddy can show the price *per unit*,
+so a bigger box that's secretly worse value can't hide.
+
+### 🔎 Find products to track
+Connect your own [SearXNG](https://github.com/searxng/searxng) instance to
+search for products and add them to PriceBuddy without leaving the app.
+
+### 🏷️ Stay organised
+Tag your products, filter your dashboard, and keep everything tidy — handy when
+you're tracking a lot of things at once.
+
+### 👥 Built for sharing
+Multi-user support means everyone in the household gets their own products,
+tags, settings and notification preferences.
+
+### 🌗 Modern, mobile-friendly UI
+A clean interface with light and dark mode that works great on your phone.
+
+### 🔒 Yours to host
+Open source and fully self-hostable. Run it on your own hardware and keep
+complete control of your data.
 
 ## Screenshots
 
-Dashboard
-![Dashboard](docs/docs/.vuepress/public/screenshots/dashboard.png)
-
-Product overview
-![Product](docs/docs/.vuepress/public/screenshots/product.png)
-
-Product history
-![History](docs/docs/.vuepress/public/screenshots/history.png)
-
-## Inspiration
-
-This was largely inspired by [Discount Bandit](https://github.com/Cybrarist/Discount-Bandit) 
-which is a very similar application, but it lacks the flexibility to use any store without
-code changes.
+| Product overview | Price history |
+| --- | --- |
+| ![Product](docs/docs/.vuepress/public/screenshots/product.png) | ![History](docs/docs/.vuepress/public/screenshots/history.png) |
 
 ## Installation
 
-### Docker
+All you need is [Docker](https://www.docker.com/).
 
-Easiest installation method is via docker-compose. Simply make a copy of 
-[docker-compose.yml](docker-compose.yml) then tweak it to your liking then run
-`touch .env && docker compose up -d`. If using the defaults, the app will be available at
-`http://localhost:8080` with the username `admin@example.com` and password `admin`.
+The easiest way is with docker-compose. Grab a copy of
+[docker-compose.yml](docker-compose.yml), tweak it to your liking, then run:
 
-### Other methods 
+```shell
+touch .env && docker compose up -d
+```
 
-Due to the complexity of the app and its dependencies, other installation methods 
-are not recommended but if you are that keen to not use docker, look through the 
-`docker/php.dockerfile` and `docker-compose.yml` to see what is needed.
+With the defaults, the app is available at `http://localhost:8080` — log in with
+`admin@example.com` / `admin` (change this straight away!).
+
+See the [installation guide](https://pricebuddy.jez.me/installation.html) for the
+full walkthrough and configuration options.
+
+> Other installation methods aren't recommended given the app's dependencies,
+> but if you'd rather not use Docker, look through `docker/php.dockerfile` and
+> `docker-compose.yml` to see what's required.
+
+## Background tasks
+
+The Docker image has a cron job baked in that handles the background work —
+fetching prices on your schedule and sending notifications. Nothing extra to set
+up.
+
+## Settings & configuration
+
+The most common settings live on the in-app settings page. A handful of advanced
+options can be set via the `.env` file. See the
+[settings docs](https://pricebuddy.jez.me/settings.html) for details.
 
 ## Affiliate codes
 
-By default, affiliate codes are added to a [couple of stores](config/affiliates.php), 
-this supports development of the project. If you would rather not have affiliate codes 
-added, you can set `AFFILIATE_ENABLED=false` in your docker compose file or `.env` file. 
-If you do disable this, Maybe consider supporting the project in 
-[other ways](https://pricebuddy.jez.me//support-project.html).
+By default, affiliate codes are added to a
+[couple of stores](config/affiliates.php) to support development of the project.
+Prefer not to? Set `AFFILIATE_ENABLED=false` in your `.env` or docker-compose
+file. If you do, please consider supporting the project in
+[other ways](https://pricebuddy.jez.me/support-project.html).
 
-## Cron / Background tasks
+## Inspiration
 
-The docker container has a cron job baked in that will take care of background tasks
-such as fetching prices and sending notifications.
+PriceBuddy was largely inspired by
+[Discount Bandit](https://github.com/Cybrarist/Discount-Bandit), a similar app
+that lacked the flexibility to use any store without code changes.
 
-## Settings and configuration
+## Contributing & development
 
-Most common settings are exposed in the application settings page. For more advanced
-settings you can edit the `.env` file in the root of the project.
+Contributions are welcome — please open an issue or a pull request.
 
-## Development
-
-This application is built using [Laravel](https://laravel.com) and [Filament](https://filamentphp.com/). 
-The development environment uses [Lando](https://lando.dev) to make it easier to 
-setup the development environment.
-
-Simply install lando, clone this repo, `cd pricebuddy` and run `lando start` to start 
-the development environment.
-
-### Code standards and testing
-
-* Coding standards are enforced via [Laravel Pint](https://laravel.com/docs/11.x/pint)
-* Static code analysis via [PHPStan](https://phpstan.org/)
-* Test coverage via [PHPUnit](https://phpunit.de/)
-
-### Contributing
-
-Contributions are welcome, please open an issue or a pull request.
+PriceBuddy is built with [Laravel](https://laravel.com) and
+[Filament](https://filamentphp.com/), with a [Lando](https://lando.dev)-based dev
+environment (`lando start`). Coding standards (Pint), static analysis (PHPStan)
+and tests (Pest/PHPUnit) are enforced. See the
+[development docs](https://pricebuddy.jez.me/advanced.html) for the full setup.
 
 ## Supporting development
 
-Have a look [here](https://pricebuddy.jez.me//support-project.html) for ways to 
+Have a look [here](https://pricebuddy.jez.me/support-project.html) for ways to
 support the project.
 
 ## License
