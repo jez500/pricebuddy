@@ -8,7 +8,9 @@ These settings control how the scraper behaves. The scraper is responsible for
 fetching the product details from the product URL.
 
 **Fetch schedule** - A cron expression that defines when prices get auto-updated. 
-The default is `0 6 * * *` which is 6am every day.
+The default is `0 6 * * *` which is 6am every day. This is the global schedule;
+individual products can override it with their own
+[check frequency](/products.html#check-frequency-pausing) or be paused entirely.
 
 **Scrape cache ttl** - When a page is scraped, it will be cached for this amount 
 of time. This is to prevent scraping the same page multiple times in a short period. 

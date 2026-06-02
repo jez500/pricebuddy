@@ -3,6 +3,7 @@
 namespace Tests\Feature\Schedule;
 
 use App\Console\Commands\FetchAll;
+use App\Console\Commands\FetchDue;
 use App\Models\UrlResearch;
 use App\Services\Helpers\ScheduleHelper;
 use App\Services\Helpers\SettingsHelper;
@@ -211,6 +212,26 @@ class ScheduleTest extends TestCase
         // Test at 3 AM (should not run)
         Carbon::setTestNow('2025-12-28 03:00:00');
         $this->assertFalse($fetchAllEvent->isDue($this->app), 'Should not run at 03:00');
+    }
+
+    /**
+     * Test the per-product due-check command is scheduled to run every minute.
+     */
+    public function test_fetch_due_command_is_scheduled_every_minute(): void
+    {
+        $schedule = $this->getSchedule();
+        $events = collect($schedule->events());
+
+        $fetchDueEvent = $events->first(function ($event) {
+            return str_contains($event->command ?? '', FetchDue::COMMAND);
+        });
+
+        $this->assertNotNull($fetchDueEvent, 'FetchDue command should be scheduled');
+        $this->assertSame('* * * * *', $fetchDueEvent->expression, 'FetchDue should run every minute');
+
+        // Should be due on any given minute.
+        Carbon::setTestNow('2025-12-28 13:37:00');
+        $this->assertTrue($fetchDueEvent->isDue($this->app));
     }
 
     /**

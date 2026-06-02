@@ -31,6 +31,12 @@ This is useful for multi-packs, bundles, and products sold in different
 pack sizes. For example, PriceBuddy can show the price per tablet, bag,
 or other unit so cheaper-looking bundles do not hide a worse value.
 
+## Flexible scheduling
+
+Prices are fetched automatically on a schedule you control. You can also set a
+custom check frequency per product (from every 5 minutes to every 24 hours), or
+pause checking on individual products when you don't need them tracked right now.
+
 ## Price history
 
 Visualise price changes over time with charts. See the min, max and average prices

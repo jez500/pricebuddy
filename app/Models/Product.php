@@ -40,6 +40,9 @@ use Illuminate\Support\Str;
  * @property ?float $notify_price
  * @property ?float $notify_percent
  * @property bool $notify_in_stock
+ * @property ?int $refresh_interval
+ * @property ?Carbon $next_check_at
+ * @property bool $paused
  * @property ?User $user
  * @property int $user_id
  * @property array $price_aggregates
@@ -69,6 +72,8 @@ class Product extends Model
         'created_at' => 'datetime',
         'favourite' => 'boolean',
         'notify_in_stock' => 'boolean',
+        'next_check_at' => 'datetime',
+        'paused' => 'boolean',
     ];
 
     public static function booted()
@@ -77,6 +82,35 @@ class Product extends Model
             // Delete all related urls, should cascade to prices.
             $product->urls()->delete();
         });
+
+        static::saving(function (Product $product) {
+            // Keep next_check_at in sync with the custom interval. Products without
+            // a custom interval follow the global schedule (no next_check_at).
+            if (is_null($product->refresh_interval)) {
+                $product->next_check_at = null;
+            } elseif (is_null($product->next_check_at)) {
+                // Newly given a custom interval: make it due on the next run.
+                $product->next_check_at = now();
+            }
+        });
+    }
+
+    /**
+     * Push next_check_at out by the custom interval (plus a little jitter to
+     * stagger checks and avoid hammering a store). Saved quietly so it doesn't
+     * re-trigger the saving hook or model events.
+     */
+    public function scheduleNextCheck(): void
+    {
+        if (! $this->refresh_interval) {
+            return;
+        }
+
+        $jitter = random_int(0, (int) min((int) round($this->refresh_interval / 10), 300));
+
+        $this->forceFill([
+            'next_check_at' => now()->addSeconds($this->refresh_interval + $jitter),
+        ])->saveQuietly();
     }
 
     /***************************************************

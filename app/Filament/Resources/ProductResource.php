@@ -5,6 +5,8 @@ namespace App\Filament\Resources;
 use App\Enums\Icons;
 use App\Enums\Statuses;
 use App\Filament\Resources\ProductResource\Actions\FetchBulkAction;
+use App\Filament\Resources\ProductResource\Actions\PauseBulkAction;
+use App\Filament\Resources\ProductResource\Actions\ResumeBulkAction;
 use App\Filament\Resources\ProductResource\Api\Transformers\ProductTransformer;
 use App\Filament\Resources\ProductResource\Columns\ProductCardColumn;
 use App\Filament\Resources\ProductResource\Pages;
@@ -43,6 +45,22 @@ class ProductResource extends Resource
     protected static ?string $groupRouteName = 'products';
 
     public const string API_GROUP = 'Products';
+
+    /**
+     * Per-product check frequency options (seconds => label).
+     */
+    public const REFRESH_INTERVALS = [
+        300 => 'Every 5 minutes',
+        600 => 'Every 10 minutes',
+        900 => 'Every 15 minutes',
+        1800 => 'Every 30 minutes',
+        3600 => 'Every hour',
+        7200 => 'Every 2 hours',
+        14400 => 'Every 4 hours',
+        21600 => 'Every 6 hours',
+        43200 => 'Every 12 hours',
+        86400 => 'Every 24 hours',
+    ];
 
     public static function getApiTransformer()
     {
@@ -197,6 +215,21 @@ class ProductResource extends Resource
             ])
                 ->columns(2)
                 ->description('Notification settings'),
+
+            Forms\Components\Section::make('Schedule')->schema([
+                Select::make('refresh_interval')
+                    ->label('Check frequency')
+                    ->placeholder('Use global schedule (default)')
+                    ->options(self::REFRESH_INTERVALS)
+                    ->native(false)
+                    ->hintIcon(Icons::Help->value, 'How often to check this product. Leave empty to follow the global fetch schedule. Very short intervals may get you blocked by some stores.'),
+
+                Forms\Components\Toggle::make('paused')
+                    ->label('Pause checking')
+                    ->hintIcon(Icons::Help->value, 'Temporarily stop checking this product. It is skipped by both the global schedule and any custom frequency.'),
+            ])
+                ->columns(2)
+                ->description('How often this product is checked'),
         ];
     }
 
@@ -268,6 +301,11 @@ class ProductResource extends Resource
                     ->label('Tags')
                     ->multiple()
                     ->native(false),
+                Tables\Filters\TernaryFilter::make('paused')
+                    ->label('Checking')
+                    ->placeholder('All')
+                    ->trueLabel('Paused only')
+                    ->falseLabel('Active only'),
             ])
             ->paginated(AdminPanelProvider::DEFAULT_PAGINATION)
             ->defaultSort('created_at', 'desc')
@@ -277,6 +315,8 @@ class ProductResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     FetchBulkAction::make(),
+                    PauseBulkAction::make(),
+                    ResumeBulkAction::make(),
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])

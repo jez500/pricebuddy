@@ -3,6 +3,7 @@
 namespace App\Services\Helpers;
 
 use App\Console\Commands\FetchAll;
+use App\Console\Commands\FetchDue;
 use App\Models\UrlResearch;
 use Illuminate\Console\Scheduling\Schedule;
 use Lorisleiva\CronTranslator\CronTranslator;
@@ -36,9 +37,13 @@ class ScheduleHelper
      */
     public static function registerSchedule(Schedule $schedule): void
     {
-        // Check for new prices
+        // Check for new prices on the global schedule (products without a custom interval)
         $schedule->command(FetchAll::COMMAND, ['--log'])
             ->cron(SettingsHelper::getSetting('scrape_schedule', '0 6 * * *'));
+        // Check for new prices on products with a custom interval that are due
+        $schedule->command(FetchDue::COMMAND, ['--log'])
+            ->everyMinute()
+            ->withoutOverlapping();
         // Prune old log messages
         $schedule->command('model:prune', ['--model' => [LogMessage::class]])->daily();
         // Prune search research results.
