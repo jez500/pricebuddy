@@ -2,6 +2,7 @@
 
 * Favour TDD when completing tasks, usually a test class exists for the task already, assume you have
   to make one if it doesn't exist.
+* Use phpunit style OO formatting when creating new tests.
 * After each major task, provide evidence of the test passing.
 * If the playwright mcp is available, use it! the base url is `http://price-buddy.lndo.site/admin`, login
   email: `test@test.com`, password: `password`. If user doesn't exist, seed UserSeder. Important for:
@@ -23,5 +24,5 @@
 
 ## Environment preferences
 
-* If a `guidelines.local.md` file exists use it! It may contain instructions for running
+* If a `guidelines.local.md` file exists, read it now! It may contain instructions for running
   commands in this environment.
