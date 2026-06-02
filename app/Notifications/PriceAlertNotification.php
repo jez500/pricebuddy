@@ -113,6 +113,30 @@ class PriceAlertNotification extends Notification
             ->priority(5);
     }
 
+    public function toTelegram($notifiable)
+    {
+        return GenericNotificationMessage::create($this->getSummary())
+            ->title($this->getTitle())
+            ->url($this->getUrl())
+            ->priority(5);
+    }
+
+    public function toDiscord($notifiable)
+    {
+        return GenericNotificationMessage::create($this->getSummary())
+            ->title($this->getTitle())
+            ->url($this->getUrl())
+            ->priority(5);
+    }
+
+    public function toNtfy($notifiable)
+    {
+        return GenericNotificationMessage::create($this->getSummary())
+            ->title($this->getTitle())
+            ->url($this->getUrl())
+            ->priority(5);
+    }
+
     protected function getTitle(): string
     {
         return 'Price drop: '.$this->url->product_name_short.' ('.$this->url->latest_price_formatted.')';

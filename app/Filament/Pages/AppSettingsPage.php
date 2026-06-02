@@ -6,7 +6,9 @@ use App\Enums\Icons;
 use App\Enums\IntegratedServices;
 use App\Enums\NotificationMethods;
 use App\Filament\Actions\Notifications\TestAppriseAction;
+use App\Filament\Actions\Notifications\TestDiscordAction;
 use App\Filament\Actions\Notifications\TestGotifyAction;
+use App\Filament\Actions\Notifications\TestTelegramAction;
 use App\Filament\Traits\FormHelperTrait;
 use App\Models\UrlResearch;
 use App\Rules\ValidCron;
@@ -115,6 +117,9 @@ class AppSettingsPage extends SettingsPage
                 $this->getPushoverSettings(),
                 $this->getGotifySettings(),
                 $this->getAppriseSettings(),
+                $this->getTelegramSettings(),
+                $this->getDiscordSettings(),
+                $this->getNtfySettings(),
 
                 self::makeFormHeading('Integrations'),
 
@@ -222,6 +227,73 @@ class AppSettingsPage extends SettingsPage
                     ),
             ],
             __('Push notifications via Apprise')
+        );
+    }
+
+    protected function getTelegramSettings(): Section
+    {
+        return self::makeSettingsSection(
+            'Telegram',
+            self::NOTIFICATION_SERVICES_KEY,
+            NotificationMethods::Telegram->value,
+            [
+                TextInput::make('bot_token')
+                    ->label('Bot token')
+                    ->password()
+                    ->required()
+                    ->hint(new HtmlString('<a href="https://t.me/botfather" target="_blank">Create a bot</a>'))
+                    ->hintIcon(Icons::Help->value, __('Create a bot with @BotFather and paste the token here. Each user then adds their own chat id in their profile.'))
+                    ->suffixAction(
+                        TestTelegramAction::make()
+                            ->setSettings(fn () => data_get($this->form->getState(), 'notification_services.telegram', [])),
+                    ),
+            ],
+            __('Push notifications via a Telegram bot')
+        );
+    }
+
+    protected function getDiscordSettings(): Section
+    {
+        return self::makeSettingsSection(
+            'Discord',
+            self::NOTIFICATION_SERVICES_KEY,
+            NotificationMethods::Discord->value,
+            [
+                TextInput::make('webhook_url')
+                    ->label('Default webhook URL')
+                    ->url()
+                    ->placeholder('https://discord.com/api/webhooks/...')
+                    ->hintIcon(Icons::Help->value, __('Optional default Discord channel webhook. Users can override this with their own webhook in their profile.'))
+                    ->suffixAction(
+                        TestDiscordAction::make()
+                            ->setSettings(fn () => data_get($this->form->getState(), 'notification_services.discord', [])),
+                    ),
+            ],
+            __('Push notifications to a Discord channel via webhooks')
+        );
+    }
+
+    protected function getNtfySettings(): Section
+    {
+        return self::makeSettingsSection(
+            'ntfy',
+            self::NOTIFICATION_SERVICES_KEY,
+            NotificationMethods::Ntfy->value,
+            [
+                TextInput::make('server_url')
+                    ->label('Server URL')
+                    ->url()
+                    ->placeholder('https://ntfy.sh')
+                    ->hintIcon(Icons::Help->value, __('Leave blank to use the public ntfy.sh server, or enter your self-hosted server URL.')),
+                TextInput::make('username')
+                    ->label('Username')
+                    ->hintIcon(Icons::Help->value, __('Optional. Only needed for protected self-hosted servers.')),
+                TextInput::make('password')
+                    ->label('Password')
+                    ->password()
+                    ->hintIcon(Icons::Help->value, __('Optional. Only needed for protected self-hosted servers.')),
+            ],
+            __('Push notifications via ntfy. Each user subscribes to their own topic in their profile.')
         );
     }
 
