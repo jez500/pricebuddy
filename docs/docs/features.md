@@ -20,6 +20,9 @@ back order, special order, out of stock or discontinued.
 Availability is shown next to each product source so you can quickly see
 whether the lowest listed option can actually be bought right now.
 
+You can also opt in to **back-in-stock alerts** per product, so you're notified
+the moment an out-of-stock item becomes available again.
+
 ## Unit pricing
 
 You can compare products by unit price instead of only the shelf price.

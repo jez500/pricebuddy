@@ -189,6 +189,11 @@ class ProductResource extends Resource
                     ->hintIcon(Icons::Help->value, 'Get notified when price drops below specified percentage')
                     ->suffix('%')
                     ->numeric(),
+
+                Forms\Components\Toggle::make('notify_in_stock')
+                    ->label('Notify when back in stock')
+                    ->hintIcon(Icons::Help->value, 'Get notified when a tracked url for this product becomes available again after being out of stock')
+                    ->columnSpanFull(),
             ])
                 ->columns(2)
                 ->description('Notification settings'),

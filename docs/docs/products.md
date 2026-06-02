@@ -89,6 +89,9 @@ Notifications require the following settings:
   notification to be sent.
 * OR **Notify percent** - The price must be this percentage less than the initial
   price for the notification to be sent.
+* **Notify when back in stock** - Get notified when a tracked URL for this product
+  becomes available again after being out of stock. This is independent of the
+  price thresholds above.
 
 #### Global settings
 

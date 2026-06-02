@@ -39,6 +39,7 @@ use Illuminate\Support\Str;
  * @property EloquentCollection<Tag> $tags
  * @property ?float $notify_price
  * @property ?float $notify_percent
+ * @property bool $notify_in_stock
  * @property ?User $user
  * @property int $user_id
  * @property array $price_aggregates
@@ -67,6 +68,7 @@ class Product extends Model
         'price_cache' => 'array',
         'created_at' => 'datetime',
         'favourite' => 'boolean',
+        'notify_in_stock' => 'boolean',
     ];
 
     public static function booted()
