@@ -1,30 +1,37 @@
 <?php
 
+namespace Tests\Feature\Services;
+
 use App\Models\ProductSource;
 use App\Services\ProductSourceSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-uses(RefreshDatabase::class, TestCase::class);
+class ProductSourceSearchServiceTest extends TestCase
+{
+    use RefreshDatabase;
 
-it('replaces search_term placeholder in url', function () {
-    $source = ProductSource::factory()->make([
-        'search_url' => 'https://example.com/search?q=:search_term',
-    ]);
+    public function test_replaces_search_term_placeholder_in_url()
+    {
+        $source = ProductSource::factory()->make([
+            'search_url' => 'https://example.com/search?q=:search_term',
+        ]);
 
-    $service = ProductSourceSearchService::new($source);
-    $url = $service->buildSearchUrl('laptop');
+        $service = ProductSourceSearchService::new($source);
+        $url = $service->buildSearchUrl('laptop');
 
-    expect($url)->toBe('https://example.com/search?q=laptop');
-});
+        $this->assertSame('https://example.com/search?q=laptop', $url);
+    }
 
-it('url encodes the search term', function () {
-    $source = ProductSource::factory()->make([
-        'search_url' => 'https://example.com/search?q=:search_term',
-    ]);
+    public function test_url_encodes_the_search_term()
+    {
+        $source = ProductSource::factory()->make([
+            'search_url' => 'https://example.com/search?q=:search_term',
+        ]);
 
-    $service = ProductSourceSearchService::new($source);
-    $url = $service->buildSearchUrl('gaming laptop');
+        $service = ProductSourceSearchService::new($source);
+        $url = $service->buildSearchUrl('gaming laptop');
 
-    expect($url)->toBe('https://example.com/search?q=gaming+laptop');
-});
+        $this->assertSame('https://example.com/search?q=gaming+laptop', $url);
+    }
+}
