@@ -142,7 +142,7 @@ class SearchService
             $sources = ProductSource::userScopedQuery()->get();
         }
 
-        $this->log(__('Using :count product sources'), ['count' => $sources->count()]);
+        $this->log(__('Using :count product sources', ['count' => $sources->count()]));
 
         $sources->each(function ($source) {
             /** @var ProductSource $source */

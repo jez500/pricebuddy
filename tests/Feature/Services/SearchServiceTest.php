@@ -196,4 +196,18 @@ class SearchServiceTest extends TestCase
         $this->assertNotNull($priceEntry, 'Expected a "Price found" log entry.');
         $this->assertSame(Icons::Success->value, data_get($priceEntry, 'data.icon'));
     }
+
+    public function test_product_source_count_is_interpolated_in_the_log()
+    {
+        $service = new SearchService('laptop');
+        $service->getProductSourceResults();
+
+        $messages = collect($service->getLog())->pluck('message');
+
+        $this->assertTrue($messages->contains('Using 0 product sources'));
+        $this->assertFalse(
+            $messages->contains(fn ($message) => str_contains($message, ':count')),
+            'The :count placeholder should be replaced with the actual count.'
+        );
+    }
 }
