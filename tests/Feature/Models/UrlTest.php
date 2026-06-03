@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Store;
 use App\Models\Url;
 use App\Models\User;
+use App\Notifications\StockAlertNotification;
 use App\Services\Helpers\CurrencyHelper;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -340,6 +341,104 @@ class UrlTest extends TestCase
         $this->assertInstanceOf(Price::class, $priceModel);
         $this->assertEquals(25.0, $priceModel->price);
         $this->assertNull($url->fresh()->availability);
+    }
+
+    public function test_back_in_stock_sends_notification_when_opted_in()
+    {
+        Notification::fake();
+
+        $product = Product::factory()->create([
+            'user_id' => $this->user->id,
+            'notify_in_stock' => true,
+        ]);
+
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'availability' => StockStatus::OutOfStock,
+        ]);
+
+        $this->setAvailabilityStrategy();
+
+        // Item is now in stock with a price.
+        $this->mockScrape('$25', 'foo', null, null);
+
+        $url->updatePrice();
+
+        $this->assertNull($url->fresh()->availability);
+        Notification::assertSentTo($this->user, StockAlertNotification::class);
+    }
+
+    public function test_back_in_stock_does_not_notify_when_not_opted_in()
+    {
+        Notification::fake();
+
+        $product = Product::factory()->create([
+            'user_id' => $this->user->id,
+            'notify_in_stock' => false,
+        ]);
+
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'availability' => StockStatus::OutOfStock,
+        ]);
+
+        $this->setAvailabilityStrategy();
+
+        $this->mockScrape('$25', 'foo', null, null);
+
+        $url->updatePrice();
+
+        Notification::assertNotSentTo($this->user, StockAlertNotification::class);
+    }
+
+    public function test_going_out_of_stock_does_not_send_back_in_stock_notification()
+    {
+        Notification::fake();
+
+        $product = Product::factory()->create([
+            'user_id' => $this->user->id,
+            'notify_in_stock' => true,
+        ]);
+
+        // Currently in stock (null availability).
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+        ]);
+
+        $this->setAvailabilityStrategy();
+
+        // Now out of stock.
+        $this->mockScrape('', 'foo', null, 'OutOfStock');
+
+        $url->updatePrice();
+
+        $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
+        Notification::assertNotSentTo($this->user, StockAlertNotification::class);
+    }
+
+    /**
+     * Configure the store so the scraped `.availability` value maps to a stock status.
+     */
+    protected function setAvailabilityStrategy(): void
+    {
+        $this->store->update([
+            'scrape_strategy' => array_merge($this->store->scrape_strategy ?? [], [
+                'availability' => [
+                    'type' => 'selector',
+                    'value' => '.availability',
+                    'match' => [
+                        'out_of_stock' => ['type' => 'match', 'value' => 'OutOfStock'],
+                        'default' => 'in_stock',
+                    ],
+                ],
+            ]),
+        ]);
     }
 
     public function test_unavailable_url_does_not_send_notifications_for_new_price()

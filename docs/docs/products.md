@@ -36,6 +36,21 @@ PriceBuddy will then show:
 * The unit price as the main comparison
 * The normal retail price underneath
 
+## Check frequency &amp; pausing
+
+By default every product is checked on the global
+[fetch schedule](/settings.html). You can override this per product:
+
+* **Check frequency** - Pick a custom interval (from every 5 minutes up to every
+  24 hours) for an individual product. Leave it empty to follow the global
+  schedule. Checks are staggered slightly to avoid hammering a store, and very
+  short intervals may get you blocked, so use them sparingly.
+* **Pause checking** - Temporarily stop checking a product without deleting it.
+  Paused products are skipped by both the global schedule and any custom
+  frequency, and are clearly marked on the dashboard. You can pause or resume
+  many products at once with the bulk actions, and filter the dashboard by
+  active/paused.
+
 ## Availability
 
 When supported by a store, PriceBuddy will also show the availability of each URL.
@@ -89,6 +104,9 @@ Notifications require the following settings:
   notification to be sent.
 * OR **Notify percent** - The price must be this percentage less than the initial
   price for the notification to be sent.
+* **Notify when back in stock** - Get notified when a tracked URL for this product
+  becomes available again after being out of stock. This is independent of the
+  price thresholds above.
 
 #### Global settings
 
@@ -97,3 +115,11 @@ A notification method configured, eg email smtp settings.
 #### User settings
 
 The user has enabled notification methods they want.
+
+#### Notification history
+
+Every alert that gets sent (price drops, target prices, back-in-stock and scrape
+errors) is recorded under **Notifications** in the System menu. You can browse
+your own history, filter by type, open the related product, mark everything as
+read, and clear old entries. Recent notifications also appear in the bell menu in
+the top bar.

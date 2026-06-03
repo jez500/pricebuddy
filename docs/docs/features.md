@@ -20,6 +20,9 @@ back order, special order, out of stock or discontinued.
 Availability is shown next to each product source so you can quickly see
 whether the lowest listed option can actually be bought right now.
 
+You can also opt in to **back-in-stock alerts** per product, so you're notified
+the moment an out-of-stock item becomes available again.
+
 ## Unit pricing
 
 You can compare products by unit price instead of only the shelf price.
@@ -27,6 +30,12 @@ You can compare products by unit price instead of only the shelf price.
 This is useful for multi-packs, bundles, and products sold in different
 pack sizes. For example, PriceBuddy can show the price per tablet, bag,
 or other unit so cheaper-looking bundles do not hide a worse value.
+
+## Flexible scheduling
+
+Prices are fetched automatically on a schedule you control. You can also set a
+custom check frequency per product (from every 5 minutes to every 24 hours), or
+pause checking on individual products when you don't need them tracked right now.
 
 ## Price history
 
@@ -51,8 +60,21 @@ who want to track their own products.
 
 ## Notifications
 
-Support for multiple notification methods so users can be updated when a product
-price changes to match their preferences.
+Set a target price or a price-drop threshold per product and get alerted when
+it's met. PriceBuddy supports a wide range of notification methods so you can be
+reached however you prefer:
+
+- In-app notifications
+- Email
+- [Pushover](https://pushover.net)
+- [Gotify](https://gotify.net)
+- [Apprise](https://github.com/caronc/apprise)
+- [Telegram](https://telegram.org)
+- [Discord](https://discord.com) (via webhooks)
+- [ntfy](https://ntfy.sh) (including self-hosted servers)
+
+Each method is enabled globally by an admin, then opted into per user, so
+everyone controls how they're notified.
 
 ## Modern UI
 

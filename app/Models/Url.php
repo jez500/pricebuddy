@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\StockStatus;
+use App\Events\AvailabilityChangedEvent;
 use App\Services\AutoCreateStore;
 use App\Services\Helpers\AffiliateHelper;
 use App\Services\Helpers\CurrencyHelper;
@@ -235,11 +236,13 @@ class Url extends Model
             $matchConfig = data_get($this->store, 'scrape_strategy.availability.match');
             $stockStatus = StockStatus::matchFromScrapedValue($scrapedValue, $matchConfig);
             $availability = $stockStatus->isUnavailable() ? $stockStatus : null;
-            $availabilityChanged = $this->getAvailabilityStatus() !== $availability;
+            $previousAvailability = $this->getAvailabilityStatus();
+            $availabilityChanged = $previousAvailability !== $availability;
 
             if ($availabilityChanged) {
                 $this->availability = $availability;
                 $this->save();
+                AvailabilityChangedEvent::dispatch($this, $previousAvailability, $availability);
             }
         }
 

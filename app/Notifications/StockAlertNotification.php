@@ -14,25 +14,22 @@ use Illuminate\Notifications\Notification;
 use Illuminate\Support\Str;
 use NotificationChannels\Pushover\PushoverMessage;
 
-class PriceAlertNotification extends Notification
+/**
+ * Notifies a user that a product they track is back in stock.
+ *
+ * Reuses every notification channel configured for price alerts (mail,
+ * database, Pushover, Gotify, Apprise, Telegram, Discord, ntfy).
+ */
+class StockAlertNotification extends Notification
 {
-    // use Queueable;
-
-    protected string $ctaText = 'View price history';
-
     protected ?Product $product;
 
-    /**
-     * Create a new notification instance.
-     */
     public function __construct(protected Url $url)
     {
         $this->product = $url->product;
     }
 
     /**
-     * Get the notification's delivery channels.
-     *
      * @return array<int, string>
      */
     public function via(User $notifiable): array
@@ -42,14 +39,11 @@ class PriceAlertNotification extends Notification
             ->toArray();
     }
 
-    /**
-     * Get the mail representation of the notification.
-     */
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
             ->subject($this->getTitle())
-            ->markdown('mail.price-change-notification', $this->toArray($notifiable));
+            ->markdown('mail.stock-change-notification', $this->toArray($notifiable));
     }
 
     public function toDatabase($notifiable): array
@@ -60,7 +54,7 @@ class PriceAlertNotification extends Notification
             ->status('success')
             ->actions([
                 Action::make('view')
-                    ->url(parse_url($this->getUrl(), PHP_URL_PATH), false)
+                    ->url(parse_url($this->url->product_url, PHP_URL_PATH), false)
                     ->label('View product'),
                 Action::make('buy')
                     ->url($this->url->buy_url, true)
@@ -70,8 +64,6 @@ class PriceAlertNotification extends Notification
     }
 
     /**
-     * Get the array representation of the notification.
-     *
      * @return array<string, mixed>
      */
     public function toArray(object $notifiable): array
@@ -85,8 +77,6 @@ class PriceAlertNotification extends Notification
             'productUrl' => $this->getUrl(),
             'productName' => Str::limit(($this->product->title ?? 'Unknown product'), 100),
             'imgUrl' => $this->product?->image,
-            'newPrice' => $this->url->latest_price_formatted,
-            'averagePrice' => data_get($this->product?->price_aggregates, 'avg', '$0.00'),
         ];
     }
 
@@ -94,62 +84,54 @@ class PriceAlertNotification extends Notification
     {
         return PushoverMessage::create($this->getSummary())
             ->title($this->getTitle())
-            ->url($this->getUrl(), $this->ctaText);
+            ->url($this->url->buy_url, __('View product'));
     }
 
     public function toGotify($notifiable)
     {
-        return GenericNotificationMessage::create($this->getSummary())
-            ->title($this->getTitle())
-            ->url($this->getUrl())
-            ->priority(5);
+        return $this->genericMessage();
     }
 
     public function toApprise($notifiable)
     {
-        return GenericNotificationMessage::create($this->getSummary())
-            ->title($this->getTitle())
-            ->url($this->getUrl())
-            ->priority(5);
+        return $this->genericMessage();
     }
 
     public function toTelegram($notifiable)
     {
-        return GenericNotificationMessage::create($this->getSummary())
-            ->title($this->getTitle())
-            ->url($this->getUrl())
-            ->priority(5);
+        return $this->genericMessage();
     }
 
     public function toDiscord($notifiable)
     {
-        return GenericNotificationMessage::create($this->getSummary())
-            ->title($this->getTitle())
-            ->url($this->getUrl())
-            ->priority(5);
+        return $this->genericMessage();
     }
 
     public function toNtfy($notifiable)
     {
+        return $this->genericMessage();
+    }
+
+    protected function genericMessage(): GenericNotificationMessage
+    {
         return GenericNotificationMessage::create($this->getSummary())
             ->title($this->getTitle())
-            ->url($this->getUrl())
+            ->url($this->url->buy_url)
             ->priority(5);
     }
 
     protected function getTitle(): string
     {
-        return 'Price drop: '.$this->url->product_name_short.' ('.$this->url->latest_price_formatted.')';
+        return 'Back in stock: '.$this->url->product_name_short;
     }
 
     protected function getSummary(): string
     {
-        return $this->url->store_name.' has had a price drop for '.
-            $this->url->product_name_short.' - '.$this->url->latest_price_formatted;
+        return $this->url->store_name.' has '.$this->url->product_name_short.' back in stock';
     }
 
     protected function getUrl(): string
     {
-        return $this->url->buy_url;
+        return $this->url->product_url;
     }
 }

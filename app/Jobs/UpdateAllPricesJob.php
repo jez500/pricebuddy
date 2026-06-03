@@ -14,7 +14,7 @@ class UpdateAllPricesJob implements ShouldQueue
 
     public $timeout = PriceFetcherService::JOB_TIMEOUT;
 
-    public function __construct(protected array $productIds = []) {}
+    public function __construct(public array $productIds = []) {}
 
     public function handle(): void
     {

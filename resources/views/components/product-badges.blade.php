@@ -2,8 +2,19 @@
     $product = $product ?? $getRecord();
     $latestPrice = $product->getPriceCache()->first();
 @endphp
-@if (! $product->is_last_scrape_successful || $product->is_notified_price || $latestPrice?->isUnavailable())
+@if (! $product->is_last_scrape_successful || $product->is_notified_price || $latestPrice?->isUnavailable() || $product->paused)
     <div {{ $attributes->merge(['class' => 'inline-flex gap-2 mt-1 flex-wrap']) }}>
+        @if ($product->paused)
+            <div class="mt-1 whitespace-nowrap">
+                @include('components.icon-badge', [
+                    'hoverText' => __('Price checking is paused for this product'),
+                    'label' => __('Paused'),
+                    'color' => 'gray',
+                    'icon' => 'heroicon-m-pause',
+                ])
+            </div>
+        @endif
+
         @if ($latestPrice?->isUnavailable())
             <div class="mt-1 whitespace-nowrap">
                 @include('components.icon-badge', [

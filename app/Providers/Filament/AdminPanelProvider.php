@@ -6,6 +6,7 @@ use App\Filament\Pages\HomeDashboard;
 use App\Filament\Pages\Login;
 use App\Filament\Pages\StatusPage;
 use App\Filament\Resources\LogMessageResource;
+use App\Filament\Resources\NotificationHistoryResource;
 use Awcodes\FilamentQuickCreate\QuickCreatePlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -71,6 +72,10 @@ class AdminPanelProvider extends PanelProvider
                     ]),
             ])
             ->userMenuItems([
+                MenuItem::make()
+                    ->label('Notifications')
+                    ->icon('heroicon-o-bell')
+                    ->url(fn (): string => NotificationHistoryResource::getUrl('index')),
                 MenuItem::make()
                     ->label('API tokens')
                     ->icon('heroicon-o-key')
