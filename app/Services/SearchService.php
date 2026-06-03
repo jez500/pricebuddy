@@ -80,7 +80,7 @@ class SearchService
                 ->normalizeStructure()
                 ->addStores()
                 ->hydrateWithScrapedData()
-                ->log('Completed research for: '.$searchQuery)
+                ->logCompletion($searchQuery)
                 ->setIsComplete(true);
         } catch (Exception $e) {
             logger()->error($e->getMessage());
@@ -95,6 +95,24 @@ class SearchService
     public function getResults(): Collection
     {
         return $this->results;
+    }
+
+    /**
+     * Log the final headline for the search. This entry is what the user sees
+     * in the collapsed search log, so an empty result set is surfaced as a
+     * warning (e.g. the search backend was unreachable) rather than a quiet
+     * "completed" with no explanation.
+     */
+    protected function logCompletion(string $searchQuery): self
+    {
+        if ($this->results->isEmpty()) {
+            return $this->log(
+                __('No results found for ":query". The search service may be unavailable — expand the log for details.', ['query' => $searchQuery]),
+                ['icon' => Icons::Warning->value]
+            );
+        }
+
+        return $this->log(__('Completed research for: :query', ['query' => $searchQuery]));
     }
 
     public function getSearchUrl(): ?string
@@ -134,7 +152,7 @@ class SearchService
                 $this->results = $this->results->merge($results);
             } catch (Throwable $e) {
                 $msg = __('Error searching via :source', ['source' => $source->name]);
-                $this->log($msg);
+                $this->log($msg, ['icon' => Icons::Warning->value]);
                 logger()->error($msg.'. Error: '.$e->getMessage(), [
                     'backtrace' => $e->getTraceAsString(),
                 ]);
@@ -172,19 +190,57 @@ class SearchService
             return Cache::remember(
                 $this->getCacheKey('results', $this->searchQuery).':page-'.$page,
                 now()->addMinutes(self::CACHE_TTL_MINS),
-                fn () => Http::timeout(10)
-                    ->get($this->getSearchUrl(), [
-                        'format' => 'json',
-                        'q' => $this->searchQuery,
-                        'pageno' => $page,
-                    ])
-                    ->throw()
-                    ->json('results', []));
+                function () use ($page) {
+                    $response = Http::timeout(10)
+                        ->get($this->getSearchUrl(), [
+                            'format' => 'json',
+                            'q' => $this->searchQuery,
+                            'pageno' => $page,
+                        ])
+                        ->throw();
+
+                    $this->logUnresponsiveEngines($response->json('unresponsive_engines', []));
+
+                    return $response->json('results', []);
+                });
         } catch (Throwable $e) {
-            $this->log(__('Error fetching results via SearchXNG: :error', ['error' => $e->getMessage()]));
+            $this->log(
+                __('Error fetching results via SearchXNG: :error', ['error' => $e->getMessage()]),
+                ['icon' => Icons::Warning->value]
+            );
         }
 
         return [];
+    }
+
+    /**
+     * Surface engines that SearXNG could not reach so a zero-result search is
+     * diagnosable (e.g. rate limiting or CAPTCHA on upstream engines) rather
+     * than looking like an empty result set.
+     *
+     * @param  array<int, array{0?: string, 1?: string}|string>  $unresponsiveEngines
+     */
+    protected function logUnresponsiveEngines(array $unresponsiveEngines): void
+    {
+        if (empty($unresponsiveEngines)) {
+            return;
+        }
+
+        $summary = collect($unresponsiveEngines)
+            ->map(fn ($engine) => is_array($engine)
+                ? trim(implode(': ', array_filter($engine)))
+                : (string) $engine)
+            ->filter()
+            ->implode(', ');
+
+        if ($summary === '') {
+            return;
+        }
+
+        $this->log(
+            __('Search engines unavailable: :engines', ['engines' => $summary]),
+            ['icon' => Icons::Warning->value]
+        );
     }
 
     public function flushRawResultsCache(int $page = 1): self
@@ -277,7 +333,7 @@ class SearchService
                     $result = array_merge($result, $this->getHydratedResultData($result));
 
                     if (! empty($result['price'])) {
-                        $this->replaceLastLogEntry(__('Price found ":title" (:domain)', $logArgs));
+                        $this->replaceLastLogEntry(__('Price found ":title" (:domain)', $logArgs), ['icon' => Icons::Success->value]);
                     } else {
                         $this->replaceLastLogEntry(__('No Price found ":title" (:domain)', $logArgs), ['icon' => Icons::Warning->value]);
                     }
@@ -410,7 +466,7 @@ class SearchService
 
         $cache[] = [
             'message' => $message,
-            'data' => array_merge(['icon' => Icons::Success->value], $data),
+            'data' => array_merge(['icon' => Icons::Search->value], $data),
             'timestamp' => now()->toDateTimeString(),
         ];
 
