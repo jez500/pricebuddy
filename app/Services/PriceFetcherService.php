@@ -49,8 +49,9 @@ class PriceFetcherService
 
     /**
      * Per-product lane: fetch published, non-paused products with a custom
-     * interval that are now due, then push their next check into the future
-     * up-front so a slow queue can't re-dispatch them on the next tick.
+     * interval that are now due. Each chunk's next check is only pushed into the
+     * future once its job has been dispatched, so a failed dispatch can't
+     * prematurely advance next_check_at and silently skip those products.
      */
     public function updateDuePrices(): void
     {
@@ -64,11 +65,12 @@ class PriceFetcherService
             )
             ->get(['id', 'refresh_interval', 'next_check_at']);
 
-        $due->each(fn (Product $product) => $product->scheduleNextCheck());
+        $due->chunk((int) data_get($this->config, 'chunk_size'))
+            ->each(function (EloquentCollection $chunk): void {
+                UpdateAllPricesJob::dispatch($chunk->pluck('id')->values()->toArray());
 
-        $due->pluck('id')
-            ->chunk((int) data_get($this->config, 'chunk_size'))
-            ->each(fn ($productIds) => UpdateAllPricesJob::dispatch($productIds->values()->toArray()));
+                $chunk->each(fn (Product $product) => $product->scheduleNextCheck());
+            });
     }
 
     public function getProducts(array $productIds): EloquentCollection

@@ -17,8 +17,12 @@ class ListNotifications extends ListRecords
                 ->label(__('Mark all as read'))
                 ->icon('heroicon-m-check')
                 ->color('gray')
-                ->visible(fn () => auth()->user()?->unreadNotifications()->exists())
-                ->action(fn () => auth()->user()?->unreadNotifications()->update(['read_at' => now()])),
+                ->visible(fn () => auth()->user()?->unreadNotifications()
+                    ->whereIn('type', array_keys(NotificationHistoryResource::typeMeta()))
+                    ->exists())
+                ->action(fn () => auth()->user()?->unreadNotifications()
+                    ->whereIn('type', array_keys(NotificationHistoryResource::typeMeta()))
+                    ->update(['read_at' => now()])),
         ];
     }
 }

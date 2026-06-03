@@ -4,7 +4,7 @@
 @if($imgUrl)
 <tr>
 <td align="center" style="max-height: 200px" class="product-image">
-<a href="{{ $productUrl }}"><img src="{{ $imgUrl }}" /></a>
+<a href="{{ $productUrl }}"><img src="{{ $imgUrl }}" alt="{{ $productName }}" /></a>
 </td>
 </tr>
 @endif

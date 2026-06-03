@@ -262,6 +262,8 @@ class AppSettingsPage extends SettingsPage
                 TextInput::make('webhook_url')
                     ->label('Default webhook URL')
                     ->url()
+                    ->password()
+                    ->revealable()
                     ->placeholder('https://discord.com/api/webhooks/...')
                     ->hintIcon(Icons::Help->value, __('Optional default Discord channel webhook. Users can override this with their own webhook in their profile.'))
                     ->suffixAction(

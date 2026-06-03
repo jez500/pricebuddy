@@ -73,6 +73,7 @@ class Product extends Model
         'favourite' => 'boolean',
         'notify_in_stock' => 'boolean',
         'next_check_at' => 'datetime',
+        'refresh_interval' => 'integer',
         'paused' => 'boolean',
     ];
 
@@ -88,8 +89,9 @@ class Product extends Model
             // a custom interval follow the global schedule (no next_check_at).
             if (is_null($product->refresh_interval)) {
                 $product->next_check_at = null;
-            } elseif (is_null($product->next_check_at)) {
-                // Newly given a custom interval: make it due on the next run.
+            } elseif ($product->isDirty('refresh_interval') || is_null($product->next_check_at)) {
+                // Newly given (or changed) a custom interval: make it due on the
+                // next run so the new cadence takes effect immediately.
                 $product->next_check_at = now();
             }
         });

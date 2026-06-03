@@ -31,6 +31,22 @@ class ProductSchedulingTest extends TestCase
         $this->assertTrue($product->fresh()->next_check_at->lessThanOrEqualTo(now()));
     }
 
+    public function test_changing_the_interval_reschedules_the_next_check_now()
+    {
+        $product = Product::factory()->create([
+            'user_id' => $this->user->id,
+            'refresh_interval' => 3600,
+        ]);
+        // Simulate a check already scheduled far in the future.
+        $product->forceFill(['next_check_at' => now()->addDay()])->saveQuietly();
+
+        $product->update(['refresh_interval' => 600]);
+
+        $next = $product->fresh()->next_check_at;
+        $this->assertNotNull($next);
+        $this->assertTrue($next->lessThanOrEqualTo(now()));
+    }
+
     public function test_clearing_the_interval_clears_next_check_at()
     {
         $product = Product::factory()->create([

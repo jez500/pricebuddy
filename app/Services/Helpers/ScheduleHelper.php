@@ -43,7 +43,10 @@ class ScheduleHelper
         // Check for new prices on products with a custom interval that are due
         $schedule->command(FetchDue::COMMAND, ['--log'])
             ->everyMinute()
-            ->withoutOverlapping();
+            // The command only enqueues jobs, so it finishes in seconds. Cap the
+            // lock so a crashed/unclean run can't block the next minute for the
+            // 24h default.
+            ->withoutOverlapping(5);
         // Prune old log messages
         $schedule->command('model:prune', ['--model' => [LogMessage::class]])->daily();
         // Prune search research results.
