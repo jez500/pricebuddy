@@ -24,6 +24,9 @@ class NotificationHistoryResource extends Resource
 {
     protected static ?string $model = Notification::class;
 
+    // Accessed via the user menu rather than the sidebar (see AdminPanelProvider).
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationIcon = 'heroicon-o-bell';
 
     protected static ?string $navigationGroup = 'System';
