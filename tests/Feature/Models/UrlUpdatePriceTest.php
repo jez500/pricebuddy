@@ -5,6 +5,7 @@ namespace Tests\Feature\Models;
 use App\Dto\AiExtractionResultDto;
 use App\Models\Price;
 use App\Models\Product;
+use App\Models\Store;
 use App\Models\Url;
 use App\Services\AiExtractionService;
 use App\Services\Helpers\SettingsHelper;
@@ -27,7 +28,7 @@ class UrlUpdatePriceTest extends TestCase
         Once::flush();
     }
 
-    private function enableAi(): void
+    private function configureProviders(): void
     {
         SettingsHelper::setSetting('integrated_services', ['ai' => [
             'enabled' => true,
@@ -44,7 +45,7 @@ class UrlUpdatePriceTest extends TestCase
 
     public function test_ai_backfills_price_when_scrape_finds_none(): void
     {
-        $this->enableAi();
+        $this->configureProviders();
         $this->mock(AiExtractionService::class, fn ($m) => $m->shouldReceive('extract')
             ->once()->andReturn(new AiExtractionResultDto(price: 9.99, confidence: 0.9)));
         Log::shouldReceive('channel')->andReturnSelf();
@@ -52,7 +53,10 @@ class UrlUpdatePriceTest extends TestCase
         Log::shouldReceive('info');
         Log::shouldReceive('debug');
 
-        $url = Url::factory()->for(Product::factory())->create();
+        $store = Store::factory()->create([
+            'settings' => ['scraper_service' => 'http', 'ai_extraction_enabled' => true],
+        ]);
+        $url = Url::factory()->for(Product::factory())->for($store)->create();
 
         $price = $url->updatePrice(null, ['price' => null, 'body' => '<html>9.99</html>', 'availability' => null]);
 

@@ -69,4 +69,23 @@ class IntegrationHelper
 
         return null;
     }
+
+    /**
+     * Resolve a configured AI provider by id, falling back to the global default
+     * provider when the id is blank or no longer matches a configured provider.
+     */
+    public static function getAiProvider(?string $id): ?AiProviderConfigDto
+    {
+        if (blank($id)) {
+            return self::getActiveAiProvider();
+        }
+
+        foreach (self::getAiProviders() as $provider) {
+            if ($provider->id === $id) {
+                return $provider;
+            }
+        }
+
+        return self::getActiveAiProvider();
+    }
 }

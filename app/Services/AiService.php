@@ -26,18 +26,14 @@ class AiService
     }
 
     /**
-     * Run a structured prompt through the active (default) AI provider.
+     * Run a structured prompt through the given provider, or the active default.
      *
      * @param  Closure(JsonSchema): array<string, mixed>  $schema
      * @return array<string, mixed>|null
      */
-    public function structured(string $instructions, Closure $schema, string $prompt): ?array
+    public function structured(string $instructions, Closure $schema, string $prompt, ?AiProviderConfigDto $provider = null): ?array
     {
-        if (! $this->isEnabled()) {
-            return null;
-        }
-
-        $provider = IntegrationHelper::getActiveAiProvider();
+        $provider ??= IntegrationHelper::getActiveAiProvider();
 
         if ($provider === null) {
             return null;

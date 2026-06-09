@@ -74,6 +74,30 @@ class StoreTest extends TestCase
         $this->assertEquals(['option1' => 'value1'], $store->scraper_options);
     }
 
+    public function test_ai_extraction_accessors_read_from_settings(): void
+    {
+        $store = Store::factory()->create([
+            'settings' => [
+                'scraper_service' => 'http',
+                'ai_extraction_enabled' => true,
+                'ai_provider_id' => 'p2',
+            ],
+        ]);
+
+        $this->assertTrue($store->ai_extraction_enabled);
+        $this->assertSame('p2', $store->ai_provider_id);
+    }
+
+    public function test_ai_extraction_enabled_defaults_to_false(): void
+    {
+        $store = Store::factory()->create([
+            'settings' => ['scraper_service' => 'http'],
+        ]);
+
+        $this->assertFalse($store->ai_extraction_enabled);
+        $this->assertNull($store->ai_provider_id);
+    }
+
     public function test_deleting_store_cascades_to_urls_and_prices_and_updates_product_caches()
     {
         // Create a store with multiple URLs across multiple products

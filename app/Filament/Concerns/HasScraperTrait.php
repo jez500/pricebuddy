@@ -5,11 +5,13 @@ namespace App\Filament\Concerns;
 use App\Enums\Icons;
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
+use App\Services\Helpers\IntegrationHelper;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Get;
 use Illuminate\Support\HtmlString;
 
@@ -69,6 +71,23 @@ trait HasScraperTrait
                 ->hidden(fn (Get $get) => $get('settings.scraper_service') !== ScraperService::Api->value)
                 ->rows(4)
                 ->placeholder("device=Desktop Firefox\nsleep=1000"),
+
+            Toggle::make('settings.ai_extraction_enabled')
+                ->label('Enable AI price extraction')
+                ->helperText('Use AI to recover a price when the normal scrape finds none.')
+                ->live()
+                ->hidden(fn (): bool => ! IntegrationHelper::isAiEnabled())
+                ->columnSpanFull(),
+
+            Select::make('settings.ai_provider_id')
+                ->label('AI provider')
+                ->options(fn (): array => collect(IntegrationHelper::getAiProviders())
+                    ->mapWithKeys(fn ($provider): array => [$provider->id => $provider->name])
+                    ->all())
+                ->default(fn (): ?string => IntegrationHelper::getActiveAiProvider()?->id)
+                ->required()
+                ->visible(fn (Get $get): bool => (bool) $get('settings.ai_extraction_enabled'))
+                ->columnSpanFull(),
         ])->description('Advanced scraper service settings')->columns(2);
     }
 }

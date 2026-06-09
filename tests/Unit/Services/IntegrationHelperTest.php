@@ -104,4 +104,38 @@ class IntegrationHelperTest extends TestCase
         ]]);
         $this->assertFalse(IntegrationHelper::isAiEnabled());
     }
+
+    public function test_get_ai_provider_matches_by_id(): void
+    {
+        $this->setIntegratedServices(['ai' => [
+            'enabled' => true, 'default_provider_id' => 'p1',
+            'providers' => [
+                ['id' => 'p1', 'name' => 'A', 'type' => 'ollama', 'model' => 'm'],
+                ['id' => 'p2', 'name' => 'B', 'type' => 'ollama', 'model' => 'm'],
+            ],
+        ]]);
+
+        $this->assertSame('p2', IntegrationHelper::getAiProvider('p2')?->id);
+    }
+
+    public function test_get_ai_provider_falls_back_to_default_when_blank(): void
+    {
+        $this->setIntegratedServices(['ai' => [
+            'enabled' => true, 'default_provider_id' => 'p1',
+            'providers' => [['id' => 'p1', 'name' => 'A', 'type' => 'ollama', 'model' => 'm']],
+        ]]);
+
+        $this->assertSame('p1', IntegrationHelper::getAiProvider(null)?->id);
+        $this->assertSame('p1', IntegrationHelper::getAiProvider('')?->id);
+    }
+
+    public function test_get_ai_provider_falls_back_to_default_when_id_unknown(): void
+    {
+        $this->setIntegratedServices(['ai' => [
+            'enabled' => true, 'default_provider_id' => 'p1',
+            'providers' => [['id' => 'p1', 'name' => 'A', 'type' => 'ollama', 'model' => 'm']],
+        ]]);
+
+        $this->assertSame('p1', IntegrationHelper::getAiProvider('gone')?->id);
+    }
 }

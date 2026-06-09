@@ -3,6 +3,8 @@
 namespace Tests\Feature\Services;
 
 use App\Dto\AiExtractionResultDto;
+use App\Dto\AiProviderConfigDto;
+use App\Enums\AiProvider;
 use App\Enums\StockStatus;
 use App\Services\AiExtractionService;
 use App\Services\AiService;
@@ -10,10 +12,14 @@ use Tests\TestCase;
 
 class AiExtractionServiceTest extends TestCase
 {
+    private function provider(): AiProviderConfigDto
+    {
+        return new AiProviderConfigDto(id: 'p1', name: 'Test', type: AiProvider::Ollama, model: 'm');
+    }
+
     public function test_returns_null_when_ai_is_disabled(): void
     {
         $this->mock(AiService::class, function ($mock) {
-            $mock->shouldReceive('isEnabled')->andReturnFalse();
             $mock->shouldReceive('structured')->never();
         });
 
@@ -25,7 +31,6 @@ class AiExtractionServiceTest extends TestCase
     public function test_maps_a_structured_ai_result_to_a_dto(): void
     {
         $this->mock(AiService::class, function ($mock) {
-            $mock->shouldReceive('isEnabled')->andReturnTrue();
             $mock->shouldReceive('structured')->once()->andReturn([
                 'name' => 'Widget',
                 'price' => '12.99',
@@ -36,7 +41,7 @@ class AiExtractionServiceTest extends TestCase
             ]);
         });
 
-        $result = AiExtractionService::new()->extract('<html><body>Widget $12.99</body></html>');
+        $result = AiExtractionService::new()->extract('<html><body>Widget $12.99</body></html>', provider: $this->provider());
 
         $this->assertInstanceOf(AiExtractionResultDto::class, $result);
         $this->assertSame('Widget', $result->title);
@@ -50,11 +55,10 @@ class AiExtractionServiceTest extends TestCase
     public function test_returns_null_when_the_ai_result_is_empty(): void
     {
         $this->mock(AiService::class, function ($mock) {
-            $mock->shouldReceive('isEnabled')->andReturnTrue();
             $mock->shouldReceive('structured')->once()->andReturnNull();
         });
 
-        $result = AiExtractionService::new()->extract('<html></html>');
+        $result = AiExtractionService::new()->extract('<html></html>', provider: $this->provider());
 
         $this->assertNull($result);
     }
@@ -75,7 +79,6 @@ class AiExtractionServiceTest extends TestCase
     public function test_maps_schema_org_out_of_stock_url_to_out_of_stock_status(): void
     {
         $this->mock(AiService::class, function ($mock) {
-            $mock->shouldReceive('isEnabled')->andReturnTrue();
             $mock->shouldReceive('structured')->once()->andReturn([
                 'name' => 'Widget',
                 'price' => '9.99',
@@ -86,7 +89,7 @@ class AiExtractionServiceTest extends TestCase
             ]);
         });
 
-        $result = AiExtractionService::new()->extract('<html><body>Widget</body></html>');
+        $result = AiExtractionService::new()->extract('<html><body>Widget</body></html>', provider: $this->provider());
 
         $this->assertInstanceOf(AiExtractionResultDto::class, $result);
         $this->assertSame(StockStatus::OutOfStock, $result->stockStatus);
@@ -95,7 +98,6 @@ class AiExtractionServiceTest extends TestCase
     public function test_maps_schema_org_pre_order_url_to_pre_order_status(): void
     {
         $this->mock(AiService::class, function ($mock) {
-            $mock->shouldReceive('isEnabled')->andReturnTrue();
             $mock->shouldReceive('structured')->once()->andReturn([
                 'name' => 'Widget',
                 'price' => '9.99',
@@ -106,7 +108,7 @@ class AiExtractionServiceTest extends TestCase
             ]);
         });
 
-        $result = AiExtractionService::new()->extract('<html><body>Widget</body></html>');
+        $result = AiExtractionService::new()->extract('<html><body>Widget</body></html>', provider: $this->provider());
 
         $this->assertInstanceOf(AiExtractionResultDto::class, $result);
         $this->assertSame(StockStatus::PreOrder, $result->stockStatus);

@@ -28,6 +28,8 @@ use Spatie\Sluggable\SlugOptions;
  * @property array $settings
  * @property string $scraper_service
  * @property array $scraper_options
+ * @property bool $ai_extraction_enabled
+ * @property string|null $ai_provider_id
  * @property string $locale
  * @property string $currency
  * @property Collection $urls
@@ -170,6 +172,20 @@ class Store extends Model
             get: function () {
                 return data_get($this->settings, 'scraper_service', ScraperService::Http->value);
             }
+        );
+    }
+
+    public function aiExtractionEnabled(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): bool => (bool) data_get($this->settings, 'ai_extraction_enabled', false),
+        );
+    }
+
+    public function aiProviderId(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): ?string => data_get($this->settings, 'ai_provider_id'),
         );
     }
 

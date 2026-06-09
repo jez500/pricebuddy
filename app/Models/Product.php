@@ -40,7 +40,6 @@ use Illuminate\Support\Str;
  * @property ?float $notify_price
  * @property ?float $notify_percent
  * @property bool $notify_in_stock
- * @property bool $ai_extraction_disabled
  * @property ?int $refresh_interval
  * @property ?Carbon $next_check_at
  * @property bool $paused
@@ -66,10 +65,6 @@ class Product extends Model
         'price',
     ];
 
-    protected $attributes = [
-        'ai_extraction_disabled' => false,
-    ];
-
     protected $casts = [
         'status' => Statuses::class,
         'ignored_urls' => 'array',
@@ -77,7 +72,6 @@ class Product extends Model
         'created_at' => 'datetime',
         'favourite' => 'boolean',
         'notify_in_stock' => 'boolean',
-        'ai_extraction_disabled' => 'boolean',
         'next_check_at' => 'datetime',
         'refresh_interval' => 'integer',
         'paused' => 'boolean',

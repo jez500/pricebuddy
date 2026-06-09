@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Dto\AiExtractionResultDto;
+use App\Dto\AiProviderConfigDto;
 use App\Enums\StockStatus;
 use App\Services\Helpers\CurrencyHelper;
+use App\Services\Helpers\IntegrationHelper;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -41,9 +43,11 @@ class AiExtractionService
     /**
      * @param  Collection<int, mixed>|null  $schemaOrg
      */
-    public function extract(string $html, ?Collection $schemaOrg = null): ?AiExtractionResultDto
+    public function extract(string $html, ?Collection $schemaOrg = null, ?AiProviderConfigDto $provider = null): ?AiExtractionResultDto
     {
-        if (! $this->ai->isEnabled()) {
+        $provider ??= IntegrationHelper::getActiveAiProvider();
+
+        if ($provider === null) {
             return null;
         }
 
@@ -58,6 +62,7 @@ class AiExtractionService
                 'confidence' => $schema->number()->min(0)->max(1)->required(),
             ],
             $this->prepareHtml($html, $schemaOrg),
+            $provider,
         );
 
         if (blank($result)) {

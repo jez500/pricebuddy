@@ -33,13 +33,17 @@ class AiScrapeEnhancer
             return $scrapeResult;
         }
 
-        // AI is optional — do no work when it is not enabled.
-        if (! IntegrationHelper::isAiEnabled()) {
+        $store = $url->store;
+
+        // Enablement is per-store; a product inherits it from the store of each URL.
+        if (! $store?->ai_extraction_enabled) {
             return $scrapeResult;
         }
 
-        // Per-product opt-out.
-        if ($url->product?->ai_extraction_disabled) {
+        // Resolve the store's chosen provider, falling back to the global default.
+        $provider = IntegrationHelper::getAiProvider($store->ai_provider_id);
+
+        if ($provider === null) {
             return $scrapeResult;
         }
 
@@ -50,7 +54,7 @@ class AiScrapeEnhancer
         }
 
         // An out-of-stock item has no purchasable price; don't spend tokens.
-        $matchConfig = data_get($url->store, 'scrape_strategy.availability.match');
+        $matchConfig = data_get($store, 'scrape_strategy.availability.match');
         $isUnavailable = StockStatus::matchFromScrapedValue(data_get($scrapeResult, 'availability'), $matchConfig)
             ->isUnavailable();
 
@@ -58,7 +62,7 @@ class AiScrapeEnhancer
             return $scrapeResult;
         }
 
-        $result = $this->extraction->extract($html);
+        $result = $this->extraction->extract($html, provider: $provider);
 
         if ($result === null || $result->price === null || $result->confidence < self::MIN_CONFIDENCE) {
             // @phpstan-ignore-next-line - withContext is valid.
