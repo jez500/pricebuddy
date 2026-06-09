@@ -4,11 +4,15 @@ namespace Tests\Feature\Filament;
 
 use App\Enums\ScraperService;
 use App\Filament\Resources\StoreResource;
+use App\Filament\Resources\StoreResource\Pages\CreateStore;
 use App\Filament\Resources\StoreResource\Pages\EditStore;
 use App\Models\Store;
 use App\Models\User;
+use App\Services\Helpers\SettingsHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Once;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -106,5 +110,53 @@ class StoreTest extends TestCase
             'fooz' => 'bar',
             'bazz' => 'qux',
         ], $store->scraper_options);
+    }
+
+    private function configureAi(): void
+    {
+        SettingsHelper::setSetting('integrated_services', ['ai' => [
+            'enabled' => true,
+            'default_provider_id' => 'p1',
+            'providers' => [['id' => 'p1', 'name' => 'Local', 'type' => 'ollama', 'model' => 'm']],
+        ]]);
+        SettingsHelper::$settings = null;
+        Cache::flush();
+        Once::flush();
+    }
+
+    public function test_store_form_shows_ai_extraction_toggle_when_ai_configured(): void
+    {
+        $this->configureAi();
+        $this->actingAs($this->user);
+
+        Livewire::test(CreateStore::class)
+            ->assertFormFieldExists('settings.ai_extraction_enabled');
+    }
+
+    public function test_store_form_defaults_ai_provider_to_global_default(): void
+    {
+        $this->configureAi();
+        $this->actingAs($this->user);
+
+        Livewire::test(CreateStore::class)
+            ->assertFormSet(fn (array $state): bool => data_get($state, 'settings.ai_provider_id') === 'p1');
+    }
+
+    public function test_edit_store_loads_saved_ai_field_values(): void
+    {
+        $this->configureAi();
+        $this->actingAs($this->user);
+
+        $store = Store::factory()->create([
+            'settings' => [
+                'scraper_service' => 'http',
+                'ai_extraction_enabled' => true,
+                'ai_provider_id' => 'p1',
+            ],
+        ]);
+
+        Livewire::test(EditStore::class, ['record' => $store->getKey()])
+            ->assertFormSet(fn (array $state): bool => data_get($state, 'settings.ai_extraction_enabled') === true
+                && data_get($state, 'settings.ai_provider_id') === 'p1');
     }
 }

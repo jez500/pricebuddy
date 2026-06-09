@@ -83,6 +83,43 @@ class SchemaOrgServiceTest extends TestCase
         $this->assertNull(SchemaOrgService::parseSchemaOrg(collect($jsonLd), 'title'));
     }
 
+    public function test_parse_schema_org_matches_product_type_case_insensitively()
+    {
+        // Some sites (e.g. danmurphys.com.au) use a lowercase "product" @type.
+        $jsonLd = [
+            [
+                '@context' => 'https://www.schema.org',
+                '@type' => 'product',
+                'name' => 'Lowercase Widget',
+                'image' => 'https://example.com/w.png',
+                'offers' => [
+                    '@type' => 'Offer',
+                    'price' => '48.95',
+                    'priceCurrency' => 'AUD',
+                    'availability' => 'http://schema.org/InStock',
+                ],
+            ],
+        ];
+
+        $this->assertEquals('Lowercase Widget', SchemaOrgService::parseSchemaOrg(collect($jsonLd), 'title'));
+        $this->assertEquals('48.95', SchemaOrgService::parseSchemaOrg(collect($jsonLd), 'price'));
+        $this->assertEquals('https://example.com/w.png', SchemaOrgService::parseSchemaOrg(collect($jsonLd), 'image'));
+        $this->assertEquals('http://schema.org/InStock', SchemaOrgService::parseSchemaOrg(collect($jsonLd), 'availability'));
+    }
+
+    public function test_parse_schema_org_matches_array_type_containing_product()
+    {
+        $jsonLd = [
+            [
+                '@type' => ['Product', 'Thing'],
+                'name' => 'Array Type Widget',
+                'offers' => ['@type' => 'Offer', 'price' => '5.00'],
+            ],
+        ];
+
+        $this->assertEquals('Array Type Widget', SchemaOrgService::parseSchemaOrg(collect($jsonLd), 'title'));
+    }
+
     public function test_parse_schema_org_handles_availability_formats()
     {
         // Simple string availability

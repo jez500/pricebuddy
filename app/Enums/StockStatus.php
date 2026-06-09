@@ -5,6 +5,7 @@ namespace App\Enums;
 use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasIcon;
 use Filament\Support\Contracts\HasLabel;
+use Illuminate\Support\Str;
 
 enum StockStatus: string implements HasColor, HasIcon, HasLabel
 {
@@ -161,6 +162,45 @@ enum StockStatus: string implements HasColor, HasIcon, HasLabel
         }
 
         return trim($scrapedValue) === trim($value);
+    }
+
+    /**
+     * Map a schema.org ItemAvailability value (URL or bare label) to a StockStatus.
+     * See https://schema.org/ItemAvailability.
+     */
+    public static function fromSchemaOrgAvailability(?string $value): self
+    {
+        if ($value === null || $value === '') {
+            return self::InStock;
+        }
+
+        $label = Str::afterLast(trim($value), '/');
+
+        return match ($label) {
+            'InStock', 'OnlineOnly', 'InStoreOnly', 'LimitedAvailability' => self::InStock,
+            'OutOfStock', 'SoldOut', 'Reserved' => self::OutOfStock,
+            'PreOrder', 'PreSale' => self::PreOrder,
+            'BackOrder' => self::BackOrder,
+            'MadeToOrder' => self::SpecialOrder,
+            'Discontinued' => self::Discontinued,
+            default => self::fromScrapedValue($label),
+        };
+    }
+
+    /**
+     * Resolve a scraped availability value against a store's availability strategy.
+     * Schema.org strategies infer the status directly from the ItemAvailability value
+     * (ignoring any match config); other strategies use the per-status match config.
+     *
+     * @param  array<string, mixed>|null  $availabilityStrategy  The scrape_strategy.availability slot.
+     */
+    public static function resolveAvailability(?string $value, ?array $availabilityStrategy): self
+    {
+        if (data_get($availabilityStrategy, 'type') === ScraperStrategyType::SchemaOrg->value) {
+            return self::fromSchemaOrgAvailability($value);
+        }
+
+        return self::matchFromScrapedValue($value, data_get($availabilityStrategy, 'match'));
     }
 
     /**

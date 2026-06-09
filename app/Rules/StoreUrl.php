@@ -2,8 +2,10 @@
 
 namespace App\Rules;
 
+use App\Enums\AiFeature;
 use App\Enums\StockStatus;
 use App\Services\AutoCreateStore;
+use App\Services\Helpers\IntegrationHelper;
 use App\Services\ScrapeUrl;
 use Closure;
 use Illuminate\Contracts\Validation\DataAwareRule;
@@ -21,6 +23,13 @@ class StoreUrl implements DataAwareRule, ValidationRule
             return;
         }
 
+        // When AI self-healing is enabled, defer store/scrape validation to
+        // Url::createFromUrl, which builds or repairs the store config via AI and
+        // surfaces its own error if it ultimately cannot. Only URL format is enforced here.
+        if (IntegrationHelper::isFeatureEnabled(AiFeature::Healing)) {
+            return;
+        }
+
         $store = ScrapeUrl::new($value)->getStore();
 
         $shouldCreateStore = data_get($this->data, 'data.create_store', true);
@@ -32,8 +41,8 @@ class StoreUrl implements DataAwareRule, ValidationRule
         if ($store) {
             $scrape = ScrapeUrl::new($value)->scrape();
 
-            $matchConfig = data_get($scrape, 'store.scrape_strategy.availability.match');
-            $isUnavailable = StockStatus::matchFromScrapedValue($scrape['availability'] ?? null, $matchConfig)->isUnavailable();
+            $availabilityStrategy = data_get($scrape, 'store.scrape_strategy.availability');
+            $isUnavailable = StockStatus::resolveAvailability($scrape['availability'] ?? null, $availabilityStrategy)->isUnavailable();
 
             if (empty($scrape['title']) || (empty($scrape['price']) && ! $isUnavailable)) {
                 $fail('The url does not contain a valid title or price');

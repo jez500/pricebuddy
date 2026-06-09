@@ -234,6 +234,40 @@ class AutoCreateStoreTest extends TestCase
         ], $autoCreateStore->strategyParse());
     }
 
+    public function test_detect_returns_schema_org_strategy_including_availability(): void
+    {
+        $json = json_encode([
+            '@context' => 'https://schema.org/',
+            '@type' => 'Product',
+            'name' => 'Widget',
+            'image' => 'https://x.test/w.png',
+            'offers' => [
+                '@type' => 'Offer',
+                'priceCurrency' => 'USD',
+                'price' => 48.95,
+                'availability' => 'https://schema.org/InStock',
+            ],
+        ]);
+        $html = "<html><head><script type=\"application/ld+json\">{$json}</script></head><body></body></html>";
+
+        $detected = (new AutoCreateStore('https://shop.test/p', $html))->detect();
+
+        $this->assertSame('schema_org', data_get($detected, 'fields.title.type'));
+        $this->assertSame('schema_org', data_get($detected, 'fields.price.type'));
+        $this->assertSame('schema_org', data_get($detected, 'fields.image.type'));
+        $this->assertSame('schema_org', data_get($detected, 'fields.availability.type'));
+        $this->assertSame('Widget', data_get($detected, 'extracted.title'));
+        $this->assertNotEmpty(data_get($detected, 'extracted.price'));
+        $this->assertSame('https://schema.org/InStock', data_get($detected, 'extracted.availability'));
+    }
+
+    public function test_detect_returns_null_when_title_or_price_missing(): void
+    {
+        $detected = (new AutoCreateStore('https://shop.test/p', '<html><body><div>nothing</div></body></html>'))->detect();
+
+        $this->assertNull($detected);
+    }
+
     protected function getHtml(string $name): string
     {
         return file_get_contents(__DIR__.'/../../Fixtures/AutoCreateStore/'.$name.'.html');

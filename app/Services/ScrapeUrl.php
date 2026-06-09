@@ -131,8 +131,8 @@ class ScrapeUrl
             }
         }
 
-        $matchConfig = data_get($output, 'store.scrape_strategy.availability.match');
-        $isUnavailable = StockStatus::matchFromScrapedValue($output['availability'] ?? null, $matchConfig)->isUnavailable();
+        $availabilityStrategy = data_get($output, 'store.scrape_strategy.availability');
+        $isUnavailable = StockStatus::resolveAvailability($output['availability'] ?? null, $availabilityStrategy)->isUnavailable();
 
         foreach (['price', 'title'] as $required) {
             // Skip price requirement when product is unavailable.
@@ -226,38 +226,8 @@ class ScrapeUrl
 
     protected function scrapeOption(WebScraperInterface $scraper, array $options, string $field): ?string
     {
-        $type = data_get($options, 'type');
-        $value = data_get($options, 'value');
-
-        if (! is_string($type) || $type === '') {
-            return null;
-        }
-
-        // A strategy slot can have its type set but value left null; the scraper
-        // methods (getRegex, getSelector, ...) are typed `string`, so skip rather
-        // than passing null and triggering a TypeError. SchemaOrg ignores value.
-        if (! is_string($value) && $type !== ScraperStrategyType::SchemaOrg->value) {
-            return null;
-        }
-
-        $method = self::getMethodFromType($type);
-
-        $value = match ($type) {
-            ScraperStrategyType::Selector->value => self::parseSelector($value),
-            ScraperStrategyType::Regex->value => [self::ensureRegexDelimiters($value)],
-            default => [$value]
-        };
-
         try {
-            if ($type === ScraperStrategyType::SchemaOrg->value) {
-                return SchemaOrgService::parseSchemaOrg($scraper->getSchemaOrg(), $field);
-            }
-
-            return implode('', [
-                data_get($options, 'prepend', ''),
-                call_user_func_array([$scraper, $method], $value)?->first(),
-                data_get($options, 'append', ''),
-            ]);
+            return StrategyExtractor::extract($scraper, $options, $field);
         } catch (DomSelectorException $e) {
             $this->errorLog('Error scraping URL', [
                 'url' => $this->url,

@@ -76,59 +76,90 @@ class AutoCreateStore
 
     public function getStoreAttributes(): ?array
     {
-        $strategy = $this->strategyParse();
-        $schemaOrg = ScraperStrategyType::SchemaOrg->value;
+        $detected = $this->detect();
 
-        // Exit if required fields are missing, noting that schemaOrg doesn't requrie a value.
-        if (
-            (data_get($strategy, 'title.type') !== $schemaOrg && empty($strategy['title']['value'])) ||
-            (data_get($strategy, 'price.type') !== $schemaOrg && empty($strategy['price']['value']))
-        ) {
+        if ($detected === null) {
             $this->errorLog('Unable to auto create store', [
                 'url' => $this->url,
-                'strategy' => $strategy,
                 'html' => $this->html,
             ]);
 
             return null;
         }
 
-        $attributes = [
-            'user_id' => auth()->id(),
-        ];
+        return self::buildAttributes($this->url, $detected['fields']);
+    }
 
-        $host = strtolower(Uri::of($this->url)->host());
+    /**
+     * Detect a scrape strategy from the (already-fetched) HTML using the deterministic
+     * heuristics (schema.org → selector → regex). Adds a schema.org availability field
+     * when present. Returns the field strategies plus each extracted value, or null when
+     * the required title+price could not be found.
+     *
+     * @return array{fields: array<string, array<string, string|null>>, extracted: array<string, mixed>}|null
+     */
+    public function detect(): ?array
+    {
+        $strategy = $this->strategyParse();
+        $schemaOrg = ScraperStrategyType::SchemaOrg->value;
+
+        if (
+            (data_get($strategy, 'title.type') !== $schemaOrg && empty(data_get($strategy, 'title.value')))
+            || (data_get($strategy, 'price.type') !== $schemaOrg && empty(data_get($strategy, 'price.value')))
+        ) {
+            return null;
+        }
+
+        $strategy['availability'] = $this->parseAvailability();
+
+        $fields = [];
+        $extracted = [];
+
+        foreach ($strategy as $field => $parsed) {
+            if (empty($parsed) || empty(data_get($parsed, 'type'))) {
+                continue;
+            }
+
+            $fields[$field] = collect($parsed)->only('type', 'value')->all();
+            $extracted[$field] = data_get($parsed, 'data');
+        }
+
+        return ['fields' => $fields, 'extracted' => $extracted];
+    }
+
+    /**
+     * Assemble store attributes for a URL with a given scrape strategy. Shared by
+     * heuristic auto-create and AI bootstrap so both produce identical store shapes.
+     *
+     * @param  array<string, mixed>  $scrapeStrategy
+     * @return array<string, mixed>
+     */
+    public static function buildAttributes(string $url, array $scrapeStrategy): array
+    {
+        $host = strtolower(Uri::of($url)->host());
 
         if (str_starts_with($host, 'www.')) {
             $host = substr($host, 4);
         }
 
-        $attributes['domains'] = [
-            ['domain' => $host],
-            ['domain' => 'www.'.$host],
-        ];
-
-        $attributes['name'] = ucfirst($host);
-
-        $attributes['scrape_strategy'] = collect($this->strategyParse())
-            ->mapWithKeys(function ($value, $key) {
-                return [
-                    $key => collect($value)->only('type', 'value')->all(),
-                ];
-            })
-            ->toArray();
-
-        $attributes['settings'] = [
-            'scraper_service' => ScraperService::Http->value,
-            'scraper_service_settings' => '',
-            'test_url' => $this->url,
-            'locale_settings' => [
-                'locale' => CurrencyHelper::getLocale(),
-                'currency' => CurrencyHelper::getCurrency(),
+        return [
+            'user_id' => auth()->id(),
+            'domains' => [
+                ['domain' => $host],
+                ['domain' => 'www.'.$host],
+            ],
+            'name' => ucfirst($host),
+            'scrape_strategy' => $scrapeStrategy,
+            'settings' => [
+                'scraper_service' => ScraperService::Http->value,
+                'scraper_service_settings' => '',
+                'test_url' => $url,
+                'locale_settings' => [
+                    'locale' => CurrencyHelper::getLocale(),
+                    'currency' => CurrencyHelper::getCurrency(),
+                ],
             ],
         ];
-
-        return $attributes;
     }
 
     public function strategyParse(): array
@@ -176,6 +207,11 @@ class AutoCreateStore
         }
 
         return [];
+    }
+
+    protected function parseAvailability(): array
+    {
+        return $this->attemptSchemaOrg('availability') ?? [];
     }
 
     protected function parseImage(): ?array

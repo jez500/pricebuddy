@@ -2,21 +2,28 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\AiFeature;
 use App\Enums\Icons;
 use App\Enums\ScraperService;
+use App\Enums\ScraperStrategyType;
 use App\Enums\StockStatus;
 use App\Filament\Concerns\HasScraperTrait;
 use App\Filament\Pages\AppSettingsPage;
 use App\Filament\Resources\StoreResource\Pages\CreateStore;
 use App\Filament\Resources\StoreResource\Pages\EditStore;
 use App\Filament\Resources\StoreResource\Pages\ListStores;
-use App\Filament\Resources\StoreResource\Pages\TestStore;
 use App\Models\Store;
+use App\Models\Url;
 use App\Providers\Filament\AdminPanelProvider;
 use App\Rules\StoreUrl;
+use App\Services\Helpers\IntegrationHelper;
 use Filament\Forms;
+use Filament\Forms\Components\Actions;
+use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\View;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Resources\Resource;
@@ -110,14 +117,16 @@ class StoreResource extends Resource
                                 (array) $get('availability.match'),
                                 fn ($entry, $key) => $key !== 'default' && (is_array($entry) ? ($entry['value'] ?? '') !== '' : ($entry !== '' && $entry !== null)),
                                 ARRAY_FILTER_USE_BOTH,
-                            ))),
+                            )))
+                            ->hidden(fn (Get $get): bool => $get('availability.type') === ScraperStrategyType::SchemaOrg->value),
                         Forms\Components\Select::make('availability.match.default')
                             ->label('Default status')
                             ->options(StockStatus::class)
                             ->default(StockStatus::InStock->value)
                             ->afterStateHydrated(fn (Forms\Components\Select $component, ?string $state) => $component->state($state ?? StockStatus::InStock->value))
                             ->required()
-                            ->hintIcon(Icons::Help->value, 'The status to use when the scraped text does not match any of the values above'),
+                            ->hintIcon(Icons::Help->value, 'The status to use when the scraped text does not match any of the values above')
+                            ->hidden(fn (Get $get): bool => $get('availability.type') === ScraperStrategyType::SchemaOrg->value),
                     ])->description('Optional: a selector that matches product availability.')
                         ->collapsed(fn (Get $get): bool => ($get('availability.value') ?? '') === ''),
                 ])
@@ -145,19 +154,112 @@ class StoreResource extends Resource
             ->columns(1);
     }
 
-    public static function testForm(Form $form): Form
+    public static function testForm(Form $form, Store $store): Form
     {
-        return $form->schema([
-            Section::make('Test url scrape')->schema([
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Url> $shortcutUrls */
+        $shortcutUrls = $store->urls()
+            ->with('product')
+            ->whereHas('product')
+            ->latest()
+            ->get()
+            ->unique('product_id')
+            ->take(5);
+
+        return $form
+            ->columns(1)
+            ->schema(array_values(array_filter([
+                $shortcutUrls->isNotEmpty()
+                    ? Actions::make(
+                        $shortcutUrls->map(fn (Url $url): FormAction => FormAction::make('product_'.$url->getKey())
+                            ->label($url->product->title)
+                            ->action(fn (Get $get, EditStore $livewire) => $livewire->runScrape($url->url, $get('test_scraper')))
+                        )->all()
+                    )->label('Existing products')->key('product_shortcuts')
+                    : null,
+
                 TextInput::make('test_url')
-                    ->label('Product URL')
+                    ->label($shortcutUrls->isNotEmpty() ? 'Or product URL' : 'Product URL')
                     ->hintIcon(Icons::Help->value, 'The URL to scrape')
+                    ->placeholder(fn (): ?string => filled($host = data_get($store, 'domains.0.domain'))
+                        ? 'https://'.$host.'/example-product'
+                        : null)
+                    ->default(fn (): string => (string) data_get($store, 'settings.test_url', ''))
                     ->required()
-                    ->rules([new StoreUrl]),
-            ])
-                ->description('See the results of scraping a url using the current store settings')
-                ->columns(1),
-        ]);
+                    ->rules([new StoreUrl])
+                    ->suffixAction(
+                        FormAction::make('scrape')
+                            ->label('Test url scrape')
+                            ->icon(Icons::Search->value)
+                            ->action(function (Get $get, EditStore $livewire): void {
+                                $url = (string) $get('test_url');
+
+                                if (filled($url)) {
+                                    $livewire->runScrape($url, $get('test_scraper'));
+                                }
+                            })
+                    ),
+
+                Section::make('Results')
+                    ->description('What we could find')
+                    ->extraAttributes(['class' => 'mt-4'])
+                    ->visible(fn (EditStore $livewire): bool => filled($livewire->testScrapeResult))
+                    ->headerActions([
+                        FormAction::make('compareWithAi')
+                            ->label('Compare with AI')
+                            ->icon('heroicon-m-sparkles')
+                            ->visible(fn (): bool => IntegrationHelper::isAiEnabled())
+                            ->action(fn (EditStore $livewire) => $livewire->compareWithAi()),
+                        FormAction::make('healWithAi')
+                            ->label('Heal with AI')
+                            ->icon('heroicon-m-wrench-screwdriver')
+                            ->visible(fn (): bool => IntegrationHelper::isFeatureEnabled(AiFeature::Healing))
+                            ->action(fn (EditStore $livewire) => $livewire->previewSelfHeal()),
+                    ])
+                    ->schema([
+                        View::make('filament.resources.store-resource.test-results')
+                            ->viewData(fn (EditStore $livewire): array => [
+                                'scrape' => $livewire->testScrapeResult,
+                                'ai' => $livewire->testAiResult,
+                                'record' => $livewire->buildUnsavedStore(),
+                            ]),
+
+                        Select::make('test_scraper')
+                            ->label('Change scraper')
+                            ->options(ScraperService::class)
+                            ->selectablePlaceholder(false)
+                            ->afterStateHydrated(fn (Select $component, EditStore $livewire) => $component->state(
+                                $component->getState()
+                                    ?: $livewire->testScraper
+                                    ?: $livewire->buildUnsavedStore()->scraper_service
+                                    ?: ScraperService::Http->value
+                            ))
+                            ->live()
+                            ->afterStateUpdated(function (EditStore $livewire, ?string $state): void {
+                                if (filled($livewire->testUrl) && filled($state)) {
+                                    $livewire->runScrape($livewire->testUrl, $state);
+                                }
+                            }),
+                    ]),
+
+                Section::make('AI healing proposal')
+                    ->description('Proposed selectors — review, then apply to the form')
+                    ->extraAttributes(['class' => 'mt-4'])
+                    ->visible(fn (EditStore $livewire): bool => filled($livewire->healPreview))
+                    ->headerActions([
+                        FormAction::make('applySelfHeal')
+                            ->label('Apply to form')
+                            ->icon('heroicon-m-check')
+                            ->action(fn (EditStore $livewire) => $livewire->applySelfHeal()),
+                        FormAction::make('discardSelfHeal')
+                            ->label('Discard')
+                            ->color('gray')
+                            ->action(fn (EditStore $livewire) => $livewire->discardSelfHeal()),
+                    ])
+                    ->schema([
+                        View::make('filament.resources.store-resource.heal-preview')
+                            ->viewData(fn (EditStore $livewire): array => ['preview' => $livewire->healPreview]),
+                    ]),
+            ])));
     }
 
     public static function table(Table $table): Table
@@ -221,7 +323,6 @@ class StoreResource extends Resource
             'index' => ListStores::route('/'),
             'create' => CreateStore::route('/create'),
             'edit' => EditStore::route('/{record}/edit'),
-            'test' => TestStore::route('/{record}/test'),
         ];
     }
 }
