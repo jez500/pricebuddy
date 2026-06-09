@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\StockStatus;
+use App\Exceptions\AiProviderException;
 use App\Models\Url;
 use App\Services\Helpers\IntegrationHelper;
 use Illuminate\Support\Facades\Log;
@@ -62,7 +63,15 @@ class AiScrapeEnhancer
             return $scrapeResult;
         }
 
-        $result = $this->extraction->extract($html, provider: $provider);
+        try {
+            $result = $this->extraction->extract($html, provider: $provider);
+        } catch (AiProviderException $e) {
+            // @phpstan-ignore-next-line - withContext is valid.
+            Log::channel('db')->withContext(['url' => $url->url])
+                ->warning('AI provider error during scrape enhancement; leaving price unchanged.', ['error' => $e->getMessage()]);
+
+            return $scrapeResult;
+        }
 
         if ($result === null || $result->price === null || $result->confidence < self::MIN_CONFIDENCE) {
             // @phpstan-ignore-next-line - withContext is valid.

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\StoreResource\Pages;
 
+use App\Exceptions\AiProviderException;
 use App\Filament\Resources\StoreResource;
 use App\Models\Store;
 use App\Services\AiExtractionService;
@@ -56,10 +57,20 @@ class EditStore extends EditRecord
             return;
         }
 
-        $result = AiExtractionService::new()->extract((string) $body, provider: $provider);
+        try {
+            $result = AiExtractionService::new()->extract((string) $body, provider: $provider);
+        } catch (AiProviderException) {
+            Notification::make()
+                ->title('AI provider error')
+                ->body('Check the AI provider settings and logs.')
+                ->danger()
+                ->send();
+
+            return;
+        }
 
         if ($result === null) {
-            Notification::make()->title('AI could not extract any data')->warning()->send();
+            Notification::make()->title('AI found no data in the page')->warning()->send();
 
             return;
         }

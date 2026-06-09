@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Dto\AiProviderConfigDto;
 use App\Enums\AiProvider;
+use App\Exceptions\AiProviderException;
 use App\Services\Ai\ConfiguredStructuredAgent;
+use App\Services\Ai\SecretRedactor;
 use App\Services\Helpers\IntegrationHelper;
 use Closure;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -69,10 +71,12 @@ class AiService
         } catch (Throwable $e) {
             Log::error('AI structured prompt failed.', [
                 'provider' => $provider->type->driver(),
+                'model' => $provider->model,
                 'exception' => $e::class,
+                'message' => SecretRedactor::redact($e->getMessage(), $this->decrypt($provider->apiKey)),
             ]);
 
-            return null;
+            throw new AiProviderException('AI provider request failed ('.$e::class.').', previous: $e);
         }
     }
 
@@ -103,12 +107,16 @@ class AiService
             return $this->testOllamaConnection($provider);
         }
 
-        $result = $this->runStructuredFor(
-            $provider,
-            'Reply with the number 1.',
-            fn (JsonSchema $schema) => ['ok' => $schema->integer()->required()],
-            'Return 1.',
-        );
+        try {
+            $result = $this->runStructuredFor(
+                $provider,
+                'Reply with the number 1.',
+                fn (JsonSchema $schema) => ['ok' => $schema->integer()->required()],
+                'Return 1.',
+            );
+        } catch (AiProviderException $e) {
+            return $e->getMessage();
+        }
 
         return $result === null ? 'The AI provider did not return a valid response.' : true;
     }

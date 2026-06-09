@@ -3,6 +3,7 @@
 namespace Tests\Feature\Services;
 
 use App\Dto\AiExtractionResultDto;
+use App\Exceptions\AiProviderException;
 use App\Models\Store;
 use App\Models\Url;
 use App\Services\AiExtractionService;
@@ -140,6 +141,20 @@ class AiScrapeEnhancerTest extends TestCase
         Log::shouldReceive('channel')->andReturnSelf();
         Log::shouldReceive('withContext')->andReturnSelf();
         Log::shouldReceive('debug');
+
+        $result = AiScrapeEnhancer::new()->enhance($this->url(), ['price' => null, 'body' => '<html>9.99</html>']);
+
+        $this->assertNull($result['price']);
+    }
+
+    public function test_leaves_result_unchanged_on_provider_error(): void
+    {
+        $this->configureProviders();
+        $this->mock(AiExtractionService::class, fn ($m) => $m->shouldReceive('extract')
+            ->once()->andThrow(new AiProviderException('AI provider request failed (X).')));
+        Log::shouldReceive('channel')->andReturnSelf();
+        Log::shouldReceive('withContext')->andReturnSelf();
+        Log::shouldReceive('warning')->once();
 
         $result = AiScrapeEnhancer::new()->enhance($this->url(), ['price' => null, 'body' => '<html>9.99</html>']);
 

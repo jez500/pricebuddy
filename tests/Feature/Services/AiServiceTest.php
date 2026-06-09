@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Services;
 
+use App\Exceptions\AiProviderException;
 use App\Services\Ai\ConfiguredStructuredAgent;
 use App\Services\AiService;
 use App\Services\Helpers\SettingsHelper;
@@ -10,6 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Once;
 use Tests\TestCase;
 
@@ -91,21 +93,32 @@ class AiServiceTest extends TestCase
         $this->assertSame(['price' => 19.99, 'currency' => 'USD'], $result);
     }
 
-    public function test_structured_returns_null_and_logs_when_sdk_throws(): void
+    public function test_structured_throws_and_logs_redacted_when_sdk_throws(): void
     {
+        // Provider api_key decrypts to 'test-key' (see setActiveProvider()).
         $this->setActiveProvider();
+        Log::spy();
 
         ConfiguredStructuredAgent::fake(function () {
-            throw new \RuntimeException('boom');
+            throw new \RuntimeException('Unauthorized: Bearer test-key was rejected');
         });
 
-        $result = AiService::new()->structured(
-            'Extract.',
-            fn (JsonSchema $schema) => ['price' => $schema->number()->required()],
-            '<html>...</html>',
-        );
+        try {
+            AiService::new()->structured(
+                'Extract.',
+                fn (JsonSchema $schema) => ['price' => $schema->number()->required()],
+                '<html>...</html>',
+            );
+            $this->fail('Expected AiProviderException to be thrown.');
+        } catch (AiProviderException $e) {
+            $this->assertStringContainsString('RuntimeException', $e->getMessage());
+        }
 
-        $this->assertNull($result);
+        Log::shouldHaveReceived('error')->withArgs(function (string $message, array $context): bool {
+            return $message === 'AI structured prompt failed.'
+                && ! str_contains($context['message'], 'test-key')
+                && str_contains($context['message'], '[redacted]');
+        });
     }
 
     public function test_structured_returns_null_when_default_points_nowhere(): void
@@ -141,7 +154,7 @@ class AiServiceTest extends TestCase
         $this->assertTrue($result);
     }
 
-    public function test_test_connection_returns_error_string_when_no_valid_response(): void
+    public function test_test_connection_returns_error_string_when_sdk_throws(): void
     {
         $this->setActiveProvider();
 
@@ -151,7 +164,8 @@ class AiServiceTest extends TestCase
 
         $result = AiService::new()->testConnection();
 
-        $this->assertSame('The AI provider did not return a valid response.', $result);
+        $this->assertIsString($result);
+        $this->assertStringContainsString('RuntimeException', $result);
     }
 
     public function test_test_connection_returns_true_when_ollama_is_reachable_and_model_present(): void

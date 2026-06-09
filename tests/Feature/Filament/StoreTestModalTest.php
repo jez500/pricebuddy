@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\Store;
 use App\Models\Url;
 use App\Models\User;
+use App\Exceptions\AiProviderException;
 use App\Services\AiExtractionService;
 use App\Services\Helpers\SettingsHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -232,7 +233,27 @@ class StoreTestModalTest extends TestCase
         $component = Livewire::test(EditStore::class, ['record' => $store->getKey()])
             ->call('runScrape', 'https://example.com/p')
             ->call('compareWithAi')
-            ->assertNotified('AI could not extract any data');
+            ->assertNotified('AI found no data in the page');
+
+        $this->assertNull($component->get('testAiResult'));
+    }
+
+    public function test_compare_with_ai_shows_provider_error_notification(): void
+    {
+        $this->configureAiProvider();
+        $this->mockScrape('19.99', 'Widget');
+        $store = Store::factory()->create([
+            'settings' => ['scraper_service' => 'http'],
+            'domains' => [['domain' => 'example.com']],
+        ]);
+
+        $this->mock(AiExtractionService::class, fn ($m) => $m->shouldReceive('extract')
+            ->once()->andThrow(new AiProviderException('AI provider request failed (X).')));
+
+        $component = Livewire::test(EditStore::class, ['record' => $store->getKey()])
+            ->call('runScrape', 'https://example.com/p')
+            ->call('compareWithAi')
+            ->assertNotified('AI provider error');
 
         $this->assertNull($component->get('testAiResult'));
     }
