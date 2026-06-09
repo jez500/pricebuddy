@@ -43,13 +43,21 @@
                 }
             }
         @endphp
-        <table class="w-full text-sm border-collapse">
+        {{-- Loader is scoped to the "Change scraper" re-test only. The scrape buttons and the
+             Compare with AI action each show their own button loading indicator. --}}
+        <div wire:loading wire:target="mountedActionsData.0.test_scraper" class="flex items-center gap-2 py-6 text-sm text-gray-500 dark:text-gray-400">
+            <x-filament::loading-indicator class="h-5 w-5" />
+            {{ __('Scraping…') }}
+        </div>
+
+        <div wire:loading.remove wire:target="mountedActionsData.0.test_scraper">
+        <table class="w-full text-sm border-collapse table-fixed">
             <thead>
                 <tr class="border-b border-gray-200 dark:border-white/10 text-left">
-                    <th class="py-2 pr-4 font-semibold w-32">Field</th>
-                    <th class="py-2 pr-4 font-semibold">Scraped</th>
+                    <th class="py-2 pr-4 font-semibold w-1/3">Field</th>
+                    <th class="py-2 pr-4 font-semibold w-1/3">Scraped</th>
                     @if ($hasAi)
-                        <th class="py-2 pr-4 font-semibold">AI ✨</th>
+                        <th class="py-2 pr-4 font-semibold w-1/3">AI ✨</th>
                     @endif
                 </tr>
             </thead>
@@ -74,8 +82,7 @@
 
                         @if ($hasAi)
                             <td class="py-2 pr-4">
-                                {{-- AI has no description field; the scraper does. --}}
-                                @php $aiVal = $key === 'description' ? null : data_get($ai, $key); @endphp
+                                @php $aiVal = data_get($ai, $key); @endphp
                                 @if ($key === 'image' && $isUrl($aiVal))
                                     <img src="{{ $aiVal }}" alt="" class="h-16 w-16 rounded object-contain bg-white" />
                                 @elseif (filled($aiVal))
@@ -113,5 +120,6 @@
                 </x-filament::section>
             </div>
         @endif
+        </div>
     @endif
 </div>

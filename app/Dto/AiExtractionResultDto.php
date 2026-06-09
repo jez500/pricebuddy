@@ -8,6 +8,7 @@ class AiExtractionResultDto
 {
     public function __construct(
         public ?string $title = null,
+        public ?string $description = null,
         public ?float $price = null,
         public ?string $currency = null,
         public ?string $image = null,

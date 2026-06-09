@@ -4,15 +4,16 @@ namespace Tests\Feature\Filament;
 
 use App\Dto\AiExtractionResultDto;
 use App\Enums\StockStatus;
+use App\Exceptions\AiProviderException;
 use App\Filament\Resources\StoreResource;
 use App\Filament\Resources\StoreResource\Pages\EditStore;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\Url;
 use App\Models\User;
-use App\Exceptions\AiProviderException;
 use App\Services\AiExtractionService;
 use App\Services\Helpers\SettingsHelper;
+use App\Services\ScrapeUrl;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
@@ -112,7 +113,7 @@ class StoreTestModalTest extends TestCase
             ->assertSee('Shortcut Product 1')
             ->assertSee('Shortcut Product 2')
             ->assertSee('Shortcut Product 3')
-            ->assertSee('Product URL');
+            ->assertSee('Or product URL'); // label adapts when shortcuts are present
     }
 
     public function test_modal_caps_product_shortcuts_at_five(): void
@@ -133,6 +134,7 @@ class StoreTestModalTest extends TestCase
         Livewire::test(EditStore::class, ['record' => $store->getKey()])
             ->mountAction('test')
             ->assertSee('Product URL')
+            ->assertDontSee('Or product URL')
             ->assertDontSee('Existing products');
     }
 
@@ -282,13 +284,14 @@ class StoreTestModalTest extends TestCase
         ]);
 
         $this->mock(AiExtractionService::class, fn ($m) => $m->shouldReceive('extract')
-            ->once()->andReturn(new AiExtractionResultDto(title: 'AI Widget', price: 9.5, confidence: 0.88)));
+            ->once()->andReturn(new AiExtractionResultDto(title: 'AI Widget', description: 'AI description text', price: 9.5, confidence: 0.88)));
 
         Livewire::test(EditStore::class, ['record' => $store->getKey()])
             ->mountAction('test')
             ->call('runScrape', 'https://example.com/p')
             ->call('compareWithAi')
-            ->assertSee('AI Widget'); // value only present in the AI column
+            ->assertSee('AI Widget') // value only present in the AI column
+            ->assertSee('AI description text');
     }
 
     public function test_compare_button_hidden_when_ai_not_configured(): void
@@ -318,5 +321,157 @@ class StoreTestModalTest extends TestCase
             ->mountAction('test')
             ->call('runScrape', 'https://example.com/p')
             ->assertSee('Compare with AI');
+    }
+
+    public function test_modal_description_without_ai(): void
+    {
+        $store = Store::factory()->create(['settings' => ['scraper_service' => 'http']]);
+
+        Livewire::test(EditStore::class, ['record' => $store->getKey()])
+            ->mountAction('test')
+            ->assertSee('Dry run the current store settings')
+            ->assertDontSee('and compare with AI');
+    }
+
+    public function test_modal_description_with_ai(): void
+    {
+        $this->configureAiProvider();
+        $store = Store::factory()->create(['settings' => ['scraper_service' => 'http']]);
+
+        Livewire::test(EditStore::class, ['record' => $store->getKey()])
+            ->mountAction('test')
+            ->assertSee('Dry run the current store settings and compare with AI');
+    }
+
+    public function test_run_scrape_uses_the_selected_scraper(): void
+    {
+        $store = Store::factory()->create([
+            'settings' => ['scraper_service' => 'http'], // saved as http
+            'domains' => [['domain' => 'example.com']],
+        ]);
+
+        // Capture the store passed to the scraper and assert the override took effect.
+        // ScrapeUrl::new() calls resolve(static::class, ['url' => $url]) which passes
+        // constructor args, so we bind a factory closure to intercept the resolution.
+        $mock = \Mockery::mock(ScrapeUrl::class);
+        $mock->shouldReceive('scrape')->once()
+            ->withArgs(fn (array $opts): bool => $opts['store']->scraper_service === 'api')
+            ->andReturn(['title' => 'Widget', 'price' => '9.99', 'body' => '<html>']);
+
+        $this->app->bind(ScrapeUrl::class, fn () => $mock);
+
+        $component = Livewire::test(EditStore::class, ['record' => $store->getKey()])
+            ->call('runScrape', 'https://example.com/p', 'api');
+
+        $this->assertSame('9.99', data_get($component->get('testScrapeResult'), 'price'));
+    }
+
+    public function test_run_scrape_records_url_and_effective_scraper(): void
+    {
+        $this->mockScrape('19.99', 'Widget');
+        $store = Store::factory()->create([
+            'settings' => ['scraper_service' => 'http'],
+            'domains' => [['domain' => 'example.com']],
+        ]);
+
+        $component = Livewire::test(EditStore::class, ['record' => $store->getKey()])
+            ->call('runScrape', 'https://example.com/p', 'api');
+
+        $this->assertSame('https://example.com/p', $component->get('testUrl'));
+        $this->assertSame('api', $component->get('testScraper'));
+    }
+
+    public function test_run_scrape_records_store_scraper_when_no_override(): void
+    {
+        $this->mockScrape('19.99', 'Widget');
+        $store = Store::factory()->create([
+            'settings' => ['scraper_service' => 'http'],
+            'domains' => [['domain' => 'example.com']],
+        ]);
+
+        $component = Livewire::test(EditStore::class, ['record' => $store->getKey()])
+            ->call('runScrape', 'https://example.com/p');
+
+        $this->assertSame('http', $component->get('testScraper'));
+    }
+
+    public function test_changing_scraper_retests_with_new_scraper_uncached(): void
+    {
+        $store = Store::factory()->create([
+            'settings' => ['scraper_service' => 'http'],
+            'domains' => [['domain' => 'example.com']],
+        ]);
+
+        $seen = [];
+        $mock = \Mockery::mock(ScrapeUrl::class);
+        $mock->shouldReceive('scrape')->andReturnUsing(function (array $opts) use (&$seen) {
+            $seen[] = ['scraper' => $opts['store']->scraper_service, 'use_cache' => $opts['use_cache']];
+
+            return ['title' => 'Widget', 'price' => '9.99', 'body' => '<html>'];
+        });
+        $this->app->bind(ScrapeUrl::class, fn () => $mock);
+
+        $component = Livewire::test(EditStore::class, ['record' => $store->getKey()])
+            ->call('runScrape', 'https://example.com/p')        // initial: store scraper (http)
+            ->call('runScrape', 'https://example.com/p', 'api'); // re-test with new scraper
+
+        $this->assertSame(['scraper' => 'http', 'use_cache' => false], $seen[0]);
+        $this->assertSame(['scraper' => 'api', 'use_cache' => false], $seen[1]);
+        $this->assertSame('api', $component->get('testScraper'));
+    }
+
+    public function test_change_scraper_select_has_a_live_wire_model_binding(): void
+    {
+        $this->mockScrape('19.99', 'Widget');
+        $store = Store::factory()->create([
+            'settings' => ['scraper_service' => 'http'],
+            'domains' => [['domain' => 'example.com']],
+        ]);
+
+        Livewire::test(EditStore::class, ['record' => $store->getKey()])
+            ->mountAction('test')
+            ->call('runScrape', 'https://example.com/p')
+            ->assertSeeHtml('wire:model.live="mountedActionsData.0.test_scraper"');
+    }
+
+    public function test_changing_the_scraper_select_retests_with_the_new_scraper(): void
+    {
+        $store = Store::factory()->create([
+            'settings' => ['scraper_service' => 'http'],
+            'domains' => [['domain' => 'example.com']],
+        ]);
+
+        $seen = [];
+        $mock = \Mockery::mock(ScrapeUrl::class);
+        $mock->shouldReceive('scrape')->andReturnUsing(function (array $opts) use (&$seen) {
+            $seen[] = $opts['store']->scraper_service;
+
+            return ['title' => 'Widget', 'price' => '9.99', 'body' => '<html>'];
+        });
+        $this->app->bind(ScrapeUrl::class, fn () => $mock);
+
+        $component = Livewire::test(EditStore::class, ['record' => $store->getKey()])
+            ->mountAction('test')
+            ->call('runScrape', 'https://example.com/p')        // initial scrape (http)
+            ->set('mountedActionsData.0.test_scraper', 'api');  // change select -> reactive re-test
+
+        $this->assertSame(['http', 'api'], $seen);
+        $this->assertSame('api', $component->get('testScraper'));
+    }
+
+    public function test_results_show_a_loading_indicator(): void
+    {
+        $this->mockScrape('19.99', 'Widget');
+        $store = Store::factory()->create([
+            'settings' => ['scraper_service' => 'http'],
+            'domains' => [['domain' => 'example.com']],
+        ]);
+
+        Livewire::test(EditStore::class, ['record' => $store->getKey()])
+            ->mountAction('test')
+            ->call('runScrape', 'https://example.com/p')
+            ->assertSee('Scraping…')
+            // Scoped to the scraper-change re-test so it doesn't fire during Compare with AI.
+            ->assertSeeHtml('wire:loading.remove wire:target="mountedActionsData.0.test_scraper"');
     }
 }

@@ -29,6 +29,7 @@ class AiExtractionService
         - currency must be an ISO 4217 code (e.g. USD, GBP, EUR) if determinable.
         - stockStatus must be a schema.org availability URL if determinable
           (e.g. https://schema.org/InStock or https://schema.org/OutOfStock).
+        - description should be a short product description from the page, or null if absent.
         - confidence is your certainty from 0 to 1.
         - Use null for any field you cannot determine.
         PROMPT;
@@ -55,6 +56,7 @@ class AiExtractionService
             self::EXTRACTION_PROMPT,
             fn (JsonSchema $schema) => [
                 'name' => $schema->string(),
+                'description' => $schema->string(),
                 'price' => $schema->number(),
                 'currency' => $schema->string(),
                 'imageUrl' => $schema->string(),
@@ -71,6 +73,7 @@ class AiExtractionService
 
         return new AiExtractionResultDto(
             title: $result['name'] ?? null,
+            description: $result['description'] ?? null,
             price: $this->parsePrice($result['price'] ?? null),
             currency: $result['currency'] ?? null,
             image: $result['imageUrl'] ?? null,

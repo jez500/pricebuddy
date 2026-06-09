@@ -33,6 +33,7 @@ class AiExtractionServiceTest extends TestCase
         $this->mock(AiService::class, function ($mock) {
             $mock->shouldReceive('structured')->once()->andReturn([
                 'name' => 'Widget',
+                'description' => 'A small widget',
                 'price' => '12.99',
                 'currency' => 'USD',
                 'imageUrl' => 'https://example.com/w.jpg',
@@ -45,6 +46,7 @@ class AiExtractionServiceTest extends TestCase
 
         $this->assertInstanceOf(AiExtractionResultDto::class, $result);
         $this->assertSame('Widget', $result->title);
+        $this->assertSame('A small widget', $result->description);
         $this->assertSame(12.99, $result->price);
         $this->assertSame('USD', $result->currency);
         $this->assertSame('https://example.com/w.jpg', $result->image);

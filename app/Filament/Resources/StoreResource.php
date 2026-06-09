@@ -19,6 +19,7 @@ use Filament\Forms;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\View;
 use Filament\Forms\Form;
@@ -159,56 +160,77 @@ class StoreResource extends Resource
             ->unique('product_id')
             ->take(5);
 
-        return $form->schema([
-            Section::make('Test url scrape')
-                ->description('See the results of scraping a url using the current store settings')
-                ->columns(1)
-                ->schema(array_values(array_filter([
-                    $shortcutUrls->isNotEmpty()
-                        ? Actions::make(
-                            $shortcutUrls->map(fn (Url $url): FormAction => FormAction::make('product_'.$url->getKey())
-                                ->label($url->product->title)
-                                ->action(fn (EditStore $livewire) => $livewire->runScrape($url->url))
-                            )->all()
-                        )->label('Existing products')->key('product_shortcuts')
-                        : null,
+        return $form
+            ->columns(1)
+            ->schema(array_values(array_filter([
+                $shortcutUrls->isNotEmpty()
+                    ? Actions::make(
+                        $shortcutUrls->map(fn (Url $url): FormAction => FormAction::make('product_'.$url->getKey())
+                            ->label($url->product->title)
+                            ->action(fn (Get $get, EditStore $livewire) => $livewire->runScrape($url->url, $get('test_scraper')))
+                        )->all()
+                    )->label('Existing products')->key('product_shortcuts')
+                    : null,
 
-                    TextInput::make('test_url')
-                        ->label('Product URL')
-                        ->hintIcon(Icons::Help->value, 'The URL to scrape')
-                        ->default(fn (): string => (string) data_get($store, 'settings.test_url', ''))
-                        ->required()
-                        ->rules([new StoreUrl])
-                        ->suffixAction(
-                            FormAction::make('scrape')
-                                ->label('Test url scrape')
-                                ->icon(Icons::Search->value)
-                                ->action(function (Get $get, EditStore $livewire): void {
-                                    $url = (string) $get('test_url');
+                TextInput::make('test_url')
+                    ->label($shortcutUrls->isNotEmpty() ? 'Or product URL' : 'Product URL')
+                    ->hintIcon(Icons::Help->value, 'The URL to scrape')
+                    ->placeholder(fn (): ?string => filled($host = data_get($store, 'domains.0.domain'))
+                        ? 'https://'.$host.'/example-product'
+                        : null)
+                    ->default(fn (): string => (string) data_get($store, 'settings.test_url', ''))
+                    ->required()
+                    ->rules([new StoreUrl])
+                    ->suffixAction(
+                        FormAction::make('scrape')
+                            ->label('Test url scrape')
+                            ->icon(Icons::Search->value)
+                            ->action(function (Get $get, EditStore $livewire): void {
+                                $url = (string) $get('test_url');
 
-                                    if (filled($url)) {
-                                        $livewire->runScrape($url);
-                                    }
-                                })
-                        ),
+                                if (filled($url)) {
+                                    $livewire->runScrape($url, $get('test_scraper'));
+                                }
+                            })
+                    ),
 
-                    Actions::make([
+                Section::make('Results')
+                    ->description('What we could find')
+                    ->extraAttributes(['class' => 'mt-4'])
+                    ->visible(fn (EditStore $livewire): bool => filled($livewire->testScrapeResult))
+                    ->headerActions([
                         FormAction::make('compareWithAi')
                             ->label('Compare with AI')
                             ->icon('heroicon-m-sparkles')
+                            ->visible(fn (): bool => IntegrationHelper::isAiEnabled())
                             ->action(fn (EditStore $livewire) => $livewire->compareWithAi()),
                     ])
-                        ->visible(fn (EditStore $livewire): bool => IntegrationHelper::isAiEnabled() && filled($livewire->testScrapeResult)),
+                    ->schema([
+                        View::make('filament.resources.store-resource.test-results')
+                            ->viewData(fn (EditStore $livewire): array => [
+                                'scrape' => $livewire->testScrapeResult,
+                                'ai' => $livewire->testAiResult,
+                                'record' => $livewire->buildUnsavedStore(),
+                            ]),
 
-                    View::make('filament.resources.store-resource.test-results')
-                        ->visible(fn (EditStore $livewire): bool => filled($livewire->testScrapeResult))
-                        ->viewData(fn (EditStore $livewire): array => [
-                            'scrape' => $livewire->testScrapeResult,
-                            'ai' => $livewire->testAiResult,
-                            'record' => $livewire->buildUnsavedStore(),
-                        ]),
-                ]))),
-        ]);
+                        Select::make('test_scraper')
+                            ->label('Change scraper')
+                            ->options(ScraperService::class)
+                            ->selectablePlaceholder(false)
+                            ->afterStateHydrated(fn (Select $component, EditStore $livewire) => $component->state(
+                                $component->getState()
+                                    ?: $livewire->testScraper
+                                    ?: $livewire->buildUnsavedStore()->scraper_service
+                                    ?: ScraperService::Http->value
+                            ))
+                            ->live()
+                            ->afterStateUpdated(function (EditStore $livewire, ?string $state): void {
+                                if (filled($livewire->testUrl) && filled($state)) {
+                                    $livewire->runScrape($livewire->testUrl, $state);
+                                }
+                            }),
+                    ]),
+            ])));
     }
 
     public static function table(Table $table): Table

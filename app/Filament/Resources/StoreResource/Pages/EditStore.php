@@ -24,12 +24,25 @@ class EditStore extends EditRecord
     /** @var array<string, mixed>|null */
     public ?array $testAiResult = null;
 
-    public function runScrape(string $url): void
+    public ?string $testUrl = null;
+
+    public ?string $testScraper = null;
+
+    public function runScrape(string $url, ?string $scraper = null): void
     {
         $this->authorizeAccess();
 
+        $store = $this->buildUnsavedStore();
+
+        if (filled($scraper)) {
+            $store->settings = array_merge((array) $store->settings, ['scraper_service' => $scraper]);
+        }
+
+        $this->testUrl = $url;
+        $this->testScraper = $store->scraper_service;
+
         $scrape = ScrapeUrl::new($url)->scrape([
-            'store' => $this->buildUnsavedStore(),
+            'store' => $store,
             'use_cache' => false,
         ]);
 
@@ -77,6 +90,7 @@ class EditStore extends EditRecord
 
         $this->testAiResult = [
             'title' => $result->title,
+            'description' => $result->description,
             'price' => $result->price,
             'currency' => $result->currency,
             'image' => $result->image,
@@ -107,12 +121,16 @@ class EditStore extends EditRecord
                 ->label('Test')->color('gray')
                 ->icon('heroicon-o-rocket-launch')
                 ->modalHeading('Test store')
+                ->modalDescription(fn (): string => 'Dry run the current store settings'
+                    .(IntegrationHelper::isAiEnabled() ? ' and compare with AI' : ''))
                 ->modalSubmitAction(false)
-                ->modalCancelActionLabel('Close')
+                ->modalCancelAction(false)
                 ->modalWidth(MaxWidth::FiveExtraLarge)
                 ->mountUsing(function (EditStore $livewire): void {
                     $livewire->testScrapeResult = null;
                     $livewire->testAiResult = null;
+                    $livewire->testUrl = null;
+                    $livewire->testScraper = null;
                 })
                 ->form(function (Form $form): Form {
                     /** @var Store $store */
