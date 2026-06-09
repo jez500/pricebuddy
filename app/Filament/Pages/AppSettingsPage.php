@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\AiFeature;
 use App\Enums\AiProvider;
 use App\Enums\Icons;
 use App\Enums\IntegratedServices;
@@ -514,6 +515,14 @@ class AppSettingsPage extends SettingsPage
             self::INTEGRATED_SERVICES_KEY,
             IntegratedServices::Ai->value,
             [
+                ...self::aiFeatureProviderSelects(),
+                Select::make('default_provider_id')
+                    ->label('Default provider')
+                    ->live()
+                    ->options(fn (Get $get): array => collect($get('providers') ?? [])
+                        ->filter(fn ($p): bool => filled($p['id'] ?? null))
+                        ->mapWithKeys(fn ($p): array => [$p['id'] => filled($p['name'] ?? null) ? $p['name'] : 'Provider'])
+                        ->all()),
                 Repeater::make('providers')
                     ->label('Providers')
                     ->addActionLabel('Add provider')
@@ -602,17 +611,31 @@ class AppSettingsPage extends SettingsPage
                             ->numeric()->minValue(0)->maxValue(2)->default(0.2),
                     ])
                     ->columns(2),
-                Select::make('default_provider_id')
-                    ->label('Default provider')
-                    ->live()
-                    ->options(fn (Get $get): array => collect($get('providers') ?? [])
-                        ->filter(fn ($p): bool => filled($p['id'] ?? null))
-                        ->mapWithKeys(fn ($p): array => [$p['id'] => filled($p['name'] ?? null) ? $p['name'] : 'Provider'])
-                        ->all()),
+
             ],
             __('Configure one or more AI providers and choose which is used by default.'),
-            flat: true
+            flat: true,
+            cols: 1,
         );
+    }
+
+    /**
+     * One provider select per AI feature: choose a provider, leave empty for the
+     * default, or disable the feature. State-pathed under integrated_services.ai.
+     *
+     * @return array<int, Select>
+     */
+    protected static function aiFeatureProviderSelects(): array
+    {
+        return collect(AiFeature::cases())
+            ->map(fn (AiFeature $feature): Select => Select::make('feature_providers.'.$feature->value)
+                ->label($feature->label().' provider')
+                ->helperText('Leave empty to use default model')
+                ->options(fn (Get $get): array => collect($get('providers') ?? [])
+                    ->filter(fn ($p): bool => filled($p['id'] ?? null))
+                    ->mapWithKeys(fn ($p): array => [$p['id'] => filled($p['name'] ?? null) ? $p['name'] : 'Provider'])
+                    ->all() + [IntegrationHelper::FEATURE_DISABLED => 'Disable this feature']))
+            ->all();
     }
 
     public static function getLocaleFormFields(string $settingsKey): array

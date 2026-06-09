@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AiFeature;
 use App\Enums\StockStatus;
 use App\Exceptions\AiProviderException;
 use App\Models\Url;
@@ -41,8 +42,9 @@ class AiScrapeEnhancer
             return $scrapeResult;
         }
 
-        // Resolve the store's chosen provider, falling back to the global default.
-        $provider = IntegrationHelper::getAiProvider($store->ai_provider_id);
+        // Resolve the extraction provider (honours the global per-feature select
+        // and the store's provider override).
+        $provider = IntegrationHelper::resolveFeatureProvider(AiFeature::Extraction, $store);
 
         if ($provider === null) {
             return $scrapeResult;

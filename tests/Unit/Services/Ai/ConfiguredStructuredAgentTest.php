@@ -38,3 +38,17 @@ it('builds the schema array from the provided closure', function () {
 
     expect($built)->toHaveKey('price');
 });
+
+it('exposes generation options including max steps', function () {
+    $agent = new ConfiguredStructuredAgent(
+        instructions: 'do thing',
+        schema: fn ($s) => ['ok' => $s->boolean()],
+        temperature: 0.3,
+        maxTokens: 1234,
+        maxSteps: 7,
+    );
+
+    expect($agent->temperature())->toBe(0.3)
+        ->and($agent->maxTokens())->toBe(1234)
+        ->and($agent->maxSteps())->toBe(7);
+});

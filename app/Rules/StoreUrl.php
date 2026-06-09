@@ -2,8 +2,10 @@
 
 namespace App\Rules;
 
+use App\Enums\AiFeature;
 use App\Enums\StockStatus;
 use App\Services\AutoCreateStore;
+use App\Services\Helpers\IntegrationHelper;
 use App\Services\ScrapeUrl;
 use Closure;
 use Illuminate\Contracts\Validation\DataAwareRule;
@@ -18,6 +20,13 @@ class StoreUrl implements DataAwareRule, ValidationRule
         if (empty($value) || ! filter_var($value, FILTER_VALIDATE_URL)) {
             $fail('The url must be a valid URL starting with http:// or https://');
 
+            return;
+        }
+
+        // When AI self-healing is enabled, defer store/scrape validation to
+        // Url::createFromUrl, which builds or repairs the store config via AI and
+        // surfaces its own error if it ultimately cannot. Only URL format is enforced here.
+        if (IntegrationHelper::isFeatureEnabled(AiFeature::Healing)) {
             return;
         }
 

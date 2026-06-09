@@ -93,42 +93,47 @@ class AutoCreateStore
             return null;
         }
 
-        $attributes = [
-            'user_id' => auth()->id(),
-        ];
+        return self::buildAttributes(
+            $this->url,
+            collect($this->strategyParse())
+                ->mapWithKeys(fn ($value, $key): array => [$key => collect($value)->only('type', 'value')->all()])
+                ->toArray(),
+        );
+    }
 
-        $host = strtolower(Uri::of($this->url)->host());
+    /**
+     * Assemble store attributes for a URL with a given scrape strategy. Shared by
+     * heuristic auto-create and AI bootstrap so both produce identical store shapes.
+     *
+     * @param  array<string, mixed>  $scrapeStrategy
+     * @return array<string, mixed>
+     */
+    public static function buildAttributes(string $url, array $scrapeStrategy): array
+    {
+        $host = strtolower(Uri::of($url)->host());
 
         if (str_starts_with($host, 'www.')) {
             $host = substr($host, 4);
         }
 
-        $attributes['domains'] = [
-            ['domain' => $host],
-            ['domain' => 'www.'.$host],
-        ];
-
-        $attributes['name'] = ucfirst($host);
-
-        $attributes['scrape_strategy'] = collect($this->strategyParse())
-            ->mapWithKeys(function ($value, $key) {
-                return [
-                    $key => collect($value)->only('type', 'value')->all(),
-                ];
-            })
-            ->toArray();
-
-        $attributes['settings'] = [
-            'scraper_service' => ScraperService::Http->value,
-            'scraper_service_settings' => '',
-            'test_url' => $this->url,
-            'locale_settings' => [
-                'locale' => CurrencyHelper::getLocale(),
-                'currency' => CurrencyHelper::getCurrency(),
+        return [
+            'user_id' => auth()->id(),
+            'domains' => [
+                ['domain' => $host],
+                ['domain' => 'www.'.$host],
+            ],
+            'name' => ucfirst($host),
+            'scrape_strategy' => $scrapeStrategy,
+            'settings' => [
+                'scraper_service' => ScraperService::Http->value,
+                'scraper_service_settings' => '',
+                'test_url' => $url,
+                'locale_settings' => [
+                    'locale' => CurrencyHelper::getLocale(),
+                    'currency' => CurrencyHelper::getCurrency(),
+                ],
             ],
         ];
-
-        return $attributes;
     }
 
     public function strategyParse(): array

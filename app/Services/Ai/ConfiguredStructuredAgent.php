@@ -27,6 +27,7 @@ class ConfiguredStructuredAgent extends StructuredAnonymousAgent
         protected ?float $temperature = null,
         protected ?int $maxTokens = null,
         protected ?float $topP = null,
+        protected ?int $maxSteps = null,
     ) {
         parent::__construct($instructions, $messages, $tools, $schema);
     }
@@ -44,5 +45,10 @@ class ConfiguredStructuredAgent extends StructuredAnonymousAgent
     public function topP(): ?float
     {
         return $this->topP;
+    }
+
+    public function maxSteps(): ?int
+    {
+        return $this->maxSteps;
     }
 }

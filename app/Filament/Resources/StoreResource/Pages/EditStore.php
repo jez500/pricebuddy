@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\StoreResource\Pages;
 
+use App\Enums\ScraperService;
 use App\Exceptions\AiProviderException;
 use App\Filament\Resources\StoreResource;
 use App\Models\Store;
+use App\Services\AiConfigHealer;
 use App\Services\AiExtractionService;
 use App\Services\Helpers\IntegrationHelper;
 use App\Services\ScrapeUrl;
@@ -27,6 +29,9 @@ class EditStore extends EditRecord
     public ?string $testUrl = null;
 
     public ?string $testScraper = null;
+
+    /** @var array<string, mixed>|null */
+    public ?array $healPreview = null;
 
     public function runScrape(string $url, ?string $scraper = null): void
     {
@@ -99,6 +104,64 @@ class EditStore extends EditRecord
         ];
     }
 
+    public function previewSelfHeal(?string $url = null): void
+    {
+        $this->authorizeAccess();
+
+        // Default to the URL that was actually scraped (set by runScrape), so a heal
+        // triggered after clicking a product shortcut works even though that path does
+        // not fill the test_url form field.
+        $url = filled($url) ? $url : (string) $this->testUrl;
+
+        if (blank($url)) {
+            Notification::make()->title('Run a scrape first')->warning()->send();
+
+            return;
+        }
+
+        $preview = AiConfigHealer::new()->previewForUrl(
+            $url,
+            $this->buildUnsavedStore(),
+            data_get($this->testScrapeResult, 'body'),
+        );
+
+        if ($preview === null) {
+            Notification::make()->title('AI could not build a working config for this URL')->warning()->send();
+
+            return;
+        }
+
+        $this->healPreview = $preview;
+    }
+
+    public function applySelfHeal(): void
+    {
+        $this->authorizeAccess();
+
+        if (blank($this->healPreview)) {
+            return;
+        }
+
+        foreach (data_get($this->healPreview, 'fields', []) as $field => $slot) {
+            data_set($this->data, 'scrape_strategy.'.$field, $slot);
+        }
+
+        if (data_get($this->healPreview, 'usedBrowser')) {
+            data_set($this->data, 'settings.scraper_service', ScraperService::Api->value);
+        }
+
+        $this->healPreview = null;
+
+        Notification::make()->title('Applied to the form — review the fields and Save')->success()->send();
+    }
+
+    public function discardSelfHeal(): void
+    {
+        $this->authorizeAccess();
+
+        $this->healPreview = null;
+    }
+
     /**
      * Build a non-persisted Store from the current edit-form state so the test
      * modal scrapes (and renders results) against unsaved config. Public because
@@ -131,6 +194,7 @@ class EditStore extends EditRecord
                     $livewire->testAiResult = null;
                     $livewire->testUrl = null;
                     $livewire->testScraper = null;
+                    $livewire->healPreview = null;
                 })
                 ->form(function (Form $form): Form {
                     /** @var Store $store */

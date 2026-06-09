@@ -3,7 +3,9 @@
 namespace App\Services\Helpers;
 
 use App\Dto\AiProviderConfigDto;
+use App\Enums\AiFeature;
 use App\Enums\IntegratedServices;
+use App\Models\Store;
 
 class IntegrationHelper
 {
@@ -87,5 +89,48 @@ class IntegrationHelper
         }
 
         return self::getActiveAiProvider();
+    }
+
+    /**
+     * Settings sentinel meaning "this AI feature is turned off".
+     */
+    public const string FEATURE_DISABLED = '__disabled__';
+
+    /**
+     * Resolve the provider an AI feature should use for the given store.
+     *
+     * Returns null when AI is globally disabled, the feature is explicitly
+     * disabled, or no provider can be resolved. A store-level provider override
+     * (ai_provider_id) takes precedence over the global per-feature selection.
+     *
+     * An unknown provider id (store override or feature selection) falls back to
+     * the global default provider rather than returning null (see getAiProvider).
+     */
+    public static function resolveFeatureProvider(AiFeature $feature, ?Store $store = null): ?AiProviderConfigDto
+    {
+        $aiSettings = self::getAiSettings();
+
+        if (! data_get($aiSettings, 'enabled', false)) {
+            return null;
+        }
+
+        $selected = data_get($aiSettings, 'feature_providers.'.$feature->value);
+
+        if ($selected === self::FEATURE_DISABLED) {
+            return null;
+        }
+
+        if ($store !== null && filled($store->ai_provider_id)) {
+            return self::getAiProvider($store->ai_provider_id);
+        }
+
+        return blank($selected)
+            ? self::getActiveAiProvider()
+            : self::getAiProvider($selected);
+    }
+
+    public static function isFeatureEnabled(AiFeature $feature, ?Store $store = null): bool
+    {
+        return self::resolveFeatureProvider($feature, $store) !== null;
     }
 }

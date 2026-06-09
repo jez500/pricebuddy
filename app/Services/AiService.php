@@ -45,6 +45,54 @@ class AiService
     }
 
     /**
+     * Run a tool-using structured agent and return the validated structured
+     * output, or null. Used for agentic flows (e.g. config self-healing).
+     *
+     * @param  Closure(JsonSchema): array<string, mixed>  $schema
+     * @param  array<int, \Laravel\Ai\Contracts\Tool>  $tools
+     * @return array<string, mixed>|null
+     */
+    public function runAgent(string $instructions, Closure $schema, string $prompt, array $tools, ?AiProviderConfigDto $provider = null, int $maxSteps = 25): ?array
+    {
+        $provider ??= IntegrationHelper::getActiveAiProvider();
+
+        if ($provider === null) {
+            return null;
+        }
+
+        $this->configureProviderCredentials($provider);
+
+        $agent = new ConfiguredStructuredAgent(
+            instructions: $instructions,
+            tools: $tools,
+            schema: $schema,
+            temperature: $provider->temperature,
+            maxTokens: $provider->maxTokens,
+            maxSteps: $maxSteps,
+        );
+
+        try {
+            $response = $agent->prompt(
+                $prompt,
+                provider: $provider->type->toLab(),
+                model: $provider->model,
+                timeout: $provider->timeoutSeconds,
+            );
+
+            return $response instanceof StructuredAgentResponse ? $response->toArray() : null;
+        } catch (Throwable $e) {
+            Log::error('AI agent run failed.', [
+                'provider' => $provider->type->driver(),
+                'model' => $provider->model,
+                'exception' => $e::class,
+                'message' => SecretRedactor::redact($e->getMessage(), $this->decrypt($provider->apiKey)),
+            ]);
+
+            throw new AiProviderException('AI agent request failed ('.$e::class.').', previous: $e);
+        }
+    }
+
+    /**
      * @param  Closure(JsonSchema): array<string, mixed>  $schema
      * @return array<string, mixed>|null
      */

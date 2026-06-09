@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\StockStatus;
 use App\Events\AvailabilityChangedEvent;
+use App\Services\AiConfigHealer;
 use App\Services\AiScrapeEnhancer;
 use App\Services\AutoCreateStore;
 use App\Services\Helpers\AffiliateHelper;
@@ -185,6 +186,16 @@ class Url extends Model
         $matchConfig = data_get($store, 'scrape_strategy.availability.match');
         $isUnavailable = StockStatus::matchFromScrapedValue(data_get($scrape, 'availability'), $matchConfig)->isUnavailable();
 
+        // AI fallback: when a normal create would fail, let the healing agent build or
+        // repair the store config, then re-scrape once with the new config.
+        if ((! $store || (! data_get($scrape, 'price') && ! $isUnavailable))
+            && AiConfigHealer::new()->healStoreForUrl($url, $store, data_get($scrape, 'body')) !== null) {
+            $scrape = ScrapeUrl::new($url)->scrape();
+            $store = data_get($scrape, 'store');
+            $matchConfig = data_get($store, 'scrape_strategy.availability.match');
+            $isUnavailable = StockStatus::matchFromScrapedValue(data_get($scrape, 'availability'), $matchConfig)->isUnavailable();
+        }
+
         if (! $store || (! data_get($scrape, 'price') && ! $isUnavailable)) {
             return false;
         }
@@ -228,6 +239,7 @@ class Url extends Model
 
         if (is_null($price) || $price === '') {
             $scrapeResult = $scrapeResult ?? $this->scrape();
+            $scrapeResult = AiConfigHealer::new()->heal($this, $scrapeResult);
             $scrapeResult = AiScrapeEnhancer::new()->enhance($this, $scrapeResult);
             $price = data_get($scrapeResult, 'price');
         }

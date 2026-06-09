@@ -2,6 +2,7 @@
 
 namespace App\Filament\Concerns;
 
+use App\Enums\AiFeature;
 use App\Enums\Icons;
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
@@ -76,7 +77,7 @@ trait HasScraperTrait
                 ->label('Enable AI price extraction')
                 ->helperText('Use AI to recover a price when the normal scrape finds none.')
                 ->live()
-                ->hidden(fn (): bool => ! IntegrationHelper::isAiEnabled())
+                ->hidden(fn (): bool => ! IntegrationHelper::isFeatureEnabled(AiFeature::Extraction))
                 ->columnSpanFull(),
 
             Select::make('settings.ai_provider_id')
@@ -87,6 +88,12 @@ trait HasScraperTrait
                 ->default(fn (): ?string => IntegrationHelper::getActiveAiProvider()?->id)
                 ->required()
                 ->visible(fn (Get $get): bool => (bool) $get('settings.ai_extraction_enabled'))
+                ->columnSpanFull(),
+
+            Toggle::make('settings.ai_self_healing_disabled')
+                ->label('Disable AI self-healing for this store')
+                ->helperText('Prevent AI from automatically repairing this store\'s scraper config when a scrape fails.')
+                ->hidden(fn (): bool => ! IntegrationHelper::isFeatureEnabled(AiFeature::Healing))
                 ->columnSpanFull(),
         ])->description('Advanced scraper service settings')->columns(2);
     }

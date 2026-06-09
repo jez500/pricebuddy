@@ -7,6 +7,7 @@ use App\Models\Price;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\Url;
+use App\Services\AiConfigHealer;
 use App\Services\AiExtractionService;
 use App\Services\Helpers\SettingsHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,6 +27,11 @@ class UrlUpdatePriceTest extends TestCase
         SettingsHelper::$settings = null;
         Cache::flush();
         Once::flush();
+
+        // The healer is tested separately; make it a no-op here so these tests
+        // focus purely on the AiScrapeEnhancer fallback path.
+        $this->mock(AiConfigHealer::class, fn ($m) => $m->shouldReceive('heal')
+            ->andReturnUsing(fn ($u, $r) => $r));
     }
 
     private function configureProviders(): void

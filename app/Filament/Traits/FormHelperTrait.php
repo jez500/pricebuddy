@@ -32,13 +32,14 @@ trait FormHelperTrait
         array $schema = [],
         string|HtmlString|null $description = null,
         bool $flat = false,
+        int $cols = 2,
     ): Section|Group {
         $inner = Group::make([
             Toggle::make($subPath.'.enabled')->reactive(),
 
             // Only make additional settings if schema exists.
             Group::make($schema)
-                ->columns(2)
+                ->columns($cols)
                 ->statePath($subPath)
                 ->hidden(fn ($get) => ! $get($subPath.'.enabled') || empty($schema))
                 ->reactive(),

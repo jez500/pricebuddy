@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\AiFeature;
 use App\Enums\Icons;
 use App\Enums\ScraperService;
 use App\Enums\StockStatus;
@@ -204,6 +205,11 @@ class StoreResource extends Resource
                             ->icon('heroicon-m-sparkles')
                             ->visible(fn (): bool => IntegrationHelper::isAiEnabled())
                             ->action(fn (EditStore $livewire) => $livewire->compareWithAi()),
+                        FormAction::make('healWithAi')
+                            ->label('Heal with AI')
+                            ->icon('heroicon-m-wrench-screwdriver')
+                            ->visible(fn (): bool => IntegrationHelper::isFeatureEnabled(AiFeature::Healing))
+                            ->action(fn (EditStore $livewire) => $livewire->previewSelfHeal()),
                     ])
                     ->schema([
                         View::make('filament.resources.store-resource.test-results')
@@ -229,6 +235,25 @@ class StoreResource extends Resource
                                     $livewire->runScrape($livewire->testUrl, $state);
                                 }
                             }),
+                    ]),
+
+                Section::make('AI healing proposal')
+                    ->description('Proposed selectors — review, then apply to the form')
+                    ->extraAttributes(['class' => 'mt-4'])
+                    ->visible(fn (EditStore $livewire): bool => filled($livewire->healPreview))
+                    ->headerActions([
+                        FormAction::make('applySelfHeal')
+                            ->label('Apply to form')
+                            ->icon('heroicon-m-check')
+                            ->action(fn (EditStore $livewire) => $livewire->applySelfHeal()),
+                        FormAction::make('discardSelfHeal')
+                            ->label('Discard')
+                            ->color('gray')
+                            ->action(fn (EditStore $livewire) => $livewire->discardSelfHeal()),
+                    ])
+                    ->schema([
+                        View::make('filament.resources.store-resource.heal-preview')
+                            ->viewData(fn (EditStore $livewire): array => ['preview' => $livewire->healPreview]),
                     ]),
             ])));
     }

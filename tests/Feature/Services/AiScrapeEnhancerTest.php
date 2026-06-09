@@ -161,6 +161,28 @@ class AiScrapeEnhancerTest extends TestCase
         $this->assertNull($result['price']);
     }
 
+    public function test_skips_when_extraction_feature_disabled_globally(): void
+    {
+        SettingsHelper::setSetting('integrated_services', ['ai' => [
+            'enabled' => true,
+            'default_provider_id' => 'p1',
+            'feature_providers' => ['extraction' => '__disabled__'],
+            'providers' => [[
+                'id' => 'p1', 'name' => 'Local', 'type' => 'ollama',
+                'base_url' => 'http://ai.example:11434', 'model' => 'm',
+            ]],
+        ]]);
+        SettingsHelper::$settings = null;
+        Cache::flush();
+        Once::flush();
+
+        $this->mock(AiExtractionService::class, fn ($m) => $m->shouldReceive('extract')->never());
+
+        $result = AiScrapeEnhancer::new()->enhance($this->url(), ['price' => null, 'body' => '<html>']);
+
+        $this->assertNull($result['price']);
+    }
+
     public function test_store_chosen_provider_id_threads_through_to_extract(): void
     {
         SettingsHelper::setSetting('integrated_services', ['ai' => [

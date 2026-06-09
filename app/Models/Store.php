@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
@@ -30,6 +31,7 @@ use Spatie\Sluggable\SlugOptions;
  * @property array $scraper_options
  * @property bool $ai_extraction_enabled
  * @property string|null $ai_provider_id
+ * @property bool $ai_self_healing_disabled
  * @property string $locale
  * @property string $currency
  * @property Collection $urls
@@ -189,6 +191,13 @@ class Store extends Model
         );
     }
 
+    public function aiSelfHealingDisabled(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): bool => (bool) data_get($this->settings, 'ai_self_healing_disabled', false),
+        );
+    }
+
     public function scraperOptions(): Attribute
     {
         return Attribute::make(
@@ -235,5 +244,28 @@ class Store extends Model
         return collect($this->domains)
             ->pluck('domain')
             ->contains($domain);
+    }
+
+    public function getAiHealFailedAt(): ?Carbon
+    {
+        $value = data_get($this->settings, 'ai_heal_failed_at');
+
+        return filled($value) ? Carbon::parse($value) : null;
+    }
+
+    public function markAiHealFailed(): void
+    {
+        $this->settings = array_merge($this->settings ?? [], [
+            'ai_heal_failed_at' => now()->toIso8601String(),
+        ]);
+        $this->save();
+    }
+
+    public function clearAiHealFailed(): void
+    {
+        $settings = $this->settings ?? [];
+        unset($settings['ai_heal_failed_at']);
+        $this->settings = $settings;
+        $this->save();
     }
 }
