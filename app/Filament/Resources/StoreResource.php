@@ -10,13 +10,16 @@ use App\Filament\Pages\AppSettingsPage;
 use App\Filament\Resources\StoreResource\Pages\CreateStore;
 use App\Filament\Resources\StoreResource\Pages\EditStore;
 use App\Filament\Resources\StoreResource\Pages\ListStores;
-use App\Filament\Resources\StoreResource\Pages\TestStore;
 use App\Models\Store;
+use App\Models\Url;
 use App\Providers\Filament\AdminPanelProvider;
 use App\Rules\StoreUrl;
 use Filament\Forms;
+use Filament\Forms\Components\Actions;
+use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\View;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Resources\Resource;
@@ -145,18 +148,56 @@ class StoreResource extends Resource
             ->columns(1);
     }
 
-    public static function testForm(Form $form): Form
+    public static function testForm(Form $form, Store $store): Form
     {
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Url> $shortcutUrls */
+        $shortcutUrls = $store->urls()
+            ->with('product')
+            ->whereHas('product')
+            ->get()
+            ->unique('product_id')
+            ->take(5);
+
         return $form->schema([
-            Section::make('Test url scrape')->schema([
-                TextInput::make('test_url')
-                    ->label('Product URL')
-                    ->hintIcon(Icons::Help->value, 'The URL to scrape')
-                    ->required()
-                    ->rules([new StoreUrl]),
-            ])
+            Section::make('Test url scrape')
                 ->description('See the results of scraping a url using the current store settings')
-                ->columns(1),
+                ->columns(1)
+                ->schema(array_values(array_filter([
+                    $shortcutUrls->isNotEmpty()
+                        ? Actions::make(
+                            $shortcutUrls->map(fn (Url $url): FormAction => FormAction::make('product_'.$url->getKey())
+                                ->label($url->product->title)
+                                ->action(fn (EditStore $livewire) => $livewire->runScrape($url->url))
+                            )->all()
+                        )->label('Existing products')->key('product_shortcuts')
+                        : null,
+
+                    TextInput::make('test_url')
+                        ->label('Product URL')
+                        ->hintIcon(Icons::Help->value, 'The URL to scrape')
+                        ->default(fn (): string => (string) data_get($store, 'settings.test_url', ''))
+                        ->required()
+                        ->rules([new StoreUrl])
+                        ->suffixAction(
+                            FormAction::make('scrape')
+                                ->label('Test url scrape')
+                                ->icon(Icons::Search->value)
+                                ->action(function (Get $get, EditStore $livewire): void {
+                                    $url = (string) $get('test_url');
+
+                                    if (filled($url)) {
+                                        $livewire->runScrape($url);
+                                    }
+                                })
+                        ),
+
+                    View::make('filament.resources.store-resource.test-results')
+                        ->visible(fn (EditStore $livewire): bool => filled($livewire->testScrapeResult))
+                        ->viewData(fn (EditStore $livewire): array => [
+                            'scrape' => $livewire->testScrapeResult,
+                            'record' => $livewire->buildUnsavedStore(),
+                        ]),
+                ]))),
         ]);
     }
 
@@ -221,7 +262,6 @@ class StoreResource extends Resource
             'index' => ListStores::route('/'),
             'create' => CreateStore::route('/create'),
             'edit' => EditStore::route('/{record}/edit'),
-            'test' => TestStore::route('/{record}/test'),
         ];
     }
 }

@@ -1,4 +1,4 @@
-<x-filament-widgets::widget>
+<div>
     @if (empty($scrape))
         <p class="my-6">{{ __('Unable to find any data, check store settings') }}</p>
     @else
@@ -43,4 +43,4 @@
             @endif
         @endforeach
     @endif
-</x-filament-widgets::widget>
+</div>
