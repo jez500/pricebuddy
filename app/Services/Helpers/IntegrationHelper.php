@@ -2,6 +2,7 @@
 
 namespace App\Services\Helpers;
 
+use App\Dto\AiProviderConfigDto;
 use App\Enums\IntegratedServices;
 
 class IntegrationHelper
@@ -21,11 +22,51 @@ class IntegrationHelper
         return data_get(self::getSettings(), IntegratedServices::SearXng->value, []);
     }
 
+    public static function getAiSettings(): array
+    {
+        return data_get(self::getSettings(), IntegratedServices::Ai->value, []);
+    }
+
     public static function isSearchEnabled(): bool
     {
         $searchSettings = self::getSearchSettings();
 
         return data_get($searchSettings, 'enabled', false)
             && data_get($searchSettings, 'url', null);
+    }
+
+    public static function isAiEnabled(): bool
+    {
+        return (bool) data_get(self::getAiSettings(), 'enabled', false)
+            && self::getActiveAiProvider() !== null;
+    }
+
+    /**
+     * @return array<int, AiProviderConfigDto>
+     */
+    public static function getAiProviders(): array
+    {
+        return collect(data_get(self::getAiSettings(), 'providers', []))
+            ->map(fn ($provider) => is_array($provider) ? AiProviderConfigDto::fromArray($provider) : null)
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    public static function getActiveAiProvider(): ?AiProviderConfigDto
+    {
+        $defaultId = data_get(self::getAiSettings(), 'default_provider_id');
+
+        if (blank($defaultId)) {
+            return null;
+        }
+
+        foreach (self::getAiProviders() as $provider) {
+            if ($provider->id === $defaultId) {
+                return $provider;
+            }
+        }
+
+        return null;
     }
 }

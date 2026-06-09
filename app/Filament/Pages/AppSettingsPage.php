@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\AiProvider;
 use App\Enums\Icons;
 use App\Enums\IntegratedServices;
 use App\Enums\NotificationMethods;
@@ -12,20 +13,30 @@ use App\Filament\Actions\Notifications\TestTelegramAction;
 use App\Filament\Traits\FormHelperTrait;
 use App\Models\UrlResearch;
 use App\Rules\ValidCron;
+use App\Services\AiService;
 use App\Services\Helpers\CurrencyHelper;
+use App\Services\Helpers\IntegrationHelper;
 use App\Services\Helpers\LocaleHelper;
 use App\Services\Helpers\ScheduleHelper;
+use App\Services\OllamaService;
 use App\Services\SearchService;
 use App\Settings\AppSettings;
+use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Notifications\Notification;
 use Filament\Pages\SettingsPage;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Once;
+use Illuminate\Support\Str;
 
 class AppSettingsPage extends SettingsPage
 {
@@ -45,12 +56,110 @@ class AppSettingsPage extends SettingsPage
 
     protected static ?int $navigationSort = 100;
 
+    /**
+     * Ollama model names fetched per provider, keyed by provider id.
+     *
+     * @var array<string, array<int, string>>
+     */
+    public array $ollamaModels = [];
+
     public function save(): void
     {
         parent::save();
 
         Cache::flush();
         Once::flush();
+    }
+
+    /**
+     * Fetch installed Ollama models for a provider row and store them by id.
+     */
+    public function refreshOllamaModelsFor(string $providerId, ?string $baseUrl): void
+    {
+        if (blank($baseUrl)) {
+            Notification::make()->title('Enter the Ollama base URL first.')->warning()->send();
+
+            return;
+        }
+
+        try {
+            $this->ollamaModels[$providerId] = OllamaService::new()->listModels($baseUrl);
+
+            Notification::make()
+                ->title('Loaded '.count($this->ollamaModels[$providerId]).' Ollama model(s).')
+                ->success()
+                ->send();
+        } catch (\Throwable) {
+            Notification::make()->title('Could not reach Ollama')->body("No response from {$baseUrl}.")->danger()->send();
+        }
+    }
+
+    /**
+     * Test the saved provider with the given id (requires the settings to be saved).
+     */
+    public function testProviderById(string $providerId): void
+    {
+        $provider = collect(IntegrationHelper::getAiProviders())
+            ->first(fn ($p): bool => $p->id === $providerId);
+
+        if ($provider === null) {
+            Notification::make()->title('Save your settings before testing this provider.')->warning()->send();
+
+            return;
+        }
+
+        $result = AiService::new()->testProviderConfig($provider);
+
+        if ($result === true) {
+            Notification::make()->title('Connection succeeded')->success()->send();
+
+            return;
+        }
+
+        Notification::make()->title('Connection failed')->body($result)->danger()->send();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $existingProviders = collect(
+            data_get(AppSettings::new()->toArray(), 'integrated_services.ai.providers', [])
+        );
+
+        $providers = data_get($data, 'integrated_services.ai.providers', []);
+
+        foreach ($providers as $index => $provider) {
+            // Ollama has no API key.
+            if (($provider['type'] ?? null) === AiProvider::Ollama->value) {
+                continue;
+            }
+
+            $keyPath = "integrated_services.ai.providers.{$index}.api_key";
+            $submitted = data_get($data, $keyPath);
+
+            if (filled($submitted)) {
+                try {
+                    // Already-encrypted value — leave as-is (idempotent).
+                    Crypt::decryptString($submitted);
+                } catch (DecryptException) {
+                    data_set($data, $keyPath, Crypt::encryptString($submitted));
+                }
+
+                continue;
+            }
+
+            // Blank submission: restore the stored ciphertext for this provider id.
+            $storedKey = $existingProviders->firstWhere('id', $provider['id'] ?? null)['api_key'] ?? null;
+
+            if (filled($storedKey)) {
+                data_set($data, $keyPath, $storedKey);
+            }
+        }
+
+        return $data;
     }
 
     public function form(Form $form): Form
@@ -123,6 +232,7 @@ class AppSettingsPage extends SettingsPage
 
                 self::makeFormHeading('Integrations'),
 
+                $this->getAiSettings(),
                 $this->getSearXngSettings(),
             ]);
     }
@@ -355,6 +465,113 @@ class AppSettingsPage extends SettingsPage
                     ->default(SearchService::DEFAULT_MAX_PAGES),
             ],
             new HtmlString('Automatically search for additional products urls via <a href="https://searxng.org/" target="_blank">SearXng</a>')
+        );
+    }
+
+    protected function getAiSettings(): Section
+    {
+        return self::makeSettingsSection(
+            'AI',
+            self::INTEGRATED_SERVICES_KEY,
+            IntegratedServices::Ai->value,
+            [
+                Repeater::make('providers')
+                    ->label('Providers')
+                    ->addActionLabel('Add provider')
+                    ->collapsible()
+                    ->itemLabel(fn (array $state): string => $state['name'] ?? 'Provider')
+                    ->extraItemActions([
+                        Action::make('testProvider')
+                            ->icon('heroicon-m-signal')
+                            ->tooltip('Test this provider (save first)')
+                            ->action(function (array $arguments, Repeater $component, AppSettingsPage $livewire): void {
+                                $state = $component->getItemState($arguments['item']);
+                                $livewire->testProviderById($state['id'] ?? '');
+                            }),
+                    ])
+                    ->schema([
+                        Hidden::make('id')->default(fn (): string => (string) Str::ulid()),
+                        TextInput::make('name')
+                            ->required()
+                            ->placeholder('e.g. Local Ollama'),
+                        Select::make('type')
+                            ->options([
+                                AiProvider::OpenAI->value => 'OpenAI',
+                                AiProvider::Anthropic->value => 'Anthropic',
+                                AiProvider::Ollama->value => 'Ollama',
+                                AiProvider::Gemini->value => 'Gemini',
+                            ])
+                            ->required()
+                            ->live(),
+                        TextInput::make('base_url')
+                            ->label('Base URL')
+                            ->url()
+                            ->live(onBlur: true)
+                            ->helperText(fn (Get $get): string => $get('type') === AiProvider::Ollama->value
+                                ? 'e.g. http://localhost:11434'
+                                : 'Leave empty to use default.')
+                            ->required(fn (Get $get): bool => $get('type') === AiProvider::Ollama->value),
+                        TextInput::make('api_key')
+                            ->label('API key')
+                            ->password()
+                            ->revealable()
+                            ->helperText('Leave blank to keep the current key.')
+                            ->visible(fn (Get $get): bool => $get('type') !== AiProvider::Ollama->value),
+                        // Two fields share the 'model' state key, disambiguated by ->key() and
+                        // toggled by ->visible() on the provider type: a free-text input for cloud
+                        // providers and a searchable dropdown (with refresh) for Ollama. Keep their
+                        // visible() closures mutually exclusive so exactly one writes 'model'.
+                        TextInput::make('model')
+                            ->key('model_text')
+                            ->label('Model')
+                            ->placeholder('gpt-4.1-mini')
+                            ->visible(fn (Get $get): bool => $get('type') !== AiProvider::Ollama->value),
+                        Select::make('model')
+                            ->key('model_select')
+                            ->label('Model')
+                            ->native(false)
+                            ->searchable()
+                            ->placeholder('Refresh to load models')
+                            ->visible(fn (Get $get): bool => $get('type') === AiProvider::Ollama->value)
+                            ->options(function (AppSettingsPage $livewire, Get $get): array {
+                                $models = $livewire->ollamaModels[$get('id')] ?? [];
+                                $current = $get('model');
+
+                                if (filled($current) && ! in_array($current, $models, true)) {
+                                    $models[] = $current;
+                                }
+
+                                return array_combine($models, $models) ?: [];
+                            })
+                            ->suffixAction(
+                                Action::make('refreshOllamaModels')
+                                    ->icon('heroicon-m-arrow-path')
+                                    ->tooltip('Refresh models from Ollama')
+                                    ->action(function (AppSettingsPage $livewire, Get $get): void {
+                                        $livewire->refreshOllamaModelsFor($get('id'), $get('base_url'));
+                                    }),
+                            ),
+                        TextInput::make('timeout_seconds')
+                            ->label('Timeout seconds')
+                            ->helperText('Local models can take ~1 minute to cold-load.')
+                            ->numeric()->minValue(1)->default(60),
+                        TextInput::make('max_tokens')
+                            ->label('Max tokens')
+                            ->numeric()->minValue(1)->default(2000),
+                        TextInput::make('temperature')
+                            ->label('Temperature')
+                            ->numeric()->minValue(0)->maxValue(2)->default(0.2),
+                    ])
+                    ->columns(2),
+                Select::make('default_provider_id')
+                    ->label('Default provider')
+                    ->live()
+                    ->options(fn (Get $get): array => collect($get('providers') ?? [])
+                        ->filter(fn ($p): bool => filled($p['id'] ?? null))
+                        ->mapWithKeys(fn ($p): array => [$p['id'] => filled($p['name'] ?? null) ? $p['name'] : 'Provider'])
+                        ->all()),
+            ],
+            __('Configure one or more AI providers and choose which is used by default.')
         );
     }
 
