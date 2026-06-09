@@ -57,8 +57,8 @@ class AiScrapeEnhancer
         }
 
         // An out-of-stock item has no purchasable price; don't spend tokens.
-        $matchConfig = data_get($store, 'scrape_strategy.availability.match');
-        $isUnavailable = StockStatus::matchFromScrapedValue(data_get($scrapeResult, 'availability'), $matchConfig)
+        $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
+        $isUnavailable = StockStatus::resolveAvailability(data_get($scrapeResult, 'availability'), $availabilityStrategy)
             ->isUnavailable();
 
         if ($isUnavailable) {

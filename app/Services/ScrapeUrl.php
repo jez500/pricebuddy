@@ -131,8 +131,8 @@ class ScrapeUrl
             }
         }
 
-        $matchConfig = data_get($output, 'store.scrape_strategy.availability.match');
-        $isUnavailable = StockStatus::matchFromScrapedValue($output['availability'] ?? null, $matchConfig)->isUnavailable();
+        $availabilityStrategy = data_get($output, 'store.scrape_strategy.availability');
+        $isUnavailable = StockStatus::resolveAvailability($output['availability'] ?? null, $availabilityStrategy)->isUnavailable();
 
         foreach (['price', 'title'] as $required) {
             // Skip price requirement when product is unavailable.

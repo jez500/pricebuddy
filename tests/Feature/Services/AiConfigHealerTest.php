@@ -10,6 +10,8 @@ use App\Services\Helpers\SettingsHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Once;
+use Jez500\WebScraperForLaravel\Facades\WebScraper;
+use Jez500\WebScraperForLaravel\WebScraperFake;
 use Tests\TestCase;
 
 class AiConfigHealerTest extends TestCase
@@ -22,6 +24,10 @@ class AiConfigHealerTest extends TestCase
         SettingsHelper::$settings = null;
         Cache::flush();
         Once::flush();
+
+        // The deterministic step may escalate to a browser fetch; return non-structured
+        // HTML so heuristics find nothing and the mocked agent path is exercised.
+        WebScraper::shouldReceive('make')->andReturn((new WebScraperFake)->setBody($this->html()));
     }
 
     private function configureProviders(array $aiOverrides = []): void
@@ -51,7 +57,7 @@ class AiConfigHealerTest extends TestCase
 
     private function html(): string
     {
-        return '<html><body><h1 class="t">Widget</h1><span id="pr">$12.99</span></body></html>';
+        return '<html><body><div class="t">Widget</div><span id="pr">$12.99</span></body></html>';
     }
 
     private function mockAgent(?array $proposal, string $expectation = 'once'): void

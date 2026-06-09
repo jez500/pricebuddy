@@ -24,6 +24,10 @@ class AiConfigHealerBootstrapTest extends TestCase
         SettingsHelper::$settings = null;
         Cache::flush();
         Once::flush();
+
+        // The deterministic step may escalate to a browser fetch; return non-structured
+        // HTML so heuristics find nothing and the mocked agent path is exercised.
+        WebScraper::shouldReceive('make')->andReturn((new WebScraperFake)->setBody($this->html()));
     }
 
     private function configureProviders(array $aiOverrides = []): void
@@ -48,7 +52,7 @@ class AiConfigHealerBootstrapTest extends TestCase
 
     private function html(): string
     {
-        return '<html><body><h1 class="t">Widget</h1><span id="pr">$12.99</span></body></html>';
+        return '<html><body><div class="t">Widget</div><span id="pr">$12.99</span></body></html>';
     }
 
     private function validProposal(): array
@@ -75,18 +79,17 @@ class AiConfigHealerBootstrapTest extends TestCase
         $this->assertSame('.t', data_get($store->scrape_strategy, 'title.value'));
         $this->assertSame('Shop.test', $store->name);
         $this->assertContains('shop.test', collect($store->domains)->pluck('domain')->all());
-        // Static fetch was enough (agent never switched), so the store stays on HTTP.
-        $this->assertSame('http', data_get($store->settings, 'scraper_service'));
+        // Deterministic escalation always runs before the agent, so usedBrowser is true
+        // and the store is switched to the browser scraper.
+        $this->assertSame('api', data_get($store->settings, 'scraper_service'));
     }
 
     /**
      * Mock the agent so that, while running, it calls the fetch tool with rendered=true
      * (simulating a switch to browser scraping), backed by a faked scraper.
      */
-    private function mockAgentUsingBrowser(array $proposal, string $body): void
+    private function mockAgentUsingBrowser(array $proposal): void
     {
-        WebScraper::shouldReceive('make')->andReturn((new WebScraperFake)->setBody($body));
-
         $this->mock(AiService::class, function ($m) use ($proposal) {
             $m->shouldReceive('runAgent')->once()->andReturnUsing(function ($instructions, $schema, $prompt, $tools) use ($proposal) {
                 $tools[0]->handle(new Request(['rendered' => true]));
@@ -99,7 +102,7 @@ class AiConfigHealerBootstrapTest extends TestCase
     public function test_new_store_uses_browser_scraper_when_agent_switched_to_rendered(): void
     {
         $this->configureProviders();
-        $this->mockAgentUsingBrowser($this->validProposal(), $this->html());
+        $this->mockAgentUsingBrowser($this->validProposal());
 
         $store = AiConfigHealer::new()->healStoreForUrl('https://shop.test/widget', null, null);
 
@@ -111,7 +114,7 @@ class AiConfigHealerBootstrapTest extends TestCase
     public function test_existing_store_switched_to_browser_when_agent_used_rendered(): void
     {
         $this->configureProviders();
-        $this->mockAgentUsingBrowser($this->validProposal(), $this->html());
+        $this->mockAgentUsingBrowser($this->validProposal());
         $store = Store::factory()->create([
             'domains' => [['domain' => 'shop.test']],
             'settings' => ['scraper_service' => 'http'],
@@ -210,14 +213,15 @@ class AiConfigHealerBootstrapTest extends TestCase
         $this->assertSame('#pr', data_get($preview, 'fields.price.value'));
         $this->assertSame('.t', data_get($preview, 'fields.title.value'));
         $this->assertSame('$12.99', data_get($preview, 'extracted.price'));
-        $this->assertFalse(data_get($preview, 'usedBrowser'));
+        // Deterministic escalation always runs before the agent, so usedBrowser is true.
+        $this->assertTrue(data_get($preview, 'usedBrowser'));
         $this->assertDatabaseCount('stores', 0);
     }
 
     public function test_preview_reports_used_browser_and_persists_nothing(): void
     {
         $this->configureProviders();
-        $this->mockAgentUsingBrowser($this->validProposal(), $this->html());
+        $this->mockAgentUsingBrowser($this->validProposal());
 
         $preview = AiConfigHealer::new()->previewForUrl('https://shop.test/widget', null, null);
 

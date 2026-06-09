@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Enums\AiFeature;
 use App\Enums\Icons;
 use App\Enums\ScraperService;
+use App\Enums\ScraperStrategyType;
 use App\Enums\StockStatus;
 use App\Filament\Concerns\HasScraperTrait;
 use App\Filament\Pages\AppSettingsPage;
@@ -116,14 +117,16 @@ class StoreResource extends Resource
                                 (array) $get('availability.match'),
                                 fn ($entry, $key) => $key !== 'default' && (is_array($entry) ? ($entry['value'] ?? '') !== '' : ($entry !== '' && $entry !== null)),
                                 ARRAY_FILTER_USE_BOTH,
-                            ))),
+                            )))
+                            ->hidden(fn (Get $get): bool => $get('availability.type') === ScraperStrategyType::SchemaOrg->value),
                         Forms\Components\Select::make('availability.match.default')
                             ->label('Default status')
                             ->options(StockStatus::class)
                             ->default(StockStatus::InStock->value)
                             ->afterStateHydrated(fn (Forms\Components\Select $component, ?string $state) => $component->state($state ?? StockStatus::InStock->value))
                             ->required()
-                            ->hintIcon(Icons::Help->value, 'The status to use when the scraped text does not match any of the values above'),
+                            ->hintIcon(Icons::Help->value, 'The status to use when the scraped text does not match any of the values above')
+                            ->hidden(fn (Get $get): bool => $get('availability.type') === ScraperStrategyType::SchemaOrg->value),
                     ])->description('Optional: a selector that matches product availability.')
                         ->collapsed(fn (Get $get): bool => ($get('availability.value') ?? '') === ''),
                 ])

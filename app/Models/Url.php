@@ -178,22 +178,25 @@ class Url extends Model
             AutoCreateStore::createStoreFromUrl($url);
         }
 
-        $scrape = ScrapeUrl::new($url)->scrape();
+        // Suppress UI toasts on these intermediate scrapes: a first attempt may legitimately
+        // fail (e.g. bot-blocked) before AI self-healing switches to browser scraping. The
+        // only user-facing feedback is the final outcome (product created, or the caller's error).
+        $scrape = ScrapeUrl::new($url)->setSendUiNotifications(false)->scrape();
 
         /** @var ?Store $store */
         $store = data_get($scrape, 'store');
 
-        $matchConfig = data_get($store, 'scrape_strategy.availability.match');
-        $isUnavailable = StockStatus::matchFromScrapedValue(data_get($scrape, 'availability'), $matchConfig)->isUnavailable();
+        $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
+        $isUnavailable = StockStatus::resolveAvailability(data_get($scrape, 'availability'), $availabilityStrategy)->isUnavailable();
 
         // AI fallback: when a normal create would fail, let the healing agent build or
         // repair the store config, then re-scrape once with the new config.
         if ((! $store || (! data_get($scrape, 'price') && ! $isUnavailable))
             && AiConfigHealer::new()->healStoreForUrl($url, $store, data_get($scrape, 'body')) !== null) {
-            $scrape = ScrapeUrl::new($url)->scrape();
+            $scrape = ScrapeUrl::new($url)->setSendUiNotifications(false)->scrape();
             $store = data_get($scrape, 'store');
-            $matchConfig = data_get($store, 'scrape_strategy.availability.match');
-            $isUnavailable = StockStatus::matchFromScrapedValue(data_get($scrape, 'availability'), $matchConfig)->isUnavailable();
+            $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
+            $isUnavailable = StockStatus::resolveAvailability(data_get($scrape, 'availability'), $availabilityStrategy)->isUnavailable();
         }
 
         if (! $store || (! data_get($scrape, 'price') && ! $isUnavailable)) {
@@ -247,8 +250,8 @@ class Url extends Model
         // Update out-of-stock status based on scrape result.
         if ($scrapeResult) {
             $scrapedValue = data_get($scrapeResult, 'availability');
-            $matchConfig = data_get($this->store, 'scrape_strategy.availability.match');
-            $stockStatus = StockStatus::matchFromScrapedValue($scrapedValue, $matchConfig);
+            $availabilityStrategy = data_get($this->store, 'scrape_strategy.availability');
+            $stockStatus = StockStatus::resolveAvailability($scrapedValue, $availabilityStrategy);
             $availability = $stockStatus->isUnavailable() ? $stockStatus : null;
             $previousAvailability = $this->getAvailabilityStatus();
             $availabilityChanged = $previousAvailability !== $availability;

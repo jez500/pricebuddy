@@ -15,7 +15,16 @@ class SchemaOrgService
      */
     public static function parseSchemaOrg(Collection $collection, string $field): ?string
     {
-        $schema = $collection->firstWhere('@type', 'Product');
+        // Match the Product node case-insensitively, and tolerate an array @type
+        // (e.g. ["Product", "Thing"]). Some sites use a lowercase "product" type.
+        $schema = $collection->first(function ($item): bool {
+            $types = array_map(
+                static fn ($type): string => strtolower((string) $type),
+                (array) data_get($item, '@type'),
+            );
+
+            return in_array('product', $types, true);
+        });
 
         if (! $schema) {
             return null;

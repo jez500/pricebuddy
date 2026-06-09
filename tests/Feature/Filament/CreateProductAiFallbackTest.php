@@ -67,6 +67,31 @@ class CreateProductAiFallbackTest extends TestCase
         $this->assertDatabaseHas('urls', ['url' => self::URL]);
     }
 
+    public function test_no_scrape_error_toasts_during_a_healed_create(): void
+    {
+        // The initial (store-less) scrape would normally toast "Scrape error"; those
+        // intermediate toasts must be suppressed during the create/heal chain — the
+        // final outcome (product created, or a form error) is the only feedback.
+        $this->mock(AiConfigHealer::class, fn ($m) => $m->shouldReceive('healStoreForUrl')
+            ->once()
+            ->andReturnUsing(fn ($url, $store, $html) => Store::factory()->create([
+                'domains' => [['domain' => 'newshop.test']],
+            ])));
+
+        $this->mockScrape('19.99', 'AI Widget');
+
+        Livewire::test(CreateProduct::class)
+            ->fillForm([
+                'url' => self::URL,
+                'create_store' => false,
+            ])
+            ->call('create')
+            ->assertNotNotified('Scrape error')
+            ->assertHasNoFormErrors();
+
+        $this->assertDatabaseHas('products', ['title' => 'AI Widget']);
+    }
+
     public function test_validation_error_when_ai_cannot_heal(): void
     {
         $this->mock(AiConfigHealer::class, fn ($m) => $m->shouldReceive('healStoreForUrl')

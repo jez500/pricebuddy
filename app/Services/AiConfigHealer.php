@@ -127,8 +127,8 @@ class AiConfigHealer
             return $scrapeResult;
         }
 
-        $matchConfig = data_get($store, 'scrape_strategy.availability.match');
-        $isUnavailable = StockStatus::matchFromScrapedValue(data_get($scrapeResult, 'availability'), $matchConfig)
+        $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
+        $isUnavailable = StockStatus::resolveAvailability(data_get($scrapeResult, 'availability'), $availabilityStrategy)
             ->isUnavailable();
 
         if ($isUnavailable) {
@@ -187,48 +187,41 @@ class AiConfigHealer
         }
 
         try {
-            [$context, $result] = $this->runAgentForUrl($url, $store, $html, $provider);
+            $config = $this->resolveConfigForUrl($url, $store, $html, $provider);
 
-            if ($result === null) {
+            if ($config === null) {
                 $store?->markAiHealFailed();
 
                 return null;
             }
 
             if ($store !== null) {
-                $this->applyValidatedSlots($store, $result['validated']);
-
-                if ($context->usedBrowser()) {
-                    $this->useBrowserScraper($store);
-                }
-
+                $this->applyConfigToStore($store, $config);
                 $store->clearAiHealFailed();
-                $this->log($url)->info('Store scraper config healed via AI.', [
+                $this->log($url)->info('Store scraper config healed.', [
                     'store_id' => $store->getKey(),
-                    'fields' => array_keys($result['validated']),
+                    'fields' => array_keys($config['fields']),
                     'scraper_service' => data_get($store->settings, 'scraper_service'),
                 ]);
 
                 return $store;
             }
 
-            $attributes = AutoCreateStore::buildAttributes($url, $result['validated']);
+            $attributes = AutoCreateStore::buildAttributes($url, $config['fields']);
 
-            if ($context->usedBrowser()) {
-                // Static/HTTP scraping was insufficient (e.g. bot-blocked), so the live
-                // store must scrape via the browser like the agent did.
+            if ($config['usedBrowser']) {
                 data_set($attributes, 'settings.scraper_service', ScraperService::Api->value);
             }
 
             $created = (new CreateStoreAction)($attributes);
 
             if ($created !== null) {
-                $this->log($url)->info('Store created via AI self-healing.', [
+                $this->log($url)->info('Store created via self-healing.', [
                     'store_id' => $created->getKey(),
-                    'fields' => array_keys($result['validated']),
+                    'fields' => array_keys($config['fields']),
                 ]);
             } else {
-                $this->log($url)->warning('AI self-healing validated selectors but store creation failed.');
+                $this->log($url)->warning('Self-healing resolved a config but store creation failed.');
             }
 
             return $created;
@@ -242,7 +235,7 @@ class AiConfigHealer
      * persisting anything — for interactive preview-then-apply UIs. Returns null
      * when the Healing feature is unavailable or the agent produced no usable plan.
      *
-     * @return array{fields: array<string, array<string, mixed>>, extracted: array<string, string>, usedBrowser: bool}|null
+     * @return array{fields: array<string, array<string, mixed>>, extracted: array<string, mixed>, usedBrowser: bool}|null
      */
     public function previewForUrl(string $url, ?Store $store, ?string $html = null): ?array
     {
@@ -252,27 +245,17 @@ class AiConfigHealer
             return null;
         }
 
-        [$context, $result] = $this->runAgentForUrl($url, $store, $html, $provider);
-
-        if ($result === null) {
-            return null;
-        }
-
-        return [
-            'fields' => $result['validated'],
-            'extracted' => $result['extracted'],
-            'usedBrowser' => $context->usedBrowser(),
-        ];
+        return $this->resolveConfigForUrl($url, $store, $html, $provider);
     }
 
     /**
-     * Build a HealingContext for the URL, fetch static HTML when none was supplied,
-     * and run the agent. Returns [context, result] where result is the validated
-     * proposal from attemptAgentRepair, or null on fetch failure / agent failure.
+     * Resolve a scrape config for the URL. Tries the deterministic AutoCreateStore
+     * heuristics first on the static HTML, then on browser-rendered HTML, and only
+     * falls back to the AI agent when the heuristics cannot build a config.
      *
-     * @return array{0: HealingContext, 1: array{validated: array<string, array<string, mixed>>, extracted: array<string, string>}|null}
+     * @return array{fields: array<string, array<string, mixed>>, extracted: array<string, mixed>, usedBrowser: bool}|null
      */
-    protected function runAgentForUrl(string $url, ?Store $store, ?string $html, AiProviderConfigDto $provider): array
+    protected function resolveConfigForUrl(string $url, ?Store $store, ?string $html, AiProviderConfigDto $provider): ?array
     {
         $context = new HealingContext($url, $store ?? new Store(['settings' => []]), $html);
 
@@ -282,11 +265,65 @@ class AiConfigHealer
             } catch (Throwable $e) {
                 $this->log($url)->warning('AI healing could not fetch page HTML.', ['error' => $e->getMessage()]);
 
-                return [$context, null];
+                return null;
             }
         }
 
-        return [$context, $this->attemptAgentRepair($context, $provider)];
+        if ($detected = $this->detectConfig($url, (string) $context->getHtml())) {
+            $this->log($url)->info('Store config detected deterministically.', ['fields' => array_keys($detected['fields']), 'rendered' => false]);
+
+            return ['fields' => $detected['fields'], 'extracted' => $detected['extracted'], 'usedBrowser' => $context->usedBrowser()];
+        }
+
+        if (! $context->usedBrowser()) {
+            $browserFetched = false;
+
+            try {
+                $context->fetch(true);
+                $browserFetched = true;
+            } catch (Throwable $e) {
+                $this->log($url)->warning('AI healing could not fetch browser-rendered HTML.', ['error' => $e->getMessage()]);
+            }
+
+            if ($browserFetched && ($detected = $this->detectConfig($url, (string) $context->getHtml()))) {
+                $this->log($url)->info('Store config detected deterministically.', ['fields' => array_keys($detected['fields']), 'rendered' => true]);
+
+                return ['fields' => $detected['fields'], 'extracted' => $detected['extracted'], 'usedBrowser' => true];
+            }
+        }
+
+        $result = $this->attemptAgentRepair($context, $provider);
+
+        if ($result === null) {
+            return null;
+        }
+
+        return ['fields' => $result['validated'], 'extracted' => $result['extracted'], 'usedBrowser' => $context->usedBrowser()];
+    }
+
+    /**
+     * Run the deterministic AutoCreateStore heuristics on already-fetched HTML.
+     *
+     * @return array{fields: array<string, array<string, mixed>>, extracted: array<string, mixed>}|null
+     */
+    protected function detectConfig(string $url, string $html): ?array
+    {
+        return AutoCreateStore::new($url, $html)->setLogErrors(false)->detect();
+    }
+
+    /**
+     * Apply a resolved config's fields to a store (in memory) and switch it to the
+     * browser scraper when the resolution required browser rendering. Caller persists.
+     *
+     * @param  array{fields: array<string, array<string, mixed>>, usedBrowser: bool}  $config
+     */
+    protected function applyConfigToStore(Store $store, array $config): void
+    {
+        $this->applyValidatedSlots($store, $config['fields']);
+
+        if ($config['usedBrowser']) {
+            $this->useBrowserScraper($store);
+        }
     }
 
     /**
@@ -295,22 +332,25 @@ class AiConfigHealer
      */
     protected function runHeal(Url $url, Store $store, array $scrapeResult, string $html, AiProviderConfigDto $provider): array
     {
-        $result = $this->attemptAgentRepair(new HealingContext($url->url, $store, $html), $provider);
+        $config = $this->resolveConfigForUrl($url->url, $store, $html, $provider);
 
-        if ($result === null) {
+        if ($config === null) {
             $store->markAiHealFailed();
 
             return $scrapeResult;
         }
 
-        $this->applyValidatedSlots($store, $result['validated']);
+        $this->applyConfigToStore($store, $config);
         $store->clearAiHealFailed();
 
-        foreach ($result['extracted'] as $field => $value) {
+        foreach ($config['extracted'] as $field => $value) {
             data_set($scrapeResult, $field, $value);
         }
 
-        $this->log($url->url)->info('Store scraper config healed via AI.', ['fields' => array_keys($result['validated'])]);
+        $this->log($url->url)->info('Store scraper config healed.', [
+            'fields' => array_keys($config['fields']),
+            'scraper_service' => data_get($store->settings, 'scraper_service'),
+        ]);
 
         return $scrapeResult;
     }

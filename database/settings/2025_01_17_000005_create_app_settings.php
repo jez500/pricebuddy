@@ -15,13 +15,7 @@ return new class extends SettingsMigration
         $this->migrator->add('app.log_retention_days', 30);
         $this->migrator->add('app.max_attempts_to_scrape', 3);
         $this->migrator->add('app.notification_services', []);
-        $this->migrator->add('app.integrated_services', [
-            'ai' => [
-                'enabled' => false,
-                'default_provider_id' => null,
-                'providers' => [],
-            ],
-        ]);
+        $this->migrator->add('app.integrated_services', []);
     }
 
     /**

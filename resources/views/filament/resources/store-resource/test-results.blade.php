@@ -20,8 +20,10 @@
     @else
         @php
             $availabilityVal = data_get($scrape, 'availability');
+            $availabilityStrategy = data_get($record, 'scrape_strategy.availability');
+            $resolvedStatus = \App\Enums\StockStatus::resolveAvailability($availabilityVal, $availabilityStrategy);
+            $isSchemaOrgAvailability = data_get($availabilityStrategy, 'type') === \App\Enums\ScraperStrategyType::SchemaOrg->value;
             $matchConfig = data_get($record, 'scrape_strategy.availability.match');
-            $resolvedStatus = \App\Enums\StockStatus::matchFromScrapedValue($availabilityVal, $matchConfig);
 
             $matchedRule = null;
             if (is_array($matchConfig)) {
@@ -72,7 +74,7 @@
                             @if ($key === 'image' && $isUrl($scrapedVal))
                                 <img src="{{ $scrapedVal }}" alt="" class="h-16 w-16 rounded object-contain bg-white" />
                             @elseif ($key === 'availability' && filled($scrapedVal))
-                                {{ $resolvedStatus->getLabel() }}@if ($matchedRule) <span class="text-gray-400">— matched {{ $matchedRule }}</span>@elseif ($resolvedStatus === \App\Enums\StockStatus::InStock) <span class="text-gray-400">— no match (default)</span>@endif
+                                {{ $resolvedStatus->getLabel() }}@if ($matchedRule) <span class="text-gray-400">— matched {{ $matchedRule }}</span>@elseif ($isSchemaOrgAvailability) <span class="text-gray-400">— inferred from schema.org</span>@elseif ($resolvedStatus === \App\Enums\StockStatus::InStock) <span class="text-gray-400">— no match (default)</span>@endif
                             @elseif (filled($scrapedVal))
                                 <span class="break-words">{{ $scrapedVal }}</span>
                             @else

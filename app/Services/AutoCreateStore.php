@@ -76,29 +76,55 @@ class AutoCreateStore
 
     public function getStoreAttributes(): ?array
     {
-        $strategy = $this->strategyParse();
-        $schemaOrg = ScraperStrategyType::SchemaOrg->value;
+        $detected = $this->detect();
 
-        // Exit if required fields are missing, noting that schemaOrg doesn't requrie a value.
-        if (
-            (data_get($strategy, 'title.type') !== $schemaOrg && empty($strategy['title']['value'])) ||
-            (data_get($strategy, 'price.type') !== $schemaOrg && empty($strategy['price']['value']))
-        ) {
+        if ($detected === null) {
             $this->errorLog('Unable to auto create store', [
                 'url' => $this->url,
-                'strategy' => $strategy,
                 'html' => $this->html,
             ]);
 
             return null;
         }
 
-        return self::buildAttributes(
-            $this->url,
-            collect($this->strategyParse())
-                ->mapWithKeys(fn ($value, $key): array => [$key => collect($value)->only('type', 'value')->all()])
-                ->toArray(),
-        );
+        return self::buildAttributes($this->url, $detected['fields']);
+    }
+
+    /**
+     * Detect a scrape strategy from the (already-fetched) HTML using the deterministic
+     * heuristics (schema.org → selector → regex). Adds a schema.org availability field
+     * when present. Returns the field strategies plus each extracted value, or null when
+     * the required title+price could not be found.
+     *
+     * @return array{fields: array<string, array<string, string|null>>, extracted: array<string, mixed>}|null
+     */
+    public function detect(): ?array
+    {
+        $strategy = $this->strategyParse();
+        $schemaOrg = ScraperStrategyType::SchemaOrg->value;
+
+        if (
+            (data_get($strategy, 'title.type') !== $schemaOrg && empty(data_get($strategy, 'title.value')))
+            || (data_get($strategy, 'price.type') !== $schemaOrg && empty(data_get($strategy, 'price.value')))
+        ) {
+            return null;
+        }
+
+        $strategy['availability'] = $this->parseAvailability();
+
+        $fields = [];
+        $extracted = [];
+
+        foreach ($strategy as $field => $parsed) {
+            if (empty($parsed) || empty(data_get($parsed, 'type'))) {
+                continue;
+            }
+
+            $fields[$field] = collect($parsed)->only('type', 'value')->all();
+            $extracted[$field] = data_get($parsed, 'data');
+        }
+
+        return ['fields' => $fields, 'extracted' => $extracted];
     }
 
     /**
@@ -181,6 +207,11 @@ class AutoCreateStore
         }
 
         return [];
+    }
+
+    protected function parseAvailability(): array
+    {
+        return $this->attemptSchemaOrg('availability') ?? [];
     }
 
     protected function parseImage(): ?array

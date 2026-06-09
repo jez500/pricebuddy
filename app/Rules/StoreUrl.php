@@ -41,8 +41,8 @@ class StoreUrl implements DataAwareRule, ValidationRule
         if ($store) {
             $scrape = ScrapeUrl::new($value)->scrape();
 
-            $matchConfig = data_get($scrape, 'store.scrape_strategy.availability.match');
-            $isUnavailable = StockStatus::matchFromScrapedValue($scrape['availability'] ?? null, $matchConfig)->isUnavailable();
+            $availabilityStrategy = data_get($scrape, 'store.scrape_strategy.availability');
+            $isUnavailable = StockStatus::resolveAvailability($scrape['availability'] ?? null, $availabilityStrategy)->isUnavailable();
 
             if (empty($scrape['title']) || (empty($scrape['price']) && ! $isUnavailable)) {
                 $fail('The url does not contain a valid title or price');
