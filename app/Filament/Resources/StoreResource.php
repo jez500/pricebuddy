@@ -14,6 +14,7 @@ use App\Models\Store;
 use App\Models\Url;
 use App\Providers\Filament\AdminPanelProvider;
 use App\Rules\StoreUrl;
+use App\Services\Helpers\IntegrationHelper;
 use Filament\Forms;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action as FormAction;
@@ -191,10 +192,19 @@ class StoreResource extends Resource
                                 })
                         ),
 
+                    Actions::make([
+                        FormAction::make('compareWithAi')
+                            ->label('Compare with AI')
+                            ->icon('heroicon-m-sparkles')
+                            ->action(fn (EditStore $livewire) => $livewire->compareWithAi()),
+                    ])
+                        ->visible(fn (EditStore $livewire): bool => IntegrationHelper::isAiEnabled() && filled($livewire->testScrapeResult)),
+
                     View::make('filament.resources.store-resource.test-results')
                         ->visible(fn (EditStore $livewire): bool => filled($livewire->testScrapeResult))
                         ->viewData(fn (EditStore $livewire): array => [
                             'scrape' => $livewire->testScrapeResult,
+                            'ai' => $livewire->testAiResult,
                             'record' => $livewire->buildUnsavedStore(),
                         ]),
                 ]))),
