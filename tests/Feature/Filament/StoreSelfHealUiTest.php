@@ -21,6 +21,13 @@ class StoreSelfHealUiTest extends TestCase
     {
         parent::setUp();
         $this->actingAs(User::factory()->create(['email' => 'test@test.com']));
+
+        // Heal-action visibility is gated on AI settings, which IntegrationHelper reads
+        // through a once()-memoized SettingsHelper::$settings static. Both survive between
+        // tests in a parallel worker, so reset them here to stop a prior test's "AI enabled"
+        // state leaking into the disabled-by-default assertions below.
+        SettingsHelper::$settings = null;
+        Once::flush();
     }
 
     private function preview(): array

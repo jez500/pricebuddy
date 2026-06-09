@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Dto\AiExtractionResultDto;
 use App\Dto\AiProviderConfigDto;
 use App\Enums\StockStatus;
+use App\Services\Ai\HtmlSafety;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\IntegrationHelper;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -53,7 +54,7 @@ class AiExtractionService
         }
 
         $result = $this->ai->structured(
-            self::EXTRACTION_PROMPT,
+            self::EXTRACTION_PROMPT."\n- ".HtmlSafety::UNTRUSTED_RULE,
             fn (JsonSchema $schema) => [
                 'name' => $schema->string(),
                 'description' => $schema->string(),

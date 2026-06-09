@@ -6,7 +6,6 @@ use App\Enums\AiProvider;
 use App\Services\Helpers\IntegrationHelper;
 use App\Services\Helpers\SettingsHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Once;
 use Tests\TestCase;
 
@@ -23,21 +22,24 @@ class IntegrationHelperTest extends TestCase
     }
 
     /**
+     * Set integrated-services settings via the in-memory override seam so these
+     * read-side unit tests stay hermetic: no DB write and no spatie save path,
+     * which is order-dependent under the parallel harness (the AppSettings
+     * singleton can leak in incomplete and fail save with MissingSettings).
+     *
      * @param  array<string, mixed>  $value
      */
     private function setIntegratedServices(array $value): void
     {
-        SettingsHelper::setSetting('integrated_services', $value);
-        SettingsHelper::$settings = null;
-        Cache::flush();
+        SettingsHelper::$settings = ['integrated_services' => $value];
         Once::flush();
     }
 
     public function test_get_ai_settings_degrades_gracefully_when_unconfigured(): void
     {
-        // The released create-settings migration seeds integrated_services as [],
-        // so AI is unconfigured until the user saves it. The helpers must degrade
-        // gracefully from that empty default rather than assuming a seeded shape.
+        // A fresh install leaves integrated_services empty (no 'ai' key), so AI is
+        // unconfigured until saved. The helpers must degrade gracefully from that
+        // empty default rather than assuming a seeded shape.
         $this->setIntegratedServices([]);
 
         $this->assertSame([], IntegrationHelper::getAiSettings());

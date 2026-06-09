@@ -6,6 +6,7 @@ use App\Dto\AiExtractionResultDto;
 use App\Dto\AiProviderConfigDto;
 use App\Enums\AiProvider;
 use App\Enums\StockStatus;
+use App\Services\Ai\HtmlSafety;
 use App\Services\AiExtractionService;
 use App\Services\AiService;
 use Tests\TestCase;
@@ -114,6 +115,25 @@ class AiExtractionServiceTest extends TestCase
 
         $this->assertInstanceOf(AiExtractionResultDto::class, $result);
         $this->assertSame(StockStatus::PreOrder, $result->stockStatus);
+    }
+
+    public function test_extraction_instructions_include_the_untrusted_html_rule(): void
+    {
+        $captured = null;
+
+        $this->mock(AiService::class, function ($mock) use (&$captured) {
+            $mock->shouldReceive('structured')
+                ->once()
+                ->andReturnUsing(function (string $instructions) use (&$captured) {
+                    $captured = $instructions;
+
+                    return null;
+                });
+        });
+
+        AiExtractionService::new()->extract('<html><body>Widget</body></html>', provider: $this->provider());
+
+        $this->assertStringContainsString(HtmlSafety::UNTRUSTED_RULE, (string) $captured);
     }
 
     public function test_prepare_html_prepends_schema_org_json_within_25k_limit(): void
