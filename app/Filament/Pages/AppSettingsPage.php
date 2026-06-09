@@ -22,10 +22,11 @@ use App\Services\OllamaService;
 use App\Services\SearchService;
 use App\Settings\AppSettings;
 use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Group;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Tabs;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
@@ -164,80 +165,110 @@ class AppSettingsPage extends SettingsPage
 
     public function form(Form $form): Form
     {
-        return $form
-            ->schema([
-                Section::make('Scrape Settings')
-                    ->description(__('Settings for scraping'))
-                    ->columns(2)
-                    ->schema([
-                        TextInput::make('scrape_schedule')
-                            ->label('Fetch schedule')
-                            ->hintIcon(Icons::Help->value, 'Cron expression to control scraping. Use https://crontab.guru to build an expression.')
-                            ->rule(new ValidCron)
-                            ->live()
-                            ->helperText(fn (Get $get) => ScheduleHelper::parseCronExpression($get('scrape_schedule')))
-                            ->required(),
-                        TextInput::make('scrape_cache_ttl')
-                            ->label('Scrape cache ttl')
-                            ->hintIcon(Icons::Help->value, 'After a page is scraped, how many minutes will be the page html be cached for')
-                            ->numeric()
-                            ->minValue(1)
-                            ->required(),
-                        TextInput::make('sleep_seconds_between_scrape')
-                            ->label('Seconds to wait before fetching next page')
-                            ->hintIcon(Icons::Help->value, 'It is recommended to wait a few seconds between fetching pages to prevent being blocked')
-                            ->numeric()
-                            ->minValue(1)
-                            ->required(),
-                        TextInput::make('max_attempts_to_scrape')
-                            ->label('Max scrape attempts')
-                            ->hintIcon(Icons::Help->value, 'How many times to attempt to scrape a page before giving up')
-                            ->numeric()
-                            ->minValue(1)
-                            ->required(),
-                    ]),
+        return $form->schema([
+            Tabs::make('Settings')
+                ->persistTabInQueryString()
+                ->columnSpanFull()
+                ->tabs([
+                    Tabs\Tab::make('General')
+                        ->icon('heroicon-o-cog-6-tooth')
+                        ->schema([
+                            $this->getLocaleSection(),
+                            $this->getLoggingSection(),
+                        ]),
 
-                Section::make('Locale')
-                    ->description(__('Default region and locale settings'))
-                    ->columns(2)
-                    ->schema(self::getLocaleFormFields('default_locale_settings')),
+                    Tabs\Tab::make('Scraping')
+                        ->icon('heroicon-o-magnifying-glass')
+                        ->schema([
+                            $this->getScrapeSection(),
+                            $this->getSearXngSettings(),
+                        ]),
 
-                Section::make('Logging')
-                    ->description(__('Settings for logging'))
-                    ->columns(2)
-                    ->schema([
-                        Select::make('log_retention_days')
-                            ->label('Log retention days')
-                            ->options([
-                                7 => '7 days',
-                                14 => '14 days',
-                                30 => '30 days',
-                                90 => '90 days',
-                                180 => '180 days',
-                                365 => '365 days',
-                            ])
-                            ->hintIcon(Icons::Help->value, 'How many days to keep logs for')
-                            ->required(),
-                    ]),
+                    Tabs\Tab::make('Notifications')
+                        ->icon('heroicon-o-bell')
+                        ->schema([
+                            $this->getEmailSettings(),
+                            $this->getPushoverSettings(),
+                            $this->getGotifySettings(),
+                            $this->getAppriseSettings(),
+                            $this->getTelegramSettings(),
+                            $this->getDiscordSettings(),
+                            $this->getNtfySettings(),
+                        ]),
 
-                self::makeFormHeading('Notifications'),
-
-                $this->getEmailSettings(),
-                $this->getPushoverSettings(),
-                $this->getGotifySettings(),
-                $this->getAppriseSettings(),
-                $this->getTelegramSettings(),
-                $this->getDiscordSettings(),
-                $this->getNtfySettings(),
-
-                self::makeFormHeading('Integrations'),
-
-                $this->getAiSettings(),
-                $this->getSearXngSettings(),
-            ]);
+                    Tabs\Tab::make('AI')
+                        ->icon('heroicon-o-sparkles')
+                        ->schema([
+                            $this->getAiSettings(),
+                        ]),
+                ]),
+        ]);
     }
 
-    protected function getEmailSettings(): Section
+    protected function getScrapeSection(): Group
+    {
+        return Group::make([
+            self::makeSettingsHeading('Scrape Settings', __('Settings for scraping')),
+            Group::make([
+                TextInput::make('scrape_schedule')
+                    ->label('Fetch schedule')
+                    ->hintIcon(Icons::Help->value, 'Cron expression to control scraping. Use https://crontab.guru to build an expression.')
+                    ->rule(new ValidCron)
+                    ->live()
+                    ->helperText(fn (Get $get) => ScheduleHelper::parseCronExpression($get('scrape_schedule')))
+                    ->required(),
+                TextInput::make('scrape_cache_ttl')
+                    ->label('Scrape cache ttl')
+                    ->hintIcon(Icons::Help->value, 'After a page is scraped, how many minutes will be the page html be cached for')
+                    ->numeric()
+                    ->minValue(1)
+                    ->required(),
+                TextInput::make('sleep_seconds_between_scrape')
+                    ->label('Seconds to wait before fetching next page')
+                    ->hintIcon(Icons::Help->value, 'It is recommended to wait a few seconds between fetching pages to prevent being blocked')
+                    ->numeric()
+                    ->minValue(1)
+                    ->required(),
+                TextInput::make('max_attempts_to_scrape')
+                    ->label('Max scrape attempts')
+                    ->hintIcon(Icons::Help->value, 'How many times to attempt to scrape a page before giving up')
+                    ->numeric()
+                    ->minValue(1)
+                    ->required(),
+            ])->columns(2),
+        ]);
+    }
+
+    protected function getLocaleSection(): Group
+    {
+        return Group::make([
+            self::makeSettingsHeading('Locale', __('Default region and locale settings')),
+            Group::make(self::getLocaleFormFields('default_locale_settings'))->columns(2),
+        ]);
+    }
+
+    protected function getLoggingSection(): Group
+    {
+        return Group::make([
+            self::makeSettingsHeading('Logging', __('Settings for logging')),
+            Group::make([
+                Select::make('log_retention_days')
+                    ->label('Log retention days')
+                    ->options([
+                        7 => '7 days',
+                        14 => '14 days',
+                        30 => '30 days',
+                        90 => '90 days',
+                        180 => '180 days',
+                        365 => '365 days',
+                    ])
+                    ->hintIcon(Icons::Help->value, 'How many days to keep logs for')
+                    ->required(),
+            ])->columns(2),
+        ]);
+    }
+
+    protected function getEmailSettings(): Group
     {
         return self::makeSettingsSection(
             'Email',
@@ -273,11 +304,12 @@ class AppSettingsPage extends SettingsPage
                     ])
                     ->hintIcon(Icons::Help->value, 'The encryption method to use when sending emails'),
             ],
-            __('SMTP settings for sending emails')
+            __('SMTP settings for sending emails'),
+            flat: true
         );
     }
 
-    protected function getPushoverSettings(): Section
+    protected function getPushoverSettings(): Group
     {
         return self::makeSettingsSection(
             'Pushover',
@@ -289,11 +321,12 @@ class AppSettingsPage extends SettingsPage
                     ->hint(new HtmlString('<a href="https://pushover.net/apps/build" target="_blank">Create an application</a>'))
                     ->required(),
             ],
-            __('Push notifications via Pushover')
+            __('Push notifications via Pushover'),
+            flat: true
         );
     }
 
-    protected function getGotifySettings(): Section
+    protected function getGotifySettings(): Group
     {
         return self::makeSettingsSection(
             'Gotify',
@@ -313,11 +346,12 @@ class AppSettingsPage extends SettingsPage
                             ->setSettings(fn () => $this->form->getState()['notification_services']['gotify'] ?? []),
                     ),
             ],
-            __('Push notifications via Gotify')
+            __('Push notifications via Gotify'),
+            flat: true
         );
     }
 
-    protected function getAppriseSettings(): Section
+    protected function getAppriseSettings(): Group
     {
         return self::makeSettingsSection(
             'Apprise',
@@ -336,11 +370,12 @@ class AppSettingsPage extends SettingsPage
                             ->setSettings(fn () => data_get($this->form->getState(), 'notification_services.apprise', [])),
                     ),
             ],
-            __('Push notifications via Apprise')
+            __('Push notifications via Apprise'),
+            flat: true
         );
     }
 
-    protected function getTelegramSettings(): Section
+    protected function getTelegramSettings(): Group
     {
         return self::makeSettingsSection(
             'Telegram',
@@ -358,11 +393,12 @@ class AppSettingsPage extends SettingsPage
                             ->setSettings(fn () => data_get($this->form->getState(), 'notification_services.telegram', [])),
                     ),
             ],
-            __('Push notifications via a Telegram bot')
+            __('Push notifications via a Telegram bot'),
+            flat: true
         );
     }
 
-    protected function getDiscordSettings(): Section
+    protected function getDiscordSettings(): Group
     {
         return self::makeSettingsSection(
             'Discord',
@@ -381,11 +417,12 @@ class AppSettingsPage extends SettingsPage
                             ->setSettings(fn () => data_get($this->form->getState(), 'notification_services.discord', [])),
                     ),
             ],
-            __('Push notifications to a Discord channel via webhooks')
+            __('Push notifications to a Discord channel via webhooks'),
+            flat: true
         );
     }
 
-    protected function getNtfySettings(): Section
+    protected function getNtfySettings(): Group
     {
         return self::makeSettingsSection(
             'ntfy',
@@ -405,11 +442,12 @@ class AppSettingsPage extends SettingsPage
                     ->password()
                     ->hintIcon(Icons::Help->value, __('Optional. Only needed for protected self-hosted servers.')),
             ],
-            __('Push notifications via ntfy. Each user subscribes to their own topic in their profile.')
+            __('Push notifications via ntfy. Each user subscribes to their own topic in their profile.'),
+            flat: true
         );
     }
 
-    protected function getSearXngSettings(): Section
+    protected function getSearXngSettings(): Group
     {
         return self::makeSettingsSection(
             'SearXng',
@@ -464,11 +502,12 @@ class AppSettingsPage extends SettingsPage
                     ])
                     ->default(SearchService::DEFAULT_MAX_PAGES),
             ],
-            new HtmlString('Automatically search for additional products urls via <a href="https://searxng.org/" target="_blank">SearXng</a>')
+            new HtmlString('Automatically search for additional products urls via <a href="https://searxng.org/" target="_blank">SearXng</a>'),
+            flat: true
         );
     }
 
-    protected function getAiSettings(): Section
+    protected function getAiSettings(): Group
     {
         return self::makeSettingsSection(
             'AI',
@@ -571,7 +610,8 @@ class AppSettingsPage extends SettingsPage
                         ->mapWithKeys(fn ($p): array => [$p['id'] => filled($p['name'] ?? null) ? $p['name'] : 'Provider'])
                         ->all()),
             ],
-            __('Configure one or more AI providers and choose which is used by default.')
+            __('Configure one or more AI providers and choose which is used by default.'),
+            flat: true
         );
     }
 
