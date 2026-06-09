@@ -86,3 +86,25 @@ returning results as JSON (See the [SearXNG documentation](https://docs.searxng.
 * By default SearchXNG returns 30 items per page but here you can set how many pages
   to process if you want more results. Default is 1.
 
+### AI providers
+
+PriceBuddy can optionally use AI to recover missing prices and repair store
+scraping rules. This is disabled by default and only runs once you configure at
+least one provider here.
+
+* **Add one or more providers** - Each provider has a type
+  (OpenAI, Anthropic, Gemini or [Ollama](https://ollama.com)), a model, and —
+  for cloud providers — an API key. API keys are encrypted at rest. Use the
+  per-row **Test** button to check a provider is reachable before saving.
+* **Default provider** - Choose which provider is used by default.
+* **Per-feature provider** - Optionally pick a different provider for each
+  feature (price *Extraction* and self-*Healing*), or turn an individual feature
+  off entirely.
+
+[Ollama](https://ollama.com) lets you run a model locally with no per-request
+cost — set the base URL (e.g. `http://localhost:11434`) and pick a model from the
+dropdown. Local models can be slower to respond, so allow a generous timeout.
+
+Once a provider is configured, enable the features per store on the
+[store](/stores.html#ai-price-extraction) edit page.
+

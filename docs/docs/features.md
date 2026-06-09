@@ -42,6 +42,24 @@ pause checking on individual products when you don't need them tracked right now
 Visualise price changes over time with charts. See the min, max and average prices
 Quickly identify trends and decide when to buy.
 
+## AI-assisted scraping (optional)
+
+PriceBuddy can optionally use an AI provider to help when normal scraping isn't
+enough. It's disabled by default — connect a provider under
+[Settings → AI providers](/settings.html#ai-providers) to turn it on.
+
+- **AI price extraction** - When a scheduled scrape can't find a price, AI reads
+  the page and recovers it. Enabled per store, it only fills a genuine gap and
+  skips out-of-stock items.
+- **AI self-healing** - When a store's scraping rules stop working, AI proposes
+  fresh selectors to repair them, and can even bootstrap a brand new store from
+  just a product URL. Can be disabled per store.
+- **Bring your own provider** - Works with OpenAI, Anthropic, Gemini or a local
+  [Ollama](https://ollama.com) model, so your data and costs stay under your
+  control.
+
+See [stores](/stores.html#ai-price-extraction) for how to enable it per store.
+
 ## Support for JS rendered sites
 
 A headless browser can be used to scrape sites that require Javascript to render 

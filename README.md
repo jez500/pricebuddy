@@ -21,6 +21,13 @@ No waiting for someone to add support for your favourite retailer. If a store
 has a product page, PriceBuddy can almost certainly track it — out of the box or
 with a few clicks. Many popular stores work the moment you paste a link.
 
+### 🤖 Optional AI assist
+Bring your own AI provider (OpenAI, Anthropic, Gemini or a local
+[Ollama](https://ollama.com) model) and let PriceBuddy lend a hand when a normal
+scrape struggles — it can recover a missing price straight from the page, and
+even repair or bootstrap a store's scraping rules for you. Entirely optional and
+off by default; PriceBuddy works great without it.
+
 ### 💰 Compare prices across stores
 Track the same product across multiple retailers (or multiple listings on the
 same site, like eBay) and instantly see where it's cheapest right now.

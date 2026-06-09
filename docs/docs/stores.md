@@ -100,6 +100,10 @@ To configure it:
 This lets PriceBuddy show stock information in the product view and avoid
 treating unavailable items as normal price matches.
 
+When the availability strategy type is **Schema.org**, PriceBuddy infers the
+status directly from the page's schema.org availability value, so you don't need
+to configure match values for it.
+
 ### Regex
 
 Regular expressions are a powerful way to extract data from a page. It is more 
@@ -206,6 +210,42 @@ Curl based HTTP request to get the page contents for performance reasons.
 
 If auto creation fails, try manually creating the store and using the API scraper or
 more custom strategies.
+
+## Testing a store
+
+When editing a store, use **Test** to try a product URL and see exactly what the
+current strategies extract. Results are shown in a comparison table (title,
+price, image, availability and more) so you can confirm each field before
+saving. You can switch the [scraper service](#scraper-service) and re-test, and —
+if an [AI provider](/settings.html#ai-providers) is configured — use **Compare
+with AI** to see what AI extracts from the same page alongside the scraped
+values.
+
+## AI price extraction
+
+If an [AI provider](/settings.html#ai-providers) is configured, you can enable
+**AI price extraction** per store. When a normal scrape finds no price, AI reads
+the page and tries to recover one.
+
+It is purely additive: it only fills a genuine gap, never overrides a scraped
+price, skips items detected as out of stock, and only accepts a confident
+result. You can optionally choose a specific provider for the store.
+
+## AI self-healing
+
+When a store's strategies stop working (for example the site changes its
+markup), **AI self-healing** can propose fresh selectors to repair the store
+config — and can even bootstrap a new store from just a product URL. PriceBuddy
+tries deterministic heuristics first and only escalates to the AI provider when
+needed.
+
+From the store [test](#testing-a-store) view you can run **Heal with AI** to
+preview a proposed fix and apply or discard it; nothing is saved until you choose
+to. Self-healing can be turned off per store with **Disable AI self-healing for
+this store**.
+
+Requires an [AI provider](/settings.html#ai-providers) with the *Healing*
+feature enabled.
 
 ## Sharing a store
 
