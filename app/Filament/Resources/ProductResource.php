@@ -15,6 +15,7 @@ use App\Models\Tag; // ADD THIS - Missing Tag import
 use App\Providers\Filament\AdminPanelProvider;
 use App\Rules\StoreUrl;
 use App\Services\Helpers\CurrencyHelper;
+use App\Services\Helpers\IntegrationHelper;
 use Filament\Forms;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
@@ -211,6 +212,12 @@ class ProductResource extends Resource
                 Forms\Components\Toggle::make('notify_in_stock')
                     ->label('Notify when back in stock')
                     ->hintIcon(Icons::Help->value, 'Get notified when a tracked url for this product becomes available again after being out of stock')
+                    ->columnSpanFull(),
+
+                Forms\Components\Toggle::make('ai_extraction_disabled')
+                    ->label('Disable AI extraction')
+                    ->hintIcon(Icons::Help->value, 'Skip AI price recovery for this product.')
+                    ->hidden(fn (): bool => ! IntegrationHelper::isAiEnabled())
                     ->columnSpanFull(),
             ])
                 ->columns(2)
