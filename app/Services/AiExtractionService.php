@@ -104,8 +104,9 @@ class AiExtractionService
         // Reserve room for the schema.org prefix so it is never sliced mid-JSON, then
         // guard the combined length (covers the rare case the prefix alone exceeds the cap).
         $budget = max(0, self::MAX_HTML_CHARS - strlen($prefix));
+        $truncatedCleaned = Str::limit($cleaned, $budget, '');
 
-        return Str::limit($prefix.Str::limit($cleaned, $budget, ''), self::MAX_HTML_CHARS, '');
+        return Str::limit($prefix.$truncatedCleaned, self::MAX_HTML_CHARS, '');
     }
 
     protected function parsePrice(mixed $price): ?float

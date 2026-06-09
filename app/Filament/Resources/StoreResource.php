@@ -160,6 +160,7 @@ class StoreResource extends Resource
         $shortcutUrls = $store->urls()
             ->with('product')
             ->whereHas('product')
+            ->latest()
             ->get()
             ->unique('product_id')
             ->take(5);

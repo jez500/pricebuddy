@@ -86,7 +86,7 @@ trait HasScraperTrait
                     ->mapWithKeys(fn ($provider): array => [$provider->id => $provider->name])
                     ->all())
                 ->default(fn (): ?string => IntegrationHelper::getActiveAiProvider()?->id)
-                ->required()
+                ->required(fn (Get $get): bool => (bool) $get('settings.ai_extraction_enabled'))
                 ->visible(fn (Get $get): bool => (bool) $get('settings.ai_extraction_enabled'))
                 ->columnSpanFull(),
 

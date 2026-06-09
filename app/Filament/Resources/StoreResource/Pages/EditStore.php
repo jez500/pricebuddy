@@ -15,6 +15,8 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Enums\MaxWidth;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class EditStore extends EditRecord
 {
@@ -46,10 +48,23 @@ class EditStore extends EditRecord
         $this->testUrl = $url;
         $this->testScraper = $store->scraper_service;
 
-        $scrape = ScrapeUrl::new($url)->scrape([
-            'store' => $store,
-            'use_cache' => false,
-        ]);
+        try {
+            $scrape = ScrapeUrl::new($url)->scrape([
+                'store' => $store,
+                'use_cache' => false,
+            ]);
+        } catch (Throwable $e) {
+            // @phpstan-ignore-next-line - withContext is valid.
+            Log::channel('db')->withContext(['url' => $url])
+                ->error('Test scrape failed.', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
+            $this->testScrapeResult = null;
+            $this->testAiResult = null;
+
+            Notification::make()->title('Scrape failed')->body('Check the store settings and logs.')->danger()->send();
+
+            return;
+        }
 
         $this->testScrapeResult = $scrape;
         $this->testAiResult = null;

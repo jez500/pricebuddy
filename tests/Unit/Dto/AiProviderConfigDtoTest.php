@@ -37,6 +37,28 @@ it('applies defaults for missing generation params', function () {
         ->and($dto->name)->toBe('Ollama'); // falls back to the enum case name
 });
 
+it('falls back to defaults when generation params are out of range', function () {
+    $dto = AiProviderConfigDto::fromArray([
+        'id' => 'p1',
+        'type' => 'ollama',
+        'timeout_seconds' => 0,
+        'max_tokens' => -5,
+        'temperature' => 3.5,
+    ]);
+
+    expect($dto->timeoutSeconds)->toBe(60)
+        ->and($dto->maxTokens)->toBe(2000)
+        ->and($dto->temperature)->toBe(0.2);
+});
+
+it('keeps the temperature range boundaries', function () {
+    $low = AiProviderConfigDto::fromArray(['id' => 'p1', 'type' => 'ollama', 'temperature' => 0.0]);
+    $high = AiProviderConfigDto::fromArray(['id' => 'p1', 'type' => 'ollama', 'temperature' => 2.0]);
+
+    expect($low->temperature)->toBe(0.0)
+        ->and($high->temperature)->toBe(2.0);
+});
+
 it('returns null for an unknown or missing type', function () {
     expect(AiProviderConfigDto::fromArray(['id' => 'p1', 'type' => 'nope']))->toBeNull()
         ->and(AiProviderConfigDto::fromArray(['id' => 'p1']))->toBeNull();

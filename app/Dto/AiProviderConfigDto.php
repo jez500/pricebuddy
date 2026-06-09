@@ -31,6 +31,10 @@ class AiProviderConfigDto
             return null;
         }
 
+        $timeoutSeconds = (int) ($data['timeout_seconds'] ?? 60);
+        $maxTokens = (int) ($data['max_tokens'] ?? 2000);
+        $temperature = (float) ($data['temperature'] ?? 0.2);
+
         return new self(
             id: (string) $data['id'],
             name: filled($data['name'] ?? null) ? (string) $data['name'] : $type->name,
@@ -38,9 +42,11 @@ class AiProviderConfigDto
             model: $data['model'] ?? null,
             baseUrl: $data['base_url'] ?? null,
             apiKey: $data['api_key'] ?? null,
-            timeoutSeconds: (int) ($data['timeout_seconds'] ?? 60),
-            maxTokens: (int) ($data['max_tokens'] ?? 2000),
-            temperature: (float) ($data['temperature'] ?? 0.2),
+            // Fall back to defaults for out-of-range values so a corrupted setting yields a
+            // usable provider rather than a nonsensical timeout/token/temperature.
+            timeoutSeconds: $timeoutSeconds > 0 ? $timeoutSeconds : 60,
+            maxTokens: $maxTokens > 0 ? $maxTokens : 2000,
+            temperature: ($temperature >= 0.0 && $temperature <= 2.0) ? $temperature : 0.2,
         );
     }
 }

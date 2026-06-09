@@ -25,6 +25,10 @@
             $isSchemaOrgAvailability = data_get($availabilityStrategy, 'type') === \App\Enums\ScraperStrategyType::SchemaOrg->value;
             $matchConfig = data_get($record, 'scrape_strategy.availability.match');
 
+            // The status the resolver falls back to when nothing matches (defaults to In Stock).
+            $configuredDefault = \App\Enums\StockStatus::tryFrom(data_get($matchConfig, 'default') ?? '')
+                ?? \App\Enums\StockStatus::InStock;
+
             $matchedRule = null;
             if (is_array($matchConfig)) {
                 foreach ($matchConfig as $statusValue => $matchEntry) {
@@ -38,7 +42,8 @@
                             $matchedRule = $matchType === 'regex' ? "regex \"$matchValue\"" : "exact \"$matchValue\"";
                             break;
                         }
-                    } elseif (is_string($matchEntry) && trim((string) $availabilityVal) === trim($matchEntry)) {
+                    } elseif (is_string($matchEntry) && trim((string) $availabilityVal) === trim($matchEntry)
+                        && \App\Enums\StockStatus::tryFrom($statusValue)?->value === $resolvedStatus->value) {
                         $matchedRule = "exact \"$matchEntry\"";
                         break;
                     }
@@ -74,7 +79,7 @@
                             @if ($key === 'image' && $isUrl($scrapedVal))
                                 <img src="{{ $scrapedVal }}" alt="" class="h-16 w-16 rounded object-contain bg-white" />
                             @elseif ($key === 'availability' && filled($scrapedVal))
-                                {{ $resolvedStatus->getLabel() }}@if ($matchedRule) <span class="text-gray-400">— matched {{ $matchedRule }}</span>@elseif ($isSchemaOrgAvailability) <span class="text-gray-400">— inferred from schema.org</span>@elseif ($resolvedStatus === \App\Enums\StockStatus::InStock) <span class="text-gray-400">— no match (default)</span>@endif
+                                {{ $resolvedStatus->getLabel() }}@if ($matchedRule) <span class="text-gray-400">— matched {{ $matchedRule }}</span>@elseif ($isSchemaOrgAvailability) <span class="text-gray-400">— inferred from schema.org</span>@elseif ($resolvedStatus === $configuredDefault) <span class="text-gray-400">— no match (default)</span>@endif
                             @elseif (filled($scrapedVal))
                                 <span class="break-words">{{ $scrapedVal }}</span>
                             @else
