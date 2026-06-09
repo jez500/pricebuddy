@@ -33,15 +33,17 @@ class IntegrationHelperTest extends TestCase
         Once::flush();
     }
 
-    public function test_get_ai_settings_returns_default_shape_after_migration(): void
+    public function test_get_ai_settings_degrades_gracefully_when_unconfigured(): void
     {
-        // The restructure migration always seeds the default multi-provider shape.
-        $settings = IntegrationHelper::getAiSettings();
-        $this->assertArrayHasKey('providers', $settings);
-        $this->assertSame([], $settings['providers']);
-        $this->assertArrayHasKey('default_provider_id', $settings);
-        $this->assertNull($settings['default_provider_id']);
-        $this->assertFalse((bool) $settings['enabled']);
+        // The released create-settings migration seeds integrated_services as [],
+        // so AI is unconfigured until the user saves it. The helpers must degrade
+        // gracefully from that empty default rather than assuming a seeded shape.
+        $this->setIntegratedServices([]);
+
+        $this->assertSame([], IntegrationHelper::getAiSettings());
+        $this->assertSame([], IntegrationHelper::getAiProviders());
+        $this->assertNull(IntegrationHelper::getActiveAiProvider());
+        $this->assertFalse(IntegrationHelper::isAiEnabled());
     }
 
     public function test_get_ai_providers_maps_entries_to_dtos(): void
