@@ -47,6 +47,12 @@
                                 <x-product-image :product="$record" class="rounded-lg h-auto w-full block max-h-72 md:max-h-96" />
                             </div>
                         </div>
+
+                        @if ($record->price_aggregates->isNotEmpty())
+                            <div class="product-price-summary bg-white dark:bg-gray-900 rounded-lg mb-4 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 overflow-hidden">
+                                @include('components.price-aggregates', ['aggregates' => $record->price_aggregates, 'trend' => $record->trend])
+                            </div>
+                        @endif
                     </div>
 
                     <div class="flex-1 flex flex-col md:h-full mb-2">
