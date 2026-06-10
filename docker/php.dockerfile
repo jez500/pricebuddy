@@ -29,6 +29,13 @@ COPY --from=builder /app/vendor /app/vendor
 COPY --from=builder /app/public/build /app/public/build
 COPY --from=builder /app/docs/docs/.vuepress/dist /app/public/docs
 
+# Upgrade inherited OS packages on every published build so each release ships
+# current Debian security point-releases, independent of when the base image
+# was last rebuilt (mitigates CVEs reported against the published image).
+RUN apt-get update && apt-get upgrade -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY ../../docker/php/php.ini /usr/local/etc/php/conf.d/zzz-php-overrides.ini
 COPY ../../docker/php/schedule-cron /etc/cron.d/schedule-cron
 COPY ../../docker/php/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
