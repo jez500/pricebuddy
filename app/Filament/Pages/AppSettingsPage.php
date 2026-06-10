@@ -236,6 +236,18 @@ class AppSettingsPage extends SettingsPage
                     ->numeric()
                     ->minValue(1)
                     ->required(),
+                TextInput::make('scrape_retry_max_attempts')
+                    ->label('Max scrape attempts (incl. retries)')
+                    ->hintIcon(Icons::Help->value, 'Total scrape attempts for a failed URL, including the original. Set to 1 to disable delayed retries.')
+                    ->numeric()
+                    ->minValue(1)
+                    ->required(),
+                TextInput::make('scrape_retry_delay_minutes')
+                    ->label('Minutes between retry attempts')
+                    ->hintIcon(Icons::Help->value, 'How long to wait before retrying a failed URL scrape')
+                    ->numeric()
+                    ->minValue(1)
+                    ->required(),
             ])->columns(2),
         ]);
     }

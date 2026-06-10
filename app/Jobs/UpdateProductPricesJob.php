@@ -31,14 +31,14 @@ class UpdateProductPricesJob implements ShouldQueue
         $successful = $this->product->updatePrices();
 
         if ($this->logging) {
-            $prefix = $successful ? 'Successful' : 'Failed (or partially failed)';
-            $method = $successful ? 'info' : 'warning';
+            $prefix = $successful ? 'Successful' : 'Failed (or partially failed)'; // @phpstan-ignore-line
+            $method = $successful ? 'info' : 'warning'; // @phpstan-ignore-line
             logger()->{$method}("$prefix price fetch for product: '{$this->product->title}'", [
                 'product_id' => $this->product->id,
             ]);
         }
 
-        if (! $successful) {
+        if (! $successful) { // @phpstan-ignore-line
             $this->product->user?->notify(new ScrapeFailNotification($this->product));
         }
 

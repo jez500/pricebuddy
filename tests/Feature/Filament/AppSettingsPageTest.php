@@ -4,6 +4,7 @@ namespace Tests\Feature\Filament;
 
 use App\Filament\Pages\AppSettingsPage;
 use App\Models\User;
+use App\Settings\AppSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -66,5 +67,28 @@ class AppSettingsPageTest extends TestCase
             ->assertSee('Locale')
             ->assertSee('Logging')
             ->assertSee('Email');
+    }
+
+    public function test_retry_settings_have_expected_defaults(): void
+    {
+        $settings = AppSettings::new();
+
+        $this->assertSame(3, $settings->scrape_retry_max_attempts);
+        $this->assertSame(15, $settings->scrape_retry_delay_minutes);
+    }
+
+    public function test_retry_settings_save_without_error(): void
+    {
+        Livewire::test(AppSettingsPage::class)
+            ->fillForm([
+                'scrape_retry_max_attempts' => 4,
+                'scrape_retry_delay_minutes' => 20,
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors(['scrape_retry_max_attempts', 'scrape_retry_delay_minutes']);
+
+        $settings = AppSettings::new();
+        $this->assertSame(4, $settings->scrape_retry_max_attempts);
+        $this->assertSame(20, $settings->scrape_retry_delay_minutes);
     }
 }
