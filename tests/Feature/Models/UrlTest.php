@@ -306,9 +306,9 @@ class UrlTest extends TestCase
 
         $this->mockScrape('', 'foo', null, 'OutOfStock');
 
-        $successful = $product->fresh()->updatePrices();
+        $failedUrls = $product->fresh()->updatePrices();
 
-        $this->assertTrue($successful);
+        $this->assertTrue($failedUrls->isEmpty());
     }
 
     public function test_update_price_unavailable_to_in_stock_creates_price_and_clears_availability()

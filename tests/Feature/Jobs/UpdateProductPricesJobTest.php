@@ -77,7 +77,7 @@ class UpdateProductPricesJobTest extends TestCase
         Notification::assertNothingSent();
         Queue::assertPushed(
             RetryUrlPriceJob::class,
-            fn (RetryUrlPriceJob $job) => $job->url->is($failUrl) && $job->attempt === 2
+            fn (RetryUrlPriceJob $job) => $job->url->is($failUrl) && $job->attempt === 2 && $job->delay !== null
         );
     }
 

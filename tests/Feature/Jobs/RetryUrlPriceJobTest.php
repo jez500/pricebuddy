@@ -48,7 +48,7 @@ class RetryUrlPriceJobTest extends TestCase
 
         Queue::assertPushed(
             RetryUrlPriceJob::class,
-            fn (RetryUrlPriceJob $job) => $job->attempt === 3 && $job->url === $url
+            fn (RetryUrlPriceJob $job) => $job->attempt === 3 && $job->url === $url && $job->delay !== null
         );
         Notification::assertNothingSent();
     }
@@ -82,6 +82,35 @@ class RetryUrlPriceJobTest extends TestCase
 
         Queue::assertNotPushed(RetryUrlPriceJob::class);
         Notification::assertNothingSent();
+    }
+
+    public function test_exhaustion_notifies_once_per_product_across_urls(): void
+    {
+        Queue::fake();
+        Notification::fake();
+
+        $user = User::factory()->create();
+
+        $product = Mockery::mock(Product::class)->makePartial();
+        $product->id = 1;
+        $product->paused = false;
+        $product->shouldReceive('updatePriceCache')->andReturnNull();
+        $product->setRelation('user', $user);
+
+        $urlA = Mockery::mock(Url::class)->makePartial();
+        $urlA->setRelation('product', $product);
+        $urlA->shouldReceive('updatePrice')->once()->andReturnNull();
+
+        $urlB = Mockery::mock(Url::class)->makePartial();
+        $urlB->setRelation('product', $product);
+        $urlB->shouldReceive('updatePrice')->once()->andReturnNull();
+
+        // Both URLs of the same product exhaust their retries (attempt 3 of 3).
+        (new RetryUrlPriceJob($urlA, 3))->handle();
+        (new RetryUrlPriceJob($urlB, 3))->handle();
+
+        // Only one product-level notification should be sent.
+        Notification::assertSentToTimes($user, ScrapeFailNotification::class, 1);
     }
 
     public function test_aborts_when_product_is_paused(): void

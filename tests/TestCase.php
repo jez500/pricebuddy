@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Settings\AppSettings;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Artisan;
 
@@ -16,6 +17,12 @@ abstract class TestCase extends BaseTestCase
 
         // Ensure we're always using the test database.
         config()->set('database.connections.mariadb.host', 'tests_db');
+
+        // Drop any cached settings instance so each test loads settings fresh
+        // from the migrated database. A singleton loaded before the settings
+        // rows exist marks them as "default-loaded", which makes a later
+        // AppSettings::save() throw MissingSettings.
+        app()->forgetInstance(AppSettings::class);
     }
 
     /**

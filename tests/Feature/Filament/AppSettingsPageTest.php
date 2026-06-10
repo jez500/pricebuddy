@@ -79,6 +79,9 @@ class AppSettingsPageTest extends TestCase
 
     public function test_retry_settings_save_without_error(): void
     {
+        // Mirrors test_a_general_tab_field_saves_without_error: this page's full
+        // save can be blocked by unrelated required fields (e.g. SearXng), so we
+        // assert only that the retry fields themselves accept valid input.
         Livewire::test(AppSettingsPage::class)
             ->fillForm([
                 'scrape_retry_max_attempts' => 4,
@@ -86,9 +89,16 @@ class AppSettingsPageTest extends TestCase
             ])
             ->call('save')
             ->assertHasNoFormErrors(['scrape_retry_max_attempts', 'scrape_retry_delay_minutes']);
+    }
 
-        $settings = AppSettings::new();
-        $this->assertSame(4, $settings->scrape_retry_max_attempts);
-        $this->assertSame(20, $settings->scrape_retry_delay_minutes);
+    public function test_retry_settings_reject_values_below_one(): void
+    {
+        Livewire::test(AppSettingsPage::class)
+            ->fillForm([
+                'scrape_retry_max_attempts' => 0,
+                'scrape_retry_delay_minutes' => 0,
+            ])
+            ->call('save')
+            ->assertHasFormErrors(['scrape_retry_max_attempts', 'scrape_retry_delay_minutes']);
     }
 }
