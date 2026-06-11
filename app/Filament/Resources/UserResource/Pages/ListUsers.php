@@ -10,6 +10,11 @@ class ListUsers extends ListRecords
 {
     protected static string $resource = UserResource::class;
 
+    protected function authorizeAccess(): void
+    {
+        abort_unless(static::getResource()::canViewAny(), 403);
+    }
+
     protected function getHeaderActions(): array
     {
         return [

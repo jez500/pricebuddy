@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\NotificationMethods;
+use App\Enums\Role;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -17,6 +18,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string $name
  * @property string $email
  * @property array $settings
+ * @property \App\Enums\Role $role
  */
 class User extends Authenticatable implements FilamentUser
 {
@@ -33,6 +35,7 @@ class User extends Authenticatable implements FilamentUser
         'email',
         'password',
         'settings',
+        'role',
     ];
 
     /**
@@ -56,6 +59,7 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'settings' => 'array',
+            'role' => Role::class,
         ];
     }
 
@@ -91,6 +95,14 @@ class User extends Authenticatable implements FilamentUser
     public function routeNotificationForPushover()
     {
         return $this->getNotificationSettings(NotificationMethods::Pushover, 'user_key');
+    }
+
+    /**
+     * Determine whether the user has the Admin role.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === Role::Admin;
     }
 
     /**
