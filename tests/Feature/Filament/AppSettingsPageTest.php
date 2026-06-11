@@ -16,7 +16,7 @@ class AppSettingsPageTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->actingAs(User::factory()->create());
+        $this->actingAs(User::factory()->admin()->create());
     }
 
     public function test_max_priced_results_rejects_non_integer_values()

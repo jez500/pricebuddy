@@ -22,7 +22,7 @@ class UserTest extends TestCase
 
         User::query()->delete();
 
-        $this->user = User::factory()->create([
+        $this->user = User::factory()->admin()->create([
             'name' => 'Tester',
             'email' => 'tester@test.com',
             'password' => Hash::make('password'),
