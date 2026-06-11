@@ -55,4 +55,22 @@ class StrategyExtractorTest extends TestCase
 
         $this->assertNull(StrategyExtractor::extract($scraper, ['type' => '', 'value' => 'x'], 'price'));
     }
+
+    public function test_returns_null_when_selector_matches_nothing_even_with_prepend(): void
+    {
+        $scraper = $this->scraper('<html><body></body></html>');
+
+        $value = StrategyExtractor::extract($scraper, ['type' => 'selector', 'value' => '#missing', 'prepend' => 'https://example.com', 'append' => '/x'], 'url');
+
+        $this->assertNull($value);
+    }
+
+    public function test_applies_prepend_append_only_when_value_present(): void
+    {
+        $scraper = $this->scraper('<html><body><span id="p">42</span></body></html>');
+
+        $value = StrategyExtractor::extract($scraper, ['type' => 'selector', 'value' => '#p', 'prepend' => '$', 'append' => '.00'], 'price');
+
+        $this->assertSame('$42.00', $value);
+    }
 }

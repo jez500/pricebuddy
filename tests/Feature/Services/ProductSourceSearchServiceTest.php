@@ -82,4 +82,110 @@ class ProductSourceSearchServiceTest extends TestCase
 
         $this->assertSame('https://example.com/search?q=gaming+laptop', $url);
     }
+
+    public function test_product_url_honors_append()
+    {
+        $this->fakeSearchPage(
+            '<div class="product-item">'
+            .'<h2 class="title">Laptop</h2>'
+            .'<a class="product-link" href="https://example.com/p/42">link</a>'
+            .'</div>'
+        );
+
+        $source = ProductSource::factory()->make([
+            'extraction_strategy' => [
+                'list_container' => ['type' => 'selector', 'value' => '!.product-item'],
+                'product_title' => ['type' => 'selector', 'value' => 'h2.title'],
+                'product_url' => [
+                    'type' => 'selector',
+                    'value' => 'a.product-link|href',
+                    'append' => '?ref=pricebuddy',
+                ],
+            ],
+        ]);
+
+        $results = ProductSourceSearchService::new($source)->search('laptop');
+
+        $this->assertSame('https://example.com/p/42?ref=pricebuddy', $results->first()['url']);
+    }
+
+    public function test_product_title_honors_prepend_and_append()
+    {
+        $this->fakeSearchPage(
+            '<div class="product-item">'
+            .'<h2 class="title">Laptop</h2>'
+            .'<a class="product-link" href="https://example.com/p/42">link</a>'
+            .'</div>'
+        );
+
+        $source = ProductSource::factory()->make([
+            'extraction_strategy' => [
+                'list_container' => ['type' => 'selector', 'value' => '!.product-item'],
+                'product_title' => [
+                    'type' => 'selector',
+                    'value' => 'h2.title',
+                    'prepend' => '[Deal] ',
+                    'append' => ' (Sale)',
+                ],
+                'product_url' => ['type' => 'selector', 'value' => 'a.product-link|href'],
+            ],
+        ]);
+
+        $results = ProductSourceSearchService::new($source)->search('laptop');
+
+        $this->assertSame('[Deal] Laptop (Sale)', $results->first()['title']);
+    }
+
+    public function test_drops_item_when_url_selector_misses_despite_prepend()
+    {
+        // Item has a title but NO matching product link.
+        $this->fakeSearchPage(
+            '<div class="product-item">'
+            .'<h2 class="title">Laptop</h2>'
+            .'</div>'
+        );
+
+        $source = ProductSource::factory()->make([
+            'extraction_strategy' => [
+                'list_container' => ['type' => 'selector', 'value' => '!.product-item'],
+                'product_title' => ['type' => 'selector', 'value' => 'h2.title'],
+                'product_url' => [
+                    'type' => 'selector',
+                    'value' => 'a.product-link|href',
+                    'prepend' => 'https://example.com',
+                ],
+            ],
+        ]);
+
+        $results = ProductSourceSearchService::new($source)->search('laptop');
+
+        $this->assertCount(0, $results);
+    }
+
+    public function test_product_url_url_decode_combined_with_prepend()
+    {
+        $this->fakeSearchPage(
+            '<div class="product-item">'
+            .'<h2 class="title">Laptop</h2>'
+            .'<a class="product-link" href="/de%2Fproduct%2F96343">link</a>'
+            .'</div>'
+        );
+
+        $source = ProductSource::factory()->make([
+            'extraction_strategy' => [
+                'list_container' => ['type' => 'selector', 'value' => '!.product-item'],
+                'product_title' => ['type' => 'selector', 'value' => 'h2.title'],
+                'product_url' => [
+                    'type' => 'selector',
+                    'value' => 'a.product-link|href',
+                    'prepend' => 'https://example.com',
+                    'url_decode' => true,
+                ],
+            ],
+        ]);
+
+        $results = ProductSourceSearchService::new($source)->search('laptop');
+
+        $this->assertSame('https://example.com/de/product/96343', $results->first()['url']);
+    }
 }
