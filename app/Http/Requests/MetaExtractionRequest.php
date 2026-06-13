@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
+use App\Rules\PublicHttpUrl;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -18,7 +19,7 @@ class MetaExtractionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'url' => ['required', 'url'],
+            'url' => ['required', 'string', new PublicHttpUrl],
             'store' => ['sometimes', 'array'],
             'store.name' => ['sometimes', 'string', 'max:255'],
             'store.domains' => ['sometimes', 'array'],

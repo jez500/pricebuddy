@@ -154,4 +154,13 @@ class MetaExtractionApiTest extends TestCase
         $response->assertUnprocessable()
             ->assertJsonValidationErrors(['url']);
     }
+
+    public function test_validation_rejects_internal_and_non_http_urls(): void
+    {
+        foreach (['http://169.254.169.254/latest/meta-data/', 'http://127.0.0.1/', 'file:///etc/passwd'] as $url) {
+            $this->postJson('/api/meta-extraction', ['url' => $url])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['url']);
+        }
+    }
 }
