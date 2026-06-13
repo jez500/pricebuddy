@@ -9,7 +9,8 @@ class StrategyExtractor
 {
     /**
      * Apply a single scrape-strategy slot to an already-loaded scraper and
-     * return the extracted string (with prepend/append), or null.
+     * return the extracted string (with prepend/append), or null when the core
+     * extraction yields nothing (null or empty string).
      *
      * May throw Jez500\WebScraperForLaravel\Exceptions\DomSelectorException on an
      * invalid selector/xpath; callers decide whether to swallow or surface it.
@@ -41,9 +42,15 @@ class StrategyExtractor
             default => [$value],
         };
 
+        $extracted = call_user_func_array([$scraper, $method], $args)?->first();
+
+        if ($extracted === null || $extracted === '') {
+            return null;
+        }
+
         return implode('', [
             data_get($slot, 'prepend', ''),
-            call_user_func_array([$scraper, $method], $args)?->first(),
+            $extracted,
             data_get($slot, 'append', ''),
         ]);
     }

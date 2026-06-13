@@ -52,7 +52,7 @@ class ProductSourceSearchService
                 $itemScraper = WebScraper::http()->setBody($item);
 
                 return [
-                    'title' => $this->scrapeOption($itemScraper, $strategy['product_title'])->first(),
+                    'title' => $this->extractValue($itemScraper, $strategy['product_title'], 'product_title'),
                     'url' => $this->scrapeUrl($itemScraper, $strategy),
                     'content' => $item,
                 ];
@@ -104,6 +104,29 @@ class ProductSourceSearchService
         return str_replace(':search_term', urlencode($query), $this->source->search_url);
     }
 
+    /**
+     * Extract a single value from a slot, applying prepend/append (and regex /
+     * schema.org handling) via the shared StrategyExtractor. Returns null and
+     * logs if the selector is invalid, so one bad item does not abort the search.
+     *
+     * @param  array<string, mixed>  $slot
+     */
+    protected function extractValue(WebScraperInterface $scraper, array $slot, string $field): ?string
+    {
+        try {
+            return StrategyExtractor::extract($scraper, $slot, $field);
+        } catch (DomSelectorException $e) {
+            $this->errorLog('Error extracting field from search result item', [
+                'field' => $field,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+        }
+
+        return null;
+    }
+
     protected function scrapeOption(WebScraperInterface $scraper, array $options, bool $multiple = false): Collection
     {
         $type = data_get($options, 'type');
@@ -132,10 +155,10 @@ class ProductSourceSearchService
 
     protected function scrapeUrl(WebScraperInterface $scraper, array $strategy): ?string
     {
-        $url = $this->scrapeOption($scraper, $strategy['product_url'])->first();
+        $url = $this->extractValue($scraper, $strategy['product_url'], 'product_url');
 
         if (! empty($strategy['product_url']['url_decode'])) {
-            $url = urldecode($url);
+            $url = urldecode((string) $url);
         }
 
         return $url;
