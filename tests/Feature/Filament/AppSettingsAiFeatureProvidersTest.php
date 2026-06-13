@@ -21,7 +21,7 @@ class AppSettingsAiFeatureProvidersTest extends TestCase
         SettingsHelper::$settings = null;
         Cache::flush();
         Once::flush();
-        $this->actingAs(User::factory()->create(['email' => 'test@test.com']));
+        $this->actingAs(User::factory()->admin()->create(['email' => 'test@test.com']));
     }
 
     public function test_feature_provider_selection_persists(): void

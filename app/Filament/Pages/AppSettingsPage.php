@@ -58,6 +58,11 @@ class AppSettingsPage extends SettingsPage
 
     protected static ?int $navigationSort = 100;
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     /**
      * Ollama model names fetched per provider, keyed by provider id.
      *

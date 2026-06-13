@@ -22,7 +22,7 @@ class UserTest extends TestCase
 
         User::query()->delete();
 
-        $this->user = User::factory()->create([
+        $this->user = User::factory()->admin()->create([
             'name' => 'Tester',
             'email' => 'tester@test.com',
             'password' => Hash::make('password'),
@@ -37,6 +37,22 @@ class UserTest extends TestCase
         Livewire::test(Login::class)
             ->fillForm([
                 'email' => $this->user->email,
+                'password' => 'password',
+            ])
+            ->call('authenticate')
+            ->assertHasNoFormErrors()
+            ->assertRedirect(route('filament.admin.pages.home-dashboard'));
+    }
+
+    public function test_non_admin_user_can_login_and_access_panel()
+    {
+        $user = User::factory()->create();
+
+        $this->assertTrue($user->canAccessPanel(filament()->getCurrentPanel()));
+
+        Livewire::test(Login::class)
+            ->fillForm([
+                'email' => $user->email,
                 'password' => 'password',
             ])
             ->call('authenticate')

@@ -26,7 +26,7 @@ class AppSettingsAiEncryptionTest extends TestCase
         Cache::flush();
         Once::flush();
 
-        $this->actingAs(User::factory()->create());
+        $this->actingAs(User::factory()->admin()->create());
     }
 
     /**
