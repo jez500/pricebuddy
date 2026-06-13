@@ -30,14 +30,18 @@
                 const s = remaining % 60;
                 this.label = d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
             },
+            intervalId: null,
             init() {
                 this.tick();
-                setInterval(() => this.tick(), 1000);
+                this.intervalId = setInterval(() => this.tick(), 1000);
+            },
+            destroy() {
+                clearInterval(this.intervalId);
             },
         }"
     >
-        <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-            <span>{{ __('Next check') }}</span>
+        <div class="flex items-center justify-start gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+            <span>{{ __('Next check') }}:</span>
             <span x-text="label" class="tabular-nums"></span>
         </div>
         <div class="h-1 w-full rounded-full bg-custom-400/10 overflow-hidden">
@@ -49,8 +53,8 @@
     </div>
 @elseif ($product->paused)
     <div class="px-4 pb-2 pt-1">
-        <div class="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 mb-1">
-            <span>{{ __('Next check') }}</span>
+        <div class="flex items-center justify-start gap-2 text-xs text-gray-400 dark:text-gray-500 mb-1">
+            <span>{{ __('Next check') }}: </span>
             <span>{{ __('Paused') }}</span>
         </div>
         <div class="h-1 w-full rounded-full bg-gray-200 dark:bg-gray-700"></div>

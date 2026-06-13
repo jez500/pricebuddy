@@ -5,11 +5,14 @@ namespace Tests\Feature\Livewire;
 use App\Livewire\ProductCardDetail;
 use App\Models\Product;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
 class ProductCardCountdownTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();

@@ -12,6 +12,7 @@ use App\Settings\AppSettings;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Sleep;
@@ -50,12 +51,16 @@ class UpdateProductPricesJobTest extends TestCase
 
     public function test_job_logs_when_logging_enabled(): void
     {
+        Log::spy();
+
         $user = User::factory()->create();
         $product = Product::factory()->create(['user_id' => $user->id, 'title' => 'Test Product']);
 
         (new UpdateProductPricesJob($product, true))->handle();
 
-        $this->assertTrue(true);
+        Log::shouldHaveReceived('info')
+            ->withArgs(fn (string $message) => str_contains($message, "Starting price fetch for: 'Test Product'"))
+            ->once();
     }
 
     public function test_job_schedules_retries_for_failed_urls_and_suppresses_notification(): void

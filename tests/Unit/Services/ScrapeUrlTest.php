@@ -5,6 +5,7 @@ namespace Tests\Unit\Services;
 use App\Models\Store;
 use App\Models\User;
 use App\Services\ScrapeUrl;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 use Tests\Traits\ScraperTrait;
@@ -12,6 +13,7 @@ use Yoeriboven\LaravelLogDb\Models\LogMessage;
 
 class ScrapeUrlTest extends TestCase
 {
+    use RefreshDatabase;
     use ScraperTrait;
 
     const TEST_URL = 'https://example.com/product';

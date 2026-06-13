@@ -10,6 +10,7 @@
   * Task completion evidence
   * Base line testing
 * If the laravel mcp is available, use it!
+* If your test touches the database at all, use RefreshDatabase trait.
 
 ## Post task completion
 
