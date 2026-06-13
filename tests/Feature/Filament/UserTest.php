@@ -44,6 +44,22 @@ class UserTest extends TestCase
             ->assertRedirect(route('filament.admin.pages.home-dashboard'));
     }
 
+    public function test_non_admin_user_can_login_and_access_panel()
+    {
+        $user = User::factory()->create();
+
+        $this->assertTrue($user->canAccessPanel(filament()->getCurrentPanel()));
+
+        Livewire::test(Login::class)
+            ->fillForm([
+                'email' => $user->email,
+                'password' => 'password',
+            ])
+            ->call('authenticate')
+            ->assertHasNoFormErrors()
+            ->assertRedirect(route('filament.admin.pages.home-dashboard'));
+    }
+
     public function test_user_index()
     {
         $this->actingAs($this->user);

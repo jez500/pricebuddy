@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\Role;
 use App\Models\User;
 
 class UserPolicy
@@ -43,6 +44,14 @@ class UserPolicy
      */
     public function delete(User $user, User $model): bool
     {
+        if ($user->is($model)) {
+            return false;
+        }
+
+        if ($model->isAdmin() && User::where('role', Role::Admin)->count() <= 1) {
+            return false;
+        }
+
         return $user->isAdmin();
     }
 }

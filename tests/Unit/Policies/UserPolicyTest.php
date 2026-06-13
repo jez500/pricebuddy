@@ -52,6 +52,27 @@ class UserPolicyTest extends TestCase
         $this->assertFalse($this->policy->delete($user, $user));
     }
 
+    public function test_admin_cannot_delete_self()
+    {
+        $admin = User::factory()->admin()->create();
+        $other = User::factory()->admin()->create();
+
+        $this->assertFalse($this->policy->delete($admin, $admin));
+        $this->assertTrue($this->policy->delete($admin, $other));
+    }
+
+    public function test_admin_cannot_delete_the_last_admin()
+    {
+        $admin = User::factory()->admin()->create();
+        $soleAdmin = User::factory()->admin()->create();
+
+        $this->assertTrue($this->policy->delete($admin, $soleAdmin));
+
+        $admin->delete();
+
+        $this->assertFalse($this->policy->delete($soleAdmin, $soleAdmin));
+    }
+
     public function test_policy_is_registered_and_enforced_through_the_gate()
     {
         $admin = User::factory()->admin()->create();
