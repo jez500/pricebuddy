@@ -33,6 +33,8 @@
         </div>
 
         @include('components.price-aggregates', ['aggregates' => $product->price_aggregates, 'trend' => $product->trend, 'age' => $product->first_scrape_date])
+
+        @include('components.next-check-countdown', ['product' => $product])
     </div>
 
     <x-filament-actions::modals />

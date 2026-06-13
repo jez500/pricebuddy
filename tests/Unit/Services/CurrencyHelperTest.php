@@ -4,16 +4,18 @@ namespace Tests\Unit\Services;
 
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\SettingsHelper;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class CurrencyHelperTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        Artisan::call('migrate');
+        SettingsHelper::$settings = null;
         SettingsHelper::setSetting('default_locale_settings', ['locale' => 'en', 'currency' => 'USD']);
     }
 

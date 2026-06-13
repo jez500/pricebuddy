@@ -8,8 +8,10 @@ use App\Enums\StockStatus;
 use App\Enums\Trend;
 use App\Filament\Actions\BaseAction;
 use App\Services\Helpers\CurrencyHelper;
+use App\Services\Helpers\SettingsHelper;
 use App\Services\ScrapeUrl;
 use Carbon\Carbon;
+use Cron\CronExpression;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -113,6 +115,61 @@ class Product extends Model
         $this->forceFill([
             'next_check_at' => now()->addSeconds($this->refresh_interval + $jitter),
         ])->saveQuietly();
+    }
+
+    /**
+     * Estimated time of the next price check, for the live countdown.
+     *
+     * Custom-interval products use their stored next_check_at; products on the
+     * global schedule derive it from the scrape_schedule cron. Paused products
+     * have no upcoming check.
+     */
+    public function nextCheckEstimate(): ?Carbon
+    {
+        if ($this->paused) {
+            return null;
+        }
+
+        if ($this->refresh_interval && $this->next_check_at) {
+            return $this->next_check_at;
+        }
+
+        return $this->globalScheduleRun('next');
+    }
+
+    /**
+     * Start of the current check window, used as the progress-bar baseline so
+     * the bar fills as the next check approaches. Null when paused.
+     */
+    public function currentCheckPeriodStart(): ?Carbon
+    {
+        if ($this->paused) {
+            return null;
+        }
+
+        if ($this->refresh_interval && $this->next_check_at) {
+            return $this->next_check_at->copy()->subSeconds($this->refresh_interval);
+        }
+
+        return $this->globalScheduleRun('previous');
+    }
+
+    /**
+     * Resolve the next/previous run of the global scrape_schedule cron.
+     */
+    protected function globalScheduleRun(string $direction): ?Carbon
+    {
+        $expression = SettingsHelper::getSetting('scrape_schedule', '0 6 * * *');
+
+        try {
+            $cron = new CronExpression($expression);
+
+            return Carbon::instance(
+                $direction === 'previous' ? $cron->getPreviousRunDate() : $cron->getNextRunDate()
+            );
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /***************************************************
@@ -550,16 +607,18 @@ class Product extends Model
 
     /**
      * Update all prices for this product.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, Url> the URLs that failed to scrape (empty = full success)
      */
-    public function updatePrices(): bool
+    public function updatePrices(): \Illuminate\Database\Eloquent\Collection
     {
-        $successful = $this->urls
-            ->map(fn (Url $url) => $url->updatePrice()) // @phpstan-ignore-line
-            ->filter();
+        $failed = $this->urls
+            ->filter(fn (Url $url) => $url->updatePrice() === null) // @phpstan-ignore-line
+            ->values();
 
         $this->updatePriceCache();
 
-        return $successful->count() === $this->urls->count();
+        return $failed; // @phpstan-ignore-line
     }
 
     /**
