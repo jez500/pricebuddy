@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Dto\StandardStrategyDto;
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
 use App\Enums\StockStatus;
@@ -196,14 +197,13 @@ class ScrapeUrl
                 return $output;
             }
 
-            $strategy = data_get($store, 'scrape_strategy', []);
+            $strategy = $store->scrape_strategy;
 
             foreach ($this->keys as $key) {
-                if (empty($strategy[$key]) || ! is_array($strategy[$key])) {
-                    $output[$key] = null;
-                } else {
-                    $output[$key] = $this->scrapeOption($page, $strategy[$key], $key);
-                }
+                $slot = $strategy->{$key} ?? null;
+                $output[$key] = $slot instanceof StandardStrategyDto
+                    ? $this->scrapeOption($page, $slot, $key)
+                    : null;
             }
 
             $output['body'] = $page->getBody();
@@ -224,7 +224,7 @@ class ScrapeUrl
         return Store::query()->domainFilter($host)->oldest()->first();
     }
 
-    protected function scrapeOption(WebScraperInterface $scraper, array $options, string $field): ?string
+    protected function scrapeOption(WebScraperInterface $scraper, StandardStrategyDto $options, string $field): ?string
     {
         try {
             return StrategyExtractor::extract($scraper, $options, $field);
