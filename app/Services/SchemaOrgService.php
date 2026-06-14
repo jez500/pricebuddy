@@ -32,7 +32,7 @@ class SchemaOrgService
             return null;
         }
 
-        return match ($field) {
+        $value = match ($field) {
             // Get title from name.
             'title' => data_get($schema, 'name'),
             // Full description.
@@ -41,10 +41,8 @@ class SchemaOrgService
             'price' => data_get($schema, 'offers.lowPrice', data_get($schema, 'offers.price', data_get($schema, 'offers.0.price', data_get($schema, 'offers.priceSpecification.price')))),
             // Currency.
             'price_currency' => data_get($schema, 'offers.priceCurrency', data_get($schema, 'offers.0.priceCurrency', data_get($schema, 'offers.priceSpecification.priceCurrency', 'USD'))),
-            // Image should be a string, sometimes array of strings.
-            'image' => is_string(data_get($schema, 'image'))
-                ? data_get($schema, 'image')
-                : (is_array(data_get($schema, 'image')) ? data_get($schema, 'image.0') : null),
+            // Image: a string, an array of strings, an ImageObject ({url: ...}), or an array of those.
+            'image' => self::firstImageString(data_get($schema, 'image')),
             // Availability should be a string, sometimes array of strings.
             'availability' => is_string(data_get($schema, 'offers.availability', data_get($schema, 'offers.0.availability')))
                 ? data_get($schema, 'offers.availability', data_get($schema, 'offers.0.availability'))
@@ -53,6 +51,46 @@ class SchemaOrgService
                     : null),
             default => null
         };
+
+        // Schema.org fields are occasionally nested arrays/objects; coerce scalars to
+        // string and anything non-stringable to null so the ?string contract always holds.
+        if (is_array($value)) {
+            return null;
+        }
+
+        return $value === null ? null : (string) $value;
+    }
+
+    /**
+     * Resolve the first usable image URL string from a schema.org image value, which may be
+     * a string, an array of strings, an ImageObject (`{"url": ...}`), or an array of those.
+     */
+    private static function firstImageString(mixed $image): ?string
+    {
+        if (is_string($image)) {
+            return $image;
+        }
+
+        if (! is_array($image)) {
+            return null;
+        }
+
+        // Single ImageObject: {"@type": "ImageObject", "url": "..."}.
+        if (is_string($url = data_get($image, 'url'))) {
+            return $url;
+        }
+
+        foreach ($image as $item) {
+            if (is_string($item)) {
+                return $item;
+            }
+
+            if (is_array($item) && is_string($url = data_get($item, 'url'))) {
+                return $url;
+            }
+        }
+
+        return null;
     }
 
     /**

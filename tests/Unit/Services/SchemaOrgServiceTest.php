@@ -31,6 +31,50 @@ class SchemaOrgServiceTest extends TestCase
         $this->assertEquals('https://example.com/image.jpg', SchemaOrgService::parseSchemaOrg($collection, 'image'));
     }
 
+    public function test_parse_schema_org_image_handles_array_of_image_objects(): void
+    {
+        $jsonLd = [[
+            '@type' => 'Product',
+            'image' => [
+                ['@type' => 'ImageObject', 'url' => 'https://example.com/a.jpg'],
+                ['@type' => 'ImageObject', 'url' => 'https://example.com/b.jpg'],
+            ],
+        ]];
+
+        $this->assertSame('https://example.com/a.jpg', SchemaOrgService::parseSchemaOrg(collect($jsonLd), 'image'));
+    }
+
+    public function test_parse_schema_org_image_handles_single_image_object(): void
+    {
+        $jsonLd = [[
+            '@type' => 'Product',
+            'image' => ['@type' => 'ImageObject', 'url' => 'https://example.com/a.jpg'],
+        ]];
+
+        $this->assertSame('https://example.com/a.jpg', SchemaOrgService::parseSchemaOrg(collect($jsonLd), 'image'));
+    }
+
+    public function test_parse_schema_org_image_returns_null_for_unstringable_structure(): void
+    {
+        $jsonLd = [[
+            '@type' => 'Product',
+            'image' => [['nested' => ['deeper' => 'array']]],
+        ]];
+
+        $this->assertNull(SchemaOrgService::parseSchemaOrg(collect($jsonLd), 'image'));
+    }
+
+    public function test_parse_schema_org_never_returns_an_array_for_a_nested_value(): void
+    {
+        // A name expressed as an unexpected array must not break the ?string contract.
+        $jsonLd = [[
+            '@type' => 'Product',
+            'name' => ['unexpected' => 'array'],
+        ]];
+
+        $this->assertNull(SchemaOrgService::parseSchemaOrg(collect($jsonLd), 'title'));
+    }
+
     public function test_parse_schema_org_handles_different_price_formats()
     {
         // lowPrice
