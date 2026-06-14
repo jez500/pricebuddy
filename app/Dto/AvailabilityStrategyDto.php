@@ -8,8 +8,6 @@ use App\Enums\StockStatus;
 /**
  * Availability scrape strategy: a standard slot plus per-status match rules and a
  * fallback status.
- *
- * @property array<string, AvailabilityMatchDto> $match
  */
 class AvailabilityStrategyDto extends StandardStrategyDto
 {
@@ -43,9 +41,20 @@ class AvailabilityStrategyDto extends StandardStrategyDto
 
         $match = [];
         foreach ($rawMatch as $statusValue => $entry) {
-            if ($statusValue === 'default' || ! is_array($entry)) {
+            if ($statusValue === 'default') {
                 continue;
             }
+
+            // Normalize legacy plain-string entries (e.g. 'out_of_stock' => 'Sold out')
+            // into the canonical {type, value} shape before building the rule.
+            if (is_string($entry) && $entry !== '') {
+                $entry = ['type' => 'match', 'value' => $entry];
+            }
+
+            if (! is_array($entry)) {
+                continue;
+            }
+
             $rule = AvailabilityMatchDto::fromArray($entry);
             if ($rule !== null && StockStatus::tryFrom((string) $statusValue) !== null) {
                 $match[(string) $statusValue] = $rule;

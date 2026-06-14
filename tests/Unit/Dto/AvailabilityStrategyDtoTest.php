@@ -76,4 +76,23 @@ class AvailabilityStrategyDtoTest extends TestCase
             AvailabilityStrategyDto::fromArray(['type' => 'selector', 'value' => '#avail'])->toArray(),
         );
     }
+
+    public function test_from_array_normalizes_legacy_plain_string_match_entries(): void
+    {
+        $dto = AvailabilityStrategyDto::fromArray([
+            'type' => 'selector',
+            'value' => '#avail',
+            'match' => [
+                'out_of_stock' => 'Sold out',
+                'default' => 'in_stock',
+            ],
+        ]);
+
+        $this->assertSame(\App\Enums\AvailabilityMatchType::Match, $dto->match['out_of_stock']->type);
+        $this->assertSame('Sold out', $dto->match['out_of_stock']->value);
+        $this->assertEquals([
+            'out_of_stock' => ['type' => 'match', 'value' => 'Sold out'],
+            'default' => 'in_stock',
+        ], $dto->matchConfig());
+    }
 }
