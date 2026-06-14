@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use Illuminate\Support\Collection;
+use Symfony\Component\DomCrawler\Crawler;
+use Throwable;
 
 class SchemaOrgService
 {
@@ -51,5 +53,72 @@ class SchemaOrgService
                     : null),
             default => null
         };
+    }
+
+    /**
+     * Extract a product field from HTML microdata (itemscope/itemprop) as a fallback to
+     * JSON-LD. Anchored to a schema.org/Product itemscope. Returns null when the HTML is
+     * blank, has no Product microdata, lacks the field, or any Crawler error occurs.
+     */
+    public static function parseMicrodata(?string $html, string $field): ?string
+    {
+        if (blank($html)) {
+            return null;
+        }
+
+        $itemprop = match ($field) {
+            'title' => 'name',
+            'description' => 'description',
+            'price' => 'price',
+            'price_currency' => 'priceCurrency',
+            'image' => 'image',
+            'availability' => 'availability',
+            default => null,
+        };
+
+        if ($itemprop === null) {
+            return null;
+        }
+
+        try {
+            $product = (new Crawler($html))
+                ->filter('[itemscope][itemtype*="schema.org/Product"]')
+                ->first();
+
+            if (! $product->count()) {
+                return null;
+            }
+
+            $node = $product->filter('[itemprop="'.$itemprop.'"]')->first();
+
+            return $node->count() ? self::microdataValue($node) : null;
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Resolve a microdata property node's value: the `content` attribute, else a media
+     * element's `src`, else a link element's `href`, else the trimmed text content.
+     */
+    private static function microdataValue(Crawler $node): ?string
+    {
+        $content = $node->attr('content');
+        if ($content !== null && trim($content) !== '') {
+            return trim($content);
+        }
+
+        $tag = strtolower($node->nodeName());
+
+        if (in_array($tag, ['img', 'source', 'iframe', 'embed', 'video', 'audio', 'track'], true)
+            && filled($src = $node->attr('src'))) {
+            return trim($src);
+        }
+
+        if (in_array($tag, ['a', 'link', 'area'], true) && filled($href = $node->attr('href'))) {
+            return trim($href);
+        }
+
+        return filled($text = trim($node->text(''))) ? $text : null;
     }
 }

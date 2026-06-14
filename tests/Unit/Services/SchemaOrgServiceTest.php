@@ -120,6 +120,72 @@ class SchemaOrgServiceTest extends TestCase
         $this->assertEquals('Array Type Widget', SchemaOrgService::parseSchemaOrg(collect($jsonLd), 'title'));
     }
 
+    private function microdataHtml(): string
+    {
+        return <<<'HTML'
+<div itemscope itemtype="https://schema.org/Product">
+  <h1 itemprop="name">Premium Leather Boots</h1>
+  <img itemprop="image" src="https://example.com/boots.jpg" alt="Boots" />
+  <p itemprop="description">Durable and stylish waterproof boots.</p>
+  <div itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+    <span itemprop="priceCurrency" content="USD">$</span>
+    <span itemprop="price" content="149.99">149.99</span>
+    <link itemprop="availability" href="https://schema.org/InStock" />In Stock
+  </div>
+</div>
+HTML;
+    }
+
+    public function test_parse_microdata_extracts_all_fields(): void
+    {
+        $html = $this->microdataHtml();
+
+        $this->assertSame('Premium Leather Boots', SchemaOrgService::parseMicrodata($html, 'title'));
+        $this->assertSame('Durable and stylish waterproof boots.', SchemaOrgService::parseMicrodata($html, 'description'));
+        $this->assertSame('149.99', SchemaOrgService::parseMicrodata($html, 'price'));
+        // content="USD" wins over the visible "$" text.
+        $this->assertSame('USD', SchemaOrgService::parseMicrodata($html, 'price_currency'));
+        // <img> -> src.
+        $this->assertSame('https://example.com/boots.jpg', SchemaOrgService::parseMicrodata($html, 'image'));
+        // <link> -> href (a full schema.org URL StockStatus can map).
+        $this->assertSame('https://schema.org/InStock', SchemaOrgService::parseMicrodata($html, 'availability'));
+    }
+
+    public function test_parse_microdata_returns_null_without_product_itemscope(): void
+    {
+        $html = '<div itemscope itemtype="https://schema.org/Article"><span itemprop="name">Not a product</span></div>';
+
+        $this->assertNull(SchemaOrgService::parseMicrodata($html, 'title'));
+    }
+
+    public function test_parse_microdata_returns_null_when_field_missing(): void
+    {
+        $html = '<div itemscope itemtype="https://schema.org/Product"><span itemprop="name">Widget</span></div>';
+
+        $this->assertSame('Widget', SchemaOrgService::parseMicrodata($html, 'title'));
+        $this->assertNull(SchemaOrgService::parseMicrodata($html, 'price'));
+    }
+
+    public function test_parse_microdata_returns_null_for_blank_html_or_unknown_field(): void
+    {
+        $this->assertNull(SchemaOrgService::parseMicrodata(null, 'title'));
+        $this->assertNull(SchemaOrgService::parseMicrodata('', 'title'));
+        $this->assertNull(SchemaOrgService::parseMicrodata(
+            '<div itemscope itemtype="https://schema.org/Product"><span itemprop="name">X</span></div>',
+            'unknown_field',
+        ));
+    }
+
+    public function test_parse_microdata_does_not_throw_on_malformed_html(): void
+    {
+        $html = '<div itemscope itemtype="https://schema.org/Product"><span itemprop="name">Broken';
+
+        // Must not throw; the libxml parser usually recovers the value, but null is also acceptable.
+        $value = SchemaOrgService::parseMicrodata($html, 'title');
+
+        $this->assertTrue($value === null || $value === 'Broken');
+    }
+
     public function test_parse_schema_org_handles_availability_formats()
     {
         // Simple string availability
