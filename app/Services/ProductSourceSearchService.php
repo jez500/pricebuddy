@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Dto\StandardStrategyDto;
 use App\Models\ProductSource;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -113,8 +114,14 @@ class ProductSourceSearchService
      */
     protected function extractValue(WebScraperInterface $scraper, array $slot, string $field): ?string
     {
+        $dto = StandardStrategyDto::fromArray($slot);
+
+        if ($dto === null) {
+            return null;
+        }
+
         try {
-            return StrategyExtractor::extract($scraper, $slot, $field);
+            return StrategyExtractor::extract($scraper, $dto, $field);
         } catch (DomSelectorException $e) {
             $this->errorLog('Error extracting field from search result item', [
                 'field' => $field,
