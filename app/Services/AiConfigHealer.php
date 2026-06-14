@@ -442,7 +442,7 @@ class AiConfigHealer
      */
     protected function applyValidatedSlots(Store $store, array $validated): void
     {
-        $strategy = $store->scrape_strategy ?? [];
+        $strategy = $store->scrape_strategy->toArray();
 
         foreach ($validated as $field => $slot) {
             $strategy[$field] = $slot;

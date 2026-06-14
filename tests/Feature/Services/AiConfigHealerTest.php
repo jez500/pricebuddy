@@ -201,7 +201,7 @@ class AiConfigHealerTest extends TestCase
         $result = AiConfigHealer::new()->heal($url, ['price' => null, 'body' => $this->html(), 'availability' => null]);
 
         $this->assertNull($result['price']);
-        $this->assertSame([], $url->store->fresh()->scrape_strategy);
+        $this->assertSame([], $url->store->fresh()->scrape_strategy->toArray());
         $this->assertNotNull($url->store->fresh()->getAiHealFailedAt());
     }
 
@@ -232,7 +232,7 @@ class AiConfigHealerTest extends TestCase
         $result = AiConfigHealer::new()->heal($url, ['price' => null, 'body' => $this->html(), 'availability' => null]);
 
         $this->assertNull($result['price']);
-        $this->assertSame([], $url->store->fresh()->scrape_strategy);
+        $this->assertSame([], $url->store->fresh()->scrape_strategy->toArray());
         $this->assertNotNull($url->store->fresh()->getAiHealFailedAt());
     }
 
@@ -245,7 +245,7 @@ class AiConfigHealerTest extends TestCase
         $result = AiConfigHealer::new()->heal($url, ['price' => null, 'body' => $this->html(), 'availability' => null]);
 
         $this->assertNull($result['price']);
-        $this->assertSame([], $url->store->fresh()->scrape_strategy);
+        $this->assertSame([], $url->store->fresh()->scrape_strategy->toArray());
         $this->assertNotNull($url->store->fresh()->getAiHealFailedAt());
     }
 }

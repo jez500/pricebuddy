@@ -93,7 +93,7 @@ class MetaExtractionService
                 ['domain' => $host],
             ]),
             'scrape_strategy' => array_replace_recursive(
-                $store->scrape_strategy ?? [],
+                $store?->scrape_strategy?->toArray() ?? [],
                 data_get($storeOverride, 'scrape_strategy', [])
             ),
             'settings' => array_replace_recursive(
