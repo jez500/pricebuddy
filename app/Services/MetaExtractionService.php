@@ -82,7 +82,7 @@ class MetaExtractionService
             return false;
         }
 
-        if (! empty(data_get($rawScrapeResult, 'price'))) {
+        if (filled(data_get($rawScrapeResult, 'price'))) {
             return false;
         }
 

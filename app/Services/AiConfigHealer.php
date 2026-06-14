@@ -318,7 +318,7 @@ class AiConfigHealer
      * it. For callers (e.g. the meta-extraction API) that want the healed config on the
      * returned store without creating or saving anything.
      *
-     * @param  array{fields: array<string, array<string, mixed>>, usedBrowser: bool}  $config
+     * @param  array{fields: array<string, array<string, mixed>>, extracted: array<string, mixed>, usedBrowser: bool}  $config
      */
     public function applyPreviewToStore(Store $store, array $config): void
     {

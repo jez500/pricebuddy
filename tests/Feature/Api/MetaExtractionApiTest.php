@@ -306,6 +306,37 @@ class MetaExtractionApiTest extends TestCase
         $response->assertOk()->assertJsonPath('data.price', null);
     }
 
+    public function test_heals_a_store_override_when_scrape_finds_no_price(): void
+    {
+        $this->configureProviders();
+        $this->fakeHtml($this->healHtml());
+        $this->mockAgent([
+            'is_product' => true,
+            'fields' => [
+                'title' => ['type' => 'selector', 'value' => '.t'],
+                'price' => ['type' => 'selector', 'value' => '#pr'],
+            ],
+        ]);
+
+        // Override store with selectors that miss on the page -> no price -> heal.
+        $response = $this->postJson('/api/meta-extraction', [
+            'url' => $this->url,
+            'store' => [
+                'settings' => ['scraper_service' => 'http', 'scraper_service_settings' => ''],
+                'scrape_strategy' => [
+                    'title' => ['type' => 'selector', 'value' => '.nope-title'],
+                    'price' => ['type' => 'selector', 'value' => '.nope-price'],
+                    'image' => ['type' => 'selector', 'value' => '.nope-image'],
+                ],
+            ],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.title', 'Widget')
+            ->assertJsonPath('data.price', 12.99)
+            ->assertJsonPath('data.store.scrape_settings.price.value', '#pr');
+    }
+
     public function test_auto_create_path_heals_via_the_agent_and_returns_a_store(): void
     {
         $this->configureProviders();
