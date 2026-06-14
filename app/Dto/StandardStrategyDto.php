@@ -59,7 +59,7 @@ class StandardStrategyDto implements Arrayable, JsonSerializable
     {
         $out = ['type' => $this->type->value];
 
-        if ($this->value !== null) {
+        if ($this->value !== null && $this->value !== '') {
             $out['value'] = $this->value;
         }
 
