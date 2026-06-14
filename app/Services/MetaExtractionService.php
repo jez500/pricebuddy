@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Enums\StockStatus;
 use App\Models\Store;
 use App\Services\Helpers\CurrencyHelper;
 use Illuminate\Support\Uri;
+use Throwable;
 
 class MetaExtractionService
 {
@@ -50,7 +52,58 @@ class MetaExtractionService
                 'use_cache' => false,
             ]);
 
+        if ($this->shouldHeal($store, $result)) {
+            $config = $this->healPreview($url, $store, data_get($result, 'body'));
+
+            if ($config !== null) {
+                AiConfigHealer::new()->applyPreviewToStore($store, $config);
+
+                foreach ($config['extracted'] as $field => $value) {
+                    data_set($result, $field, $value);
+                }
+            }
+        }
+
         return $this->normalizeResult($result);
+    }
+
+    /**
+     * Whether a failed-to-find-price scrape should attempt AI healing. Mirrors the UI
+     * add-URL gate: only when the store hasn't opted out, no price was found, and the
+     * item is not detected as unavailable. The global Healing feature flag is enforced
+     * separately by previewForUrl().
+     *
+     * @param  array<string, mixed>  $rawScrapeResult
+     */
+    private function shouldHeal(Store $store, array $rawScrapeResult): bool
+    {
+        if ($store->ai_self_healing_disabled) {
+            return false;
+        }
+
+        if (! empty(data_get($rawScrapeResult, 'price'))) {
+            return false;
+        }
+
+        return ! StockStatus::resolveAvailability(
+            data_get($rawScrapeResult, 'availability'),
+            $store->scrape_strategy->availability,
+        )->isUnavailable();
+    }
+
+    /**
+     * Run preview-only AI healing for the URL, swallowing any error so a healing failure
+     * never turns a normal extraction into a 500.
+     *
+     * @return array{fields: array<string, array<string, mixed>>, extracted: array<string, mixed>, usedBrowser: bool}|null
+     */
+    private function healPreview(string $url, ?Store $store, ?string $html): ?array
+    {
+        try {
+            return AiConfigHealer::new()->previewForUrl($url, $store, $html);
+        } catch (Throwable $e) {
+            return null;
+        }
     }
 
     /**
