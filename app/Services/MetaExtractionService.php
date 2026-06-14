@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\ScraperService;
 use App\Enums\StockStatus;
 use App\Models\Store;
 use App\Services\Helpers\CurrencyHelper;
@@ -116,9 +117,31 @@ class MetaExtractionService
 
         $detected = $autoCreateStore->detect();
 
-        // No viable (title+price) strategy detected: return whatever partial
-        // title/price/image was found, without a store to hand back.
+        // No viable (title+price) strategy detected deterministically: try preview-only
+        // AI healing, and fall back to whatever partial data was found (no store).
         if ($detected === null) {
+            $config = $this->healPreview($url, null, $autoCreateStore->getHtml());
+
+            if ($config !== null) {
+                $attributes = AutoCreateStore::buildAttributes($url, $config['fields']);
+
+                if ($config['usedBrowser']) {
+                    data_set($attributes, 'settings.scraper_service', ScraperService::Api->value);
+                }
+
+                $price = data_get($config, 'extracted.price');
+
+                return [
+                    'title' => data_get($config, 'extracted.title'),
+                    'price' => $price === null || $price === ''
+                        ? null
+                        : CurrencyHelper::toFloat($price),
+                    'image' => data_get($config, 'extracted.image'),
+                    'availability' => data_get($config, 'extracted.availability'),
+                    'store' => new Store($attributes),
+                ];
+            }
+
             $result = $autoCreateStore->strategyParse();
             $price = data_get($result, 'price.data');
 

@@ -306,6 +306,40 @@ class MetaExtractionApiTest extends TestCase
         $response->assertOk()->assertJsonPath('data.price', null);
     }
 
+    public function test_auto_create_path_heals_via_the_agent_and_returns_a_store(): void
+    {
+        $this->configureProviders();
+        $this->fakeHtml($this->healHtml());
+        $this->mockAgent([
+            'is_product' => true,
+            'fields' => [
+                'title' => ['type' => 'selector', 'value' => '.t'],
+                'price' => ['type' => 'selector', 'value' => '#pr'],
+            ],
+        ]);
+
+        // No store in the DB for this domain, no override -> auto-create path.
+        $response = $this->postJson('/api/meta-extraction', ['url' => $this->url]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.title', 'Widget')
+            ->assertJsonPath('data.price', 12.99)
+            ->assertJsonPath('data.store.name', 'Example.com')
+            ->assertJsonPath('data.store.scrape_settings.price.value', '#pr');
+    }
+
+    public function test_auto_create_path_without_healing_returns_an_empty_store(): void
+    {
+        $this->configureProviders(['feature_providers' => ['healing' => '__disabled__']]);
+        $this->fakeHtml($this->healHtml());
+        $this->mockAgent([], 'never');
+
+        $response = $this->postJson('/api/meta-extraction', ['url' => $this->url]);
+
+        $response->assertOk();
+        $this->assertEmpty($response->json('data.store'));
+    }
+
     private function configureProviders(array $aiOverrides = []): void
     {
         SettingsHelper::setSetting('integrated_services', ['ai' => array_merge([
