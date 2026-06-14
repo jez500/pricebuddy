@@ -36,10 +36,6 @@ class StoreScraperStrategySetCast implements CastsAttributes
             return json_encode($value->toArray());
         }
 
-        if (is_array($value)) {
-            return json_encode(StoreScraperStrategySetDto::fromArray($value)->toArray());
-        }
-
-        return json_encode(StoreScraperStrategySetDto::fromArray(null)->toArray());
+        return json_encode(StoreScraperStrategySetDto::fromArray($value)->toArray());
     }
 }
