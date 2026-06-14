@@ -77,4 +77,20 @@ class StrategyExtractorTest extends TestCase
 
         $this->assertSame('$42.00', $value);
     }
+
+    public function test_schema_org_strategy_falls_back_to_microdata(): void
+    {
+        $html = '<html><body><div itemscope itemtype="https://schema.org/Product">'
+            .'<h1 itemprop="name">Microdata Widget</h1>'
+            .'<div itemprop="offers" itemscope itemtype="https://schema.org/Offer">'
+            .'<span itemprop="price" content="29.95">29.95</span>'
+            .'</div></div></body></html>';
+        $scraper = $this->scraper($html);
+
+        $title = StrategyExtractor::extract($scraper, StandardStrategyDto::fromArray(['type' => 'schema_org', 'value' => null]), 'title');
+        $price = StrategyExtractor::extract($scraper, StandardStrategyDto::fromArray(['type' => 'schema_org', 'value' => null]), 'price');
+
+        $this->assertSame('Microdata Widget', $title);
+        $this->assertSame('29.95', $price);
+    }
 }
