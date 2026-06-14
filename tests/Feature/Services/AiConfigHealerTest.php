@@ -248,4 +248,27 @@ class AiConfigHealerTest extends TestCase
         $this->assertSame([], $url->store->fresh()->scrape_strategy->toArray());
         $this->assertNotNull($url->store->fresh()->getAiHealFailedAt());
     }
+
+    public function test_apply_preview_to_store_merges_fields_in_memory_without_saving(): void
+    {
+        $store = Store::factory()->create([
+            'scrape_strategy' => ['image' => ['type' => 'selector', 'value' => 'img|src']],
+            'settings' => ['scraper_service' => 'http'],
+        ]);
+
+        AiConfigHealer::new()->applyPreviewToStore($store, [
+            'fields' => ['price' => ['type' => 'selector', 'value' => '#pr']],
+            'usedBrowser' => true,
+        ]);
+
+        // In memory: merged with the existing field, switched to the browser scraper.
+        $this->assertSame('#pr', data_get($store->scrape_strategy, 'price.value'));
+        $this->assertSame('img|src', data_get($store->scrape_strategy, 'image.value'));
+        $this->assertSame('api', data_get($store->settings, 'scraper_service'));
+
+        // Not persisted: the DB row is unchanged.
+        $fresh = $store->fresh();
+        $this->assertSame(['image' => ['type' => 'selector', 'value' => 'img|src']], $fresh->scrape_strategy->toArray());
+        $this->assertSame('http', data_get($fresh->settings, 'scraper_service'));
+    }
 }
