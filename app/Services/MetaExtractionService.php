@@ -61,15 +61,35 @@ class MetaExtractionService
         $autoCreateStore = AutoCreateStore::new($url, timeout: $this->timeout)
             ->setLogErrors(false);
 
-        $result = $autoCreateStore->strategyParse();
-        $price = data_get($result, 'price.data');
+        $detected = $autoCreateStore->detect();
+
+        // No viable (title+price) strategy detected: return whatever partial
+        // title/price/image was found, without a store to hand back.
+        if ($detected === null) {
+            $result = $autoCreateStore->strategyParse();
+            $price = data_get($result, 'price.data');
+
+            return [
+                'title' => data_get($result, 'title.data'),
+                'price' => $price === null || $price === ''
+                    ? null
+                    : CurrencyHelper::toFloat($price),
+                'image' => data_get($result, 'image.data'),
+            ];
+        }
+
+        $price = data_get($detected, 'extracted.price');
 
         return [
-            'title' => data_get($result, 'title.data'),
+            'title' => data_get($detected, 'extracted.title'),
             'price' => $price === null || $price === ''
                 ? null
                 : CurrencyHelper::toFloat($price),
-            'image' => data_get($result, 'image.data'),
+            'image' => data_get($detected, 'extracted.image'),
+            'availability' => data_get($detected, 'extracted.availability'),
+            // Return the detected (unsaved) store so a successful auto-create
+            // extraction always carries the strategy it built.
+            'store' => new Store(AutoCreateStore::buildAttributes($url, $detected['fields'])),
         ];
     }
 

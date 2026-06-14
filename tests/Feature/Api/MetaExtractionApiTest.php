@@ -147,6 +147,31 @@ class MetaExtractionApiTest extends TestCase
             ->assertJsonPath('data.image', 'https://example.com/image.jpg');
     }
 
+    public function test_auto_create_path_returns_the_detected_store(): void
+    {
+        $this->mockScrape('$35.00', 'Example product', 'https://example.com/image.jpg');
+
+        $response = $this->postJson('/api/meta-extraction', [
+            'url' => $this->url,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.title', 'Example product')
+            ->assertJsonStructure([
+                'data' => [
+                    'store' => [
+                        'name',
+                        'domains',
+                        'scrape_settings' => ['title', 'price'],
+                    ],
+                ],
+            ])
+            ->assertJsonPath('data.store.name', 'Example.com');
+
+        $domains = collect($response->json('data.store.domains'))->pluck('domain');
+        $this->assertTrue($domains->contains('example.com'));
+    }
+
     public function test_validation_fails_without_a_url(): void
     {
         $response = $this->postJson('/api/meta-extraction', []);
