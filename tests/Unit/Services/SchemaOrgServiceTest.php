@@ -176,6 +176,17 @@ HTML;
         ));
     }
 
+    public function test_parse_microdata_reads_the_data_element_value_attribute(): void
+    {
+        $html = '<div itemscope itemtype="https://schema.org/Product">'
+            .'<span itemprop="name">Widget</span>'
+            .'<div itemprop="offers" itemscope itemtype="https://schema.org/Offer">'
+            .'<data itemprop="price" value="9.99">£9.99</data>'
+            .'</div></div>';
+
+        $this->assertSame('9.99', SchemaOrgService::parseMicrodata($html, 'price'));
+    }
+
     public function test_parse_microdata_does_not_throw_on_malformed_html(): void
     {
         $html = '<div itemscope itemtype="https://schema.org/Product"><span itemprop="name">Broken';

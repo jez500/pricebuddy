@@ -110,6 +110,10 @@ class SchemaOrgService
 
         $tag = strtolower($node->nodeName());
 
+        if ($tag === 'data' && filled($value = $node->attr('value'))) {
+            return trim($value);
+        }
+
         if (in_array($tag, ['img', 'source', 'iframe', 'embed', 'video', 'audio', 'track'], true)
             && filled($src = $node->attr('src'))) {
             return trim($src);
