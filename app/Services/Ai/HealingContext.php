@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai;
 
+use App\Dto\StandardStrategyDto;
 use App\Enums\ScraperService;
 use App\Models\Store;
 use App\Services\StrategyExtractor;
@@ -123,7 +124,8 @@ class HealingContext
         }
 
         try {
-            $extracted = StrategyExtractor::extract($this->scraper(), ['type' => $type, 'value' => $value], 'price');
+            $dto = StandardStrategyDto::fromArray(['type' => $type, 'value' => $value]);
+            $extracted = $dto ? StrategyExtractor::extract($this->scraper(), $dto, 'price') : null;
         } catch (Throwable $e) {
             return ['matched' => false, 'value' => null, 'error' => $e->getMessage()];
         }

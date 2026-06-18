@@ -40,6 +40,18 @@ class ProductTest extends TestCase
         $this->get(ProductResource::getUrl('index'))->assertOk();
     }
 
+    public function test_global_search_result_links_to_the_view_page(): void
+    {
+        $this->actingAs($this->user);
+
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+
+        $this->assertSame(
+            ProductResource::getUrl('view', ['record' => $product]),
+            ProductResource::getGlobalSearchResultUrl($product),
+        );
+    }
+
     public function test_edit_product()
     {
         $product = Product::factory()->create([

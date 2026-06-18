@@ -233,7 +233,8 @@ class AutoCreateStore
 
     protected function attemptSchemaOrg(string $field, ?Closure $validateValue = null): ?array
     {
-        $extracted = SchemaOrgService::parseSchemaOrg($this->scraperService->getSchemaOrg(), $field);
+        $extracted = SchemaOrgService::parseSchemaOrg($this->scraperService->getSchemaOrg(), $field)
+            ?? SchemaOrgService::parseMicrodata($this->html, $field);
 
         $value = is_null($validateValue)
             ? $extracted

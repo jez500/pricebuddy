@@ -2,6 +2,7 @@
 
 namespace App\Enums;
 
+use App\Dto\AvailabilityStrategyDto;
 use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasIcon;
 use Filament\Support\Contracts\HasLabel;
@@ -191,16 +192,14 @@ enum StockStatus: string implements HasColor, HasIcon, HasLabel
      * Resolve a scraped availability value against a store's availability strategy.
      * Schema.org strategies infer the status directly from the ItemAvailability value
      * (ignoring any match config); other strategies use the per-status match config.
-     *
-     * @param  array<string, mixed>|null  $availabilityStrategy  The scrape_strategy.availability slot.
      */
-    public static function resolveAvailability(?string $value, ?array $availabilityStrategy): self
+    public static function resolveAvailability(?string $value, ?AvailabilityStrategyDto $availabilityStrategy): self
     {
-        if (data_get($availabilityStrategy, 'type') === ScraperStrategyType::SchemaOrg->value) {
+        if ($availabilityStrategy?->type === ScraperStrategyType::SchemaOrg) {
             return self::fromSchemaOrgAvailability($value);
         }
 
-        return self::matchFromScrapedValue($value, data_get($availabilityStrategy, 'match'));
+        return self::matchFromScrapedValue($value, $availabilityStrategy?->matchConfig());
     }
 
     /**

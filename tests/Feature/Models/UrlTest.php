@@ -174,7 +174,7 @@ class UrlTest extends TestCase
         $this->actingAs($this->user);
 
         $this->store->update([
-            'scrape_strategy' => array_merge($this->store->scrape_strategy ?? [], [
+            'scrape_strategy' => array_merge($this->store->scrape_strategy->toArray(), [
                 'availability' => [
                     'type' => 'selector',
                     'value' => '.availability',
@@ -207,7 +207,7 @@ class UrlTest extends TestCase
         ]);
 
         $this->store->update([
-            'scrape_strategy' => array_merge($this->store->scrape_strategy ?? [], [
+            'scrape_strategy' => array_merge($this->store->scrape_strategy->toArray(), [
                 'availability' => [
                     'type' => 'selector',
                     'value' => '.availability',
@@ -251,7 +251,7 @@ class UrlTest extends TestCase
         ]);
 
         $this->store->update([
-            'scrape_strategy' => array_merge($this->store->scrape_strategy ?? [], [
+            'scrape_strategy' => array_merge($this->store->scrape_strategy->toArray(), [
                 'availability' => [
                     'type' => 'selector',
                     'value' => '.availability',
@@ -292,7 +292,7 @@ class UrlTest extends TestCase
         ]);
 
         $this->store->update([
-            'scrape_strategy' => array_merge($this->store->scrape_strategy ?? [], [
+            'scrape_strategy' => array_merge($this->store->scrape_strategy->toArray(), [
                 'availability' => [
                     'type' => 'selector',
                     'value' => '.availability',
@@ -322,7 +322,7 @@ class UrlTest extends TestCase
         ]);
 
         $this->store->update([
-            'scrape_strategy' => array_merge($this->store->scrape_strategy ?? [], [
+            'scrape_strategy' => array_merge($this->store->scrape_strategy->toArray(), [
                 'availability' => [
                     'type' => 'selector',
                     'value' => '.availability',
@@ -428,7 +428,7 @@ class UrlTest extends TestCase
     protected function setAvailabilityStrategy(): void
     {
         $this->store->update([
-            'scrape_strategy' => array_merge($this->store->scrape_strategy ?? [], [
+            'scrape_strategy' => array_merge($this->store->scrape_strategy->toArray(), [
                 'availability' => [
                     'type' => 'selector',
                     'value' => '.availability',

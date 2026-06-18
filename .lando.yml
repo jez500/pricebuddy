@@ -4,6 +4,7 @@ recipe: laravel
 # Basic config.
 config:
   flavor: laravel
+  database: mariadb:11.2
 #  build:
 #    - composer install
   env_file:
@@ -92,6 +93,12 @@ tooling:
 
 # Additional services that get started with the project.
 services:
+  # MariaDB on this host's overlay/LXC filesystem rejects O_DIRECT + native AIO
+  # (EPERM "Operation not permitted" during large InnoDB commits). Use fsync.
+  database:
+    overrides:
+      environment:
+        MARIADB_EXTRA_FLAGS: '--innodb-use-native-aio=0 --innodb-flush-method=fsync --innodb-log-file-buffering=1 --innodb-doublewrite=0'
   appserver:
     api: 3
     type: lando

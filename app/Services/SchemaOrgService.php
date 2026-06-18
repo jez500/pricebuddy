@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use Illuminate\Support\Collection;
+use Symfony\Component\DomCrawler\Crawler;
+use Throwable;
 
 class SchemaOrgService
 {
@@ -30,7 +32,7 @@ class SchemaOrgService
             return null;
         }
 
-        return match ($field) {
+        $value = match ($field) {
             // Get title from name.
             'title' => data_get($schema, 'name'),
             // Full description.
@@ -39,10 +41,8 @@ class SchemaOrgService
             'price' => data_get($schema, 'offers.lowPrice', data_get($schema, 'offers.price', data_get($schema, 'offers.0.price', data_get($schema, 'offers.priceSpecification.price')))),
             // Currency.
             'price_currency' => data_get($schema, 'offers.priceCurrency', data_get($schema, 'offers.0.priceCurrency', data_get($schema, 'offers.priceSpecification.priceCurrency', 'USD'))),
-            // Image should be a string, sometimes array of strings.
-            'image' => is_string(data_get($schema, 'image'))
-                ? data_get($schema, 'image')
-                : (is_array(data_get($schema, 'image')) ? data_get($schema, 'image.0') : null),
+            // Image: a string, an array of strings, an ImageObject ({url: ...}), or an array of those.
+            'image' => self::firstImageString(data_get($schema, 'image')),
             // Availability should be a string, sometimes array of strings.
             'availability' => is_string(data_get($schema, 'offers.availability', data_get($schema, 'offers.0.availability')))
                 ? data_get($schema, 'offers.availability', data_get($schema, 'offers.0.availability'))
@@ -51,5 +51,116 @@ class SchemaOrgService
                     : null),
             default => null
         };
+
+        // Schema.org fields are occasionally nested arrays/objects; coerce scalars to
+        // string and anything non-stringable to null so the ?string contract always holds.
+        if (is_array($value)) {
+            return null;
+        }
+
+        return $value === null ? null : (string) $value;
+    }
+
+    /**
+     * Resolve the first usable image URL string from a schema.org image value, which may be
+     * a string, an array of strings, an ImageObject (`{"url": ...}`), or an array of those.
+     */
+    private static function firstImageString(mixed $image): ?string
+    {
+        if (is_string($image)) {
+            return $image;
+        }
+
+        if (! is_array($image)) {
+            return null;
+        }
+
+        // Single ImageObject: {"@type": "ImageObject", "url": "..."}.
+        if (is_string($url = data_get($image, 'url'))) {
+            return $url;
+        }
+
+        foreach ($image as $item) {
+            if (is_string($item)) {
+                return $item;
+            }
+
+            if (is_array($item) && is_string($url = data_get($item, 'url'))) {
+                return $url;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract a product field from HTML microdata (itemscope/itemprop) as a fallback to
+     * JSON-LD. Anchored to a schema.org/Product itemscope. Returns null when the HTML is
+     * blank, has no Product microdata, lacks the field, or any Crawler error occurs.
+     */
+    public static function parseMicrodata(?string $html, string $field): ?string
+    {
+        if (blank($html)) {
+            return null;
+        }
+
+        $itemprop = match ($field) {
+            'title' => 'name',
+            'description' => 'description',
+            'price' => 'price',
+            'price_currency' => 'priceCurrency',
+            'image' => 'image',
+            'availability' => 'availability',
+            default => null,
+        };
+
+        if ($itemprop === null) {
+            return null;
+        }
+
+        try {
+            $product = (new Crawler($html))
+                ->filter('[itemscope][itemtype*="schema.org/Product"]')
+                ->first();
+
+            if (! $product->count()) {
+                return null;
+            }
+
+            $node = $product->filter('[itemprop="'.$itemprop.'"]')->first();
+
+            return $node->count() ? self::microdataValue($node) : null;
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Resolve a microdata property node's value: the `content` attribute, else a media
+     * element's `src`, else a link element's `href`, else the trimmed text content.
+     */
+    private static function microdataValue(Crawler $node): ?string
+    {
+        $content = $node->attr('content');
+        if ($content !== null && trim($content) !== '') {
+            return trim($content);
+        }
+
+        $tag = strtolower($node->nodeName());
+
+        if ($tag === 'data' && filled($value = $node->attr('value'))) {
+            return trim($value);
+        }
+
+        if (in_array($tag, ['img', 'source', 'iframe', 'embed', 'video', 'audio', 'track'], true)
+            && filled($src = $node->attr('src'))) {
+            return trim($src);
+        }
+
+        if (in_array($tag, ['a', 'link', 'area'], true) && filled($href = $node->attr('href'))) {
+            return trim($href);
+        }
+
+        return filled($text = trim($node->text(''))) ? $text : null;
     }
 }

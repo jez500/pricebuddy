@@ -67,9 +67,50 @@ class PriceHistoryChart extends ChartWidget
             ];
         }
 
+        $labels = $this->getLabels($history);
+
+        // Daily best = lowest price across all stores per day, using the SAME
+        // column ($history respects the unit/retail filter) so the line stays
+        // consistent with the per-store datasets.
+        $bestByDate = [];
+        foreach ($history as $urlHistory) {
+            foreach ($urlHistory as $date => $price) {
+                if ($price <= 0) {
+                    continue;
+                }
+                $bestByDate[$date] = isset($bestByDate[$date]) ? min($bestByDate[$date], $price) : $price;
+            }
+        }
+
+        $datasets[] = [
+            'label' => 'Best price',
+            'data' => collect($labels)->map(fn (string $date) => $bestByDate[$date] ?? null)->all(),
+            'borderColor' => 'rgba('.AdminPanelProvider::PRIMARY_COLOR[600].', 1)',
+            'backgroundColor' => 'rgba('.AdminPanelProvider::PRIMARY_COLOR[600].', 0)',
+            'borderWidth' => 3,
+            'tension' => 0.2,
+            'fill' => false,
+            'spanGaps' => true,
+        ];
+
+        // Flat target line when a notify price is configured.
+        if ($this->record->notify_price !== null) {
+            $target = (float) $this->record->notify_price;
+            $datasets[] = [
+                'label' => 'Your target',
+                'data' => array_fill(0, count($labels), $target),
+                'borderColor' => 'rgba(239, 68, 68, 0.9)',
+                'backgroundColor' => 'rgba(0, 0, 0, 0)',
+                'borderWidth' => 1,
+                'borderDash' => [5, 5],
+                'pointRadius' => 0,
+                'fill' => false,
+            ];
+        }
+
         return [
             'datasets' => $datasets,
-            'labels' => $this->getLabels($history),
+            'labels' => $labels,
         ];
     }
 

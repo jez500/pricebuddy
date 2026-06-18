@@ -5,6 +5,8 @@ namespace App\Providers\Filament;
 use App\Filament\Pages\HomeDashboard;
 use App\Filament\Pages\Login;
 use App\Filament\Pages\StatusPage;
+use App\Filament\Plugins\ApiKeyPlugin;
+use App\Filament\Resources\ApiKeyResource;
 use App\Filament\Resources\LogMessageResource;
 use App\Filament\Resources\NotificationHistoryResource;
 use Awcodes\FilamentQuickCreate\QuickCreatePlugin;
@@ -25,7 +27,6 @@ use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use pxlrbt\FilamentSpotlight\SpotlightPlugin;
-use Rupadana\ApiService\ApiServicePlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -64,7 +65,7 @@ class AdminPanelProvider extends PanelProvider
                 // These get auto discovered, if not add manually.
             ])
             ->plugins([
-                ApiServicePlugin::make(),
+                ApiKeyPlugin::make(),
                 SpotlightPlugin::make(),
                 QuickCreatePlugin::make()
                     ->excludes([
@@ -77,9 +78,9 @@ class AdminPanelProvider extends PanelProvider
                     ->icon('heroicon-o-bell')
                     ->url(fn (): string => NotificationHistoryResource::getUrl('index')),
                 MenuItem::make()
-                    ->label('API tokens')
+                    ->label('API keys')
                     ->icon('heroicon-o-key')
-                    ->url('/admin/tokens'),
+                    ->url(fn (): string => ApiKeyResource::getUrl('index')),
             ])
             ->middleware([
                 EncryptCookies::class,
