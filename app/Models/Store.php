@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Casts\StoreScraperStrategySetCast;
+use App\Dto\StoreScraperStrategySetDto;
 use App\Enums\ScraperService;
 use App\Services\Helpers\CurrencyHelper;
 use Database\Factories\StoreFactory;
@@ -25,7 +27,7 @@ use Spatie\Sluggable\SlugOptions;
  * @property string $initials
  * @property array $domains
  * @property HtmlString $domains_html
- * @property array $scrape_strategy
+ * @property StoreScraperStrategySetDto $scrape_strategy
  * @property array $settings
  * @property string $scraper_service
  * @property array $scraper_options
@@ -61,7 +63,7 @@ class Store extends Model
     {
         return [
             'domains' => 'array',
-            'scrape_strategy' => 'array',
+            'scrape_strategy' => StoreScraperStrategySetCast::class,
             'settings' => 'array',
         ];
     }

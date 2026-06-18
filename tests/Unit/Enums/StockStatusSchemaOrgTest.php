@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Enums;
 
+use App\Dto\AvailabilityStrategyDto;
 use App\Enums\StockStatus;
 use PHPUnit\Framework\TestCase;
 
@@ -41,22 +42,22 @@ class StockStatusSchemaOrgTest extends TestCase
     {
         $strategy = ['type' => 'schema_org', 'value' => null];
 
-        $this->assertSame(StockStatus::InStock, StockStatus::resolveAvailability('https://schema.org/InStock', $strategy));
-        $this->assertSame(StockStatus::OutOfStock, StockStatus::resolveAvailability('https://schema.org/OutOfStock', $strategy));
+        $this->assertSame(StockStatus::InStock, StockStatus::resolveAvailability('https://schema.org/InStock', AvailabilityStrategyDto::fromArray($strategy)));
+        $this->assertSame(StockStatus::OutOfStock, StockStatus::resolveAvailability('https://schema.org/OutOfStock', AvailabilityStrategyDto::fromArray($strategy)));
 
         $strategyWithMatch = ['type' => 'schema_org', 'match' => ['out_of_stock' => ['type' => 'match', 'value' => 'InStock']]];
-        $this->assertSame(StockStatus::InStock, StockStatus::resolveAvailability('https://schema.org/InStock', $strategyWithMatch));
+        $this->assertSame(StockStatus::InStock, StockStatus::resolveAvailability('https://schema.org/InStock', AvailabilityStrategyDto::fromArray($strategyWithMatch)));
     }
 
     public function test_resolve_availability_delegates_to_match_for_non_schema_org(): void
     {
         $strategy = ['type' => 'selector', 'match' => ['out_of_stock' => ['type' => 'match', 'value' => 'Sold out']]];
 
-        $this->assertSame(StockStatus::OutOfStock, StockStatus::resolveAvailability('Sold out', $strategy));
-        $this->assertSame(StockStatus::InStock, StockStatus::resolveAvailability(null, $strategy));
+        $this->assertSame(StockStatus::OutOfStock, StockStatus::resolveAvailability('Sold out', AvailabilityStrategyDto::fromArray($strategy)));
+        $this->assertSame(StockStatus::InStock, StockStatus::resolveAvailability(null, AvailabilityStrategyDto::fromArray($strategy)));
         $this->assertSame(
             StockStatus::matchFromScrapedValue('Sold out', $strategy['match']),
-            StockStatus::resolveAvailability('Sold out', $strategy),
+            StockStatus::resolveAvailability('Sold out', AvailabilityStrategyDto::fromArray($strategy)),
         );
     }
 }

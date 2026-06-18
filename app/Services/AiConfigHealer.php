@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Actions\CreateStoreAction;
 use App\Dto\AiProviderConfigDto;
+use App\Dto\StoreScraperStrategySetDto;
 use App\Enums\AiFeature;
 use App\Enums\ScraperService;
 use App\Enums\StockStatus;
@@ -442,13 +443,13 @@ class AiConfigHealer
      */
     protected function applyValidatedSlots(Store $store, array $validated): void
     {
-        $strategy = $store->scrape_strategy ?? [];
+        $strategy = $store->scrape_strategy->toArray();
 
         foreach ($validated as $field => $slot) {
             $strategy[$field] = $slot;
         }
 
-        $store->scrape_strategy = $strategy;
+        $store->scrape_strategy = StoreScraperStrategySetDto::fromArray($strategy);
     }
 
     /**

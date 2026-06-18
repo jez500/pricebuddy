@@ -62,9 +62,9 @@ class DeterministicHealTest extends TestCase
         $store = AiConfigHealer::new()->healStoreForUrl('https://shop.test/widget', null, $this->schemaOrgHtml());
 
         $this->assertInstanceOf(Store::class, $store);
-        $this->assertSame('schema_org', data_get($store->scrape_strategy, 'price.type'));
-        $this->assertSame('schema_org', data_get($store->scrape_strategy, 'availability.type'));
-        $this->assertSame('schema_org', data_get($store->scrape_strategy, 'title.type'));
+        $this->assertSame('schema_org', $store->scrape_strategy->price?->type->value);
+        $this->assertSame('schema_org', $store->scrape_strategy->availability?->type->value);
+        $this->assertSame('schema_org', $store->scrape_strategy->title?->type->value);
     }
 
     public function test_preview_returns_schema_org_fields_without_invoking_the_agent(): void
@@ -95,6 +95,6 @@ class DeterministicHealTest extends TestCase
 
         $this->assertInstanceOf(Store::class, $store);
         $this->assertSame('api', data_get($store->settings, 'scraper_service'));
-        $this->assertSame('schema_org', data_get($store->scrape_strategy, 'price.type'));
+        $this->assertSame('schema_org', $store->scrape_strategy->price?->type->value);
     }
 }

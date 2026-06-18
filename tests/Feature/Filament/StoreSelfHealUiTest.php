@@ -99,7 +99,10 @@ class StoreSelfHealUiTest extends TestCase
             ->assertSet('healPreview', null);
 
         // Nothing persisted until the user clicks Save.
-        $this->assertSame([], $store->fresh()->scrape_strategy);
+        $fresh = $store->fresh()->scrape_strategy;
+        $this->assertNull($fresh->price);
+        $this->assertNull($fresh->title);
+        $this->assertNull($fresh->availability);
         $this->assertSame('http', data_get($store->fresh()->settings, 'scraper_service'));
     }
 

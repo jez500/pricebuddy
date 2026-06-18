@@ -181,7 +181,7 @@ class ProductResearchUrlDto
         $strategy = [];
 
         if ($this->getIsProductPage() === IsProductPageEnum::YesViaStore) {
-            $strategy = $this->getStore()->scrape_strategy;
+            $strategy = $this->getStore()->scrape_strategy->toArray();
         }
 
         if ($this->getIsProductPage() === IsProductPageEnum::YesViaAutoCreate) {

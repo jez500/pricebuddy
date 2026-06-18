@@ -20,3 +20,44 @@ The API documentation is generated using the application code and can be viewed 
 
 Via the docs you can test out the API with your API token, see request and response formats and even
 export the openapi json spec.
+
+## Meta Extraction
+
+`POST /api/meta-extraction`
+
+Use this endpoint to extract `title`, `price`, and `image` from a product URL without persisting anything.
+It automatically uses a matching store configuration based on the URL domain and can also accept a
+`store` override payload when you want to test a custom scrape strategy.
+
+Example request:
+
+```json
+{
+  "url": "https://example.com/product",
+  "store": {
+    "settings": {
+      "scraper_service": "http",
+      "cookies": "sessionid=abc123"
+    },
+    "scrape_strategy": {
+      "title": { "type": "selector", "value": "meta[property=\"og:title\"]|content" },
+      "price": { "type": "selector", "value": "meta[property=\"og:price:amount\"]|content" },
+      "image": { "type": "selector", "value": "meta[property=\"og:image\"]|content" }
+    }
+  }
+}
+```
+
+The response shape is:
+
+```json
+{
+  "data": {
+    "title": "Example product",
+    "price": 35.0,
+    "image": "https://example.com/image.jpg"
+  }
+}
+```
+
+The `price` field is normalized to a numeric value in both the store-backed and auto-create paths.
