@@ -28,6 +28,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Illuminate\View\ComponentAttributeBag;
@@ -347,6 +348,15 @@ class ProductResource extends Resource
     public static function getGlobalSearchEloquentQuery(): Builder
     {
         return parent::getGlobalSearchEloquentQuery()->where('user_id', auth()->id());
+    }
+
+    /**
+     * Send global-search (header) result clicks to the product's view page rather than
+     * Filament's default (which prefers the edit page).
+     */
+    public static function getGlobalSearchResultUrl(Model $record): ?string
+    {
+        return static::getUrl('view', ['record' => $record]);
     }
 
     protected static function getAggregateTableColumn(string $method): TextColumn

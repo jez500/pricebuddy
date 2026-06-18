@@ -371,6 +371,17 @@ class MetaExtractionApiTest extends TestCase
         $this->assertEmpty($response->json('data.store'));
     }
 
+    public function test_meta_extraction_allowed_with_scoped_ability(): void
+    {
+        $token = $this->user->createToken('scoped', ['meta-extraction:extract'])->plainTextToken;
+        $this->mockScrape('$10.00', 'Scoped product', 'https://example.com/s.jpg');
+
+        $this->withHeaders(['Authorization' => 'Bearer '.$token])
+            ->postJson('/api/meta-extraction', ['url' => $this->url])
+            ->assertOk()
+            ->assertJsonPath('data.title', 'Scoped product');
+    }
+
     private function configureProviders(array $aiOverrides = []): void
     {
         SettingsHelper::setSetting('integrated_services', ['ai' => array_merge([
