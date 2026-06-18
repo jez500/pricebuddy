@@ -24,6 +24,8 @@ class StoreResource extends JsonResource
             'slug' => $this->resource->slug,
             'initials' => $this->resource->initials,
             'domains' => $this->resource->domains,
+            'scrape_settings' => $this->resource->scrape_strategy,
+            'settings' => $this->resource->settings,
         ];
     }
 }

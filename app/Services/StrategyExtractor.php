@@ -21,7 +21,8 @@ class StrategyExtractor
         $type = $slot->type;
 
         if ($type === ScraperStrategyType::SchemaOrg) {
-            return SchemaOrgService::parseSchemaOrg($scraper->getSchemaOrg(), $field);
+            return SchemaOrgService::parseSchemaOrg($scraper->getSchemaOrg(), $field)
+                ?? SchemaOrgService::parseMicrodata($scraper->getBody(), $field);
         }
 
         $value = $slot->value;

@@ -313,6 +313,19 @@ class AiConfigHealer
     }
 
     /**
+     * Apply a previewForUrl() config to a store IN MEMORY (no persistence): merges the
+     * validated field slots and switches to the browser scraper when the config required
+     * it. For callers (e.g. the meta-extraction API) that want the healed config on the
+     * returned store without creating or saving anything.
+     *
+     * @param  array{fields: array<string, array<string, mixed>>, extracted: array<string, mixed>, usedBrowser: bool}  $config
+     */
+    public function applyPreviewToStore(Store $store, array $config): void
+    {
+        $this->applyConfigToStore($store, $config);
+    }
+
+    /**
      * Apply a resolved config's fields to a store (in memory) and switch it to the
      * browser scraper when the resolution required browser rendering. Caller persists.
      *
