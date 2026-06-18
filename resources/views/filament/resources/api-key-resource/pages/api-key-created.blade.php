@@ -28,10 +28,12 @@
                         el.removeAttribute('readonly');
                         el.select();
                         el.setSelectionRange(0, el.value.length);
-                        document.execCommand('copy');
+                        const succeeded = document.execCommand('copy');
                         el.setAttribute('readonly', 'readonly');
                         window.getSelection().removeAllRanges();
-                        this.done();
+                        if (succeeded) {
+                            this.done();
+                        }
                     }
                 }"
                 class="mt-4 flex items-center gap-2"

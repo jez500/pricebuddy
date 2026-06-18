@@ -26,6 +26,8 @@ class MetaExtractionResource extends JsonResource
             'description' => data_get($this->resource, 'description'),
             'availability' => data_get($this->resource, 'availability'),
             /** @var array<string, StoreResource> */
+            // Empty object (serialises to `{}`, not `null`) keeps the `store` field shape stable
+            // for API clients even when no store could be resolved or detected.
             'store' => $store ? new StoreResource($store) : (object) [],
         ];
     }

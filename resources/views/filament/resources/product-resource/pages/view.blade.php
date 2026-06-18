@@ -18,11 +18,11 @@
                 </div>
             </x-filament::tabs.item>
 
-            <x-filament::tabs.item @click="tab = 'history'" :alpine-active="'tab === \'history\''"
+            <x-filament::tabs.item @click="tab = 'insights'" :alpine-active="'tab === \'insights\''"
                                    class="w-full sm:w-auto">
                 <div class="flex align-center gap-2">
-                    <x-filament::icon icon="heroicon-m-chart-bar" class="w-4"/>
-                    {{ __('History') }}
+                    <x-filament::icon icon="heroicon-m-sparkles" class="w-4"/>
+                    {{ __('Insights') }}
                 </div>
             </x-filament::tabs.item>
 
@@ -84,12 +84,8 @@
                 </div>
             </div>
 
-            <div x-show="tab === 'history'">
-                @livewire(\App\Filament\Resources\ProductResource\Widgets\PriceHistoryChart::class, ['record' =>
-                $record, 'lazy' => true])
-                <x-filament::section :heading="__('Min/max price history')" class="mt-6">
-                    <x-range-chart :product="$record"/>
-                </x-filament::section>
+            <div x-show="tab === 'insights'">
+                @include('filament.pages.product.insights.index', ['record' => $record])
             </div>
 
             @if ($searchEnabled)

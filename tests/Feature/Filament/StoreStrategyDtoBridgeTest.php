@@ -18,8 +18,6 @@ class StoreStrategyDtoBridgeTest extends TestCase
     {
         parent::setUp();
 
-        User::query()->delete();
-
         $this->user = User::factory()->create([
             'name' => 'Tester',
             'email' => 'tester@test.com',
@@ -59,6 +57,8 @@ class StoreStrategyDtoBridgeTest extends TestCase
         $this->actingAs($this->user);
 
         Livewire::test(EditStore::class, ['record' => $store->getKey()])
+            // Clear the repeater's record-seeded rows first so fillForm() sets exactly the
+            // domains below instead of merging into the existing UUID-keyed repeater state.
             ->set('data.domains', null)
             ->fillForm([
                 'name' => $store->name,

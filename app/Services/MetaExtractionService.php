@@ -184,8 +184,8 @@ class MetaExtractionService
         $overrideCookies = data_get($storeOverride, 'settings.cookies', data_get($storeOverride, 'cookies', $store?->cookies));
 
         $merged = [
-            'name' => data_get($storeOverride, 'name', $store->name ?? ucfirst($host)),
-            'domains' => data_get($storeOverride, 'domains', $store->domains ?? [
+            'name' => data_get($storeOverride, 'name', $store?->name ?? ucfirst($host)), // @phpstan-ignore nullsafe.neverNull
+            'domains' => data_get($storeOverride, 'domains', $store?->domains ?? [ // @phpstan-ignore nullsafe.neverNull
                 ['domain' => $host],
             ]),
             'scrape_strategy' => array_replace_recursive(
@@ -193,7 +193,7 @@ class MetaExtractionService
                 data_get($storeOverride, 'scrape_strategy', [])
             ),
             'settings' => array_replace_recursive(
-                $store->settings ?? [],
+                $store?->settings ?? [], // @phpstan-ignore nullsafe.neverNull
                 data_get($storeOverride, 'settings', [])
             ),
         ];

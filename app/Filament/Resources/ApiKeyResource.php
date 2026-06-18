@@ -77,7 +77,9 @@ class ApiKeyResource extends TokenResource
                 continue;
             }
 
-            $key = Str::of(Str::of($resource)->beforeLast('Resource')->explode('\\')->last())->kebab()->value();
+            $withoutSuffix = Str::of($resource)->beforeLast('Resource');
+            $className = $withoutSuffix->explode('\\')->last();
+            $key = Str::of($className)->kebab()->value();
 
             $sections[] = Section::make(Str::of($key)->headline()->value())
                 ->schema([
