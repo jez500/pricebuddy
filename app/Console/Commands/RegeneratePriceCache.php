@@ -27,7 +27,10 @@ class RegeneratePriceCache extends Command
         Product::all()
             ->each(fn (Product $product) => $this->components->task(
                 '(ID: '.$product->getKey().') '.$product->title_short,
-                fn () => $product->updatePriceCache())
+                fn () => tap($product, function (Product $product): void {
+                    $product->updatePriceCache();
+                    $product->updateInsightsCache();
+                }))
             );
 
         return self::SUCCESS;

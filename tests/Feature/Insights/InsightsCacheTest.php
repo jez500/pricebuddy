@@ -33,13 +33,30 @@ class InsightsCacheTest extends TestCase
             ->create(['user_id' => $this->user->id]);
     }
 
-    public function test_update_price_cache_populates_insights_cache(): void
+    public function test_update_insights_cache_populates_column(): void
     {
-        $product = $this->productWithPrices()->fresh();
+        $product = $this->productWithPrices();
+        $product->update(['insights_cache' => null]);
 
+        $product->updateInsightsCache();
+
+        $product->refresh();
         $this->assertIsArray($product->insights_cache);
         $this->assertArrayHasKey('dealScore', $product->insights_cache);
         $this->assertArrayHasKey('stats', $product->insights_cache);
+    }
+
+    public function test_update_price_cache_leaves_insights_cache_untouched(): void
+    {
+        // Decoupling guard: rebuilding price_cache must NOT recompute the heavy
+        // insights cache (that now happens only at the end of a full cycle).
+        $product = $this->productWithPrices()->fresh();
+        $product->update(['insights_cache' => ['sentinel' => true]]);
+
+        $product->updatePriceCache();
+
+        $product->refresh();
+        $this->assertSame(['sentinel' => true], $product->insights_cache);
     }
 
     public function test_for_reads_from_cache_column(): void

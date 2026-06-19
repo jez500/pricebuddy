@@ -69,6 +69,10 @@ class Product extends Model
         'price',
     ];
 
+    protected $hidden = [
+        'insights_cache',
+    ];
+
     protected $casts = [
         'status' => Statuses::class,
         'ignored_urls' => 'array',
@@ -628,6 +632,7 @@ class Product extends Model
             ->values();
 
         $this->updatePriceCache();
+        $this->updateInsightsCache();
 
         return $failed; // @phpstan-ignore-line
     }
@@ -661,8 +666,6 @@ class Product extends Model
             ->first(fn (array $item) => StockStatus::fromScrapedValue($item['availability'] ?? null)->isUnavailable() === false)['unit_price'] ?? 0;
 
         $this->update(['price_cache' => $priceCache, 'current_price' => $currentPrice]);
-
-        $this->updateInsightsCache();
     }
 
     /**

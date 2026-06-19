@@ -436,7 +436,7 @@ class ProductApiTest extends TestCase
             'title' => $product->title,
             'image' => $product->image,
             'refresh_interval' => 42,
-        ])->assertStatus(422);
+        ])->assertStatus(422)->assertJsonValidationErrors(['refresh_interval']);
     }
 
     public function test_can_toggle_notify_in_stock_via_api(): void
