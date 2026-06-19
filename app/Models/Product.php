@@ -9,6 +9,7 @@ use App\Enums\Trend;
 use App\Filament\Actions\BaseAction;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\SettingsHelper;
+use App\Services\Insights\ProductInsights;
 use App\Services\ScrapeUrl;
 use Carbon\Carbon;
 use Cron\CronExpression;
@@ -623,6 +624,25 @@ class Product extends Model
     }
 
     /**
+     * Build the materialized insights payload for this product.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildInsightsCache(): array
+    {
+        return ProductInsights::build($this)->toArray();
+    }
+
+    /**
+     * Recompute and persist the insights cache. Heavy: rebuilds the full
+     * insights tree (a year of price history + all calculators).
+     */
+    public function updateInsightsCache(): void
+    {
+        $this->update(['insights_cache' => $this->buildInsightsCache()]);
+    }
+
+    /**
      * Update the price cache for this product.
      */
     public function updatePriceCache(): void
@@ -632,6 +652,8 @@ class Product extends Model
             ->first(fn (array $item) => StockStatus::fromScrapedValue($item['availability'] ?? null)->isUnavailable() === false)['unit_price'] ?? 0;
 
         $this->update(['price_cache' => $priceCache, 'current_price' => $currentPrice]);
+
+        $this->updateInsightsCache();
     }
 
     /**
