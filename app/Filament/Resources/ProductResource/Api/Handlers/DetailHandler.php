@@ -26,10 +26,20 @@ class DetailHandler extends Handlers
     {
         $id = $request->route('id');
 
+        $includes = array_filter(explode(',', (string) $request->query('include', '')));
+        $wantsInsights = in_array('insights', $includes, true);
+
+        // 'insights' is a computed block, not an Eloquent relation. Strip it from
+        // the include list passed to Spatie so it does not reject an unknown include.
+        $apiRequest = $request->duplicate(
+            array_merge($request->query->all(), ['include' => implode(',', array_diff($includes, ['insights']))])
+        );
+
         $query = static::getEloquentQuery()->where('user_id', auth()->id());
 
         $query = QueryBuilder::for(
-            $query->where(static::getKeyName(), $id)
+            $query->where(static::getKeyName(), $id),
+            $apiRequest
         )
             ->allowedIncludes(['tags', 'user'])
             ->first();
@@ -38,6 +48,6 @@ class DetailHandler extends Handlers
             return static::sendNotFoundResponse();
         }
 
-        return new ProductTransformer($query);
+        return (new ProductTransformer($query))->withInsights($wantsInsights);
     }
 }

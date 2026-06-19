@@ -451,4 +451,53 @@ class ProductApiTest extends TestCase
 
         $this->assertDatabaseHas('products', ['id' => $product->id, 'notify_in_stock' => true]);
     }
+
+    private function productWithInsights(): Product
+    {
+        return Product::factory()
+            ->addUrlWithPrices('https://example.com/insight', [120, 110, 100, 95])
+            ->create(['user_id' => $this->user->id]);
+    }
+
+    public function test_detail_includes_insights_when_requested(): void
+    {
+        $product = $this->productWithInsights();
+
+        $this->getJson("/api/products/{$product->id}?include=insights")
+            ->assertOk()
+            ->assertJsonPath('data.insights.hasEnoughData', true)
+            ->assertJsonStructure(['data' => ['insights' => [
+                'dealScore' => ['verdict'],
+                'stats' => ['lowest', 'highest'],
+                'dailyBest',
+            ]]]);
+    }
+
+    public function test_detail_excludes_insights_by_default(): void
+    {
+        $product = $this->productWithInsights();
+
+        $this->getJson("/api/products/{$product->id}")
+            ->assertOk()
+            ->assertJsonMissingPath('data.insights');
+    }
+
+    public function test_detail_insights_falls_back_when_cache_null(): void
+    {
+        $product = $this->productWithInsights();
+        $product->update(['insights_cache' => null]);
+
+        $this->getJson("/api/products/{$product->id}?include=insights")
+            ->assertOk()
+            ->assertJsonPath('data.insights.hasEnoughData', true);
+    }
+
+    public function test_list_endpoint_ignores_insights_include(): void
+    {
+        $this->productWithInsights();
+
+        $this->getJson('/api/products?include=insights')
+            ->assertOk()
+            ->assertJsonMissingPath('data.0.insights');
+    }
 }
