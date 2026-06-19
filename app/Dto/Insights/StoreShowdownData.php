@@ -11,4 +11,32 @@ final class StoreShowdownData
         public readonly float $winRate,
         public readonly bool $isCheapestToday,
     ) {}
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toArray(): array
+    {
+        return [
+            'storeName' => $this->storeName,
+            'currentPrice' => $this->currentPrice,
+            'isAvailable' => $this->isAvailable,
+            'winRate' => $this->winRate,
+            'isCheapestToday' => $this->isCheapestToday,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            storeName: (string) $data['storeName'],
+            currentPrice: (float) $data['currentPrice'],
+            isAvailable: (bool) $data['isAvailable'],
+            winRate: (float) $data['winRate'],
+            isCheapestToday: (bool) $data['isCheapestToday'],
+        );
+    }
 }
