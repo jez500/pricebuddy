@@ -6,6 +6,7 @@ use App\Dto\PriceCacheDto;
 use App\Enums\Statuses;
 use App\Enums\StockStatus;
 use App\Enums\Trend;
+use App\Events\NotifyPriceChangeEvent;
 use App\Filament\Actions\BaseAction;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\SettingsHelper;
@@ -97,6 +98,14 @@ class Product extends Model
                 // Newly given (or changed) a custom interval: make it due on the
                 // next run so the new cadence takes effect immediately.
                 $product->next_check_at = now();
+            }
+        });
+
+        static::updated(function (Product $product): void {
+            // A changed target price affects the insights target tracker; rebuild
+            // the cache out-of-band (queued) so it is correct without a new scrape.
+            if ($product->wasChanged('notify_price')) {
+                NotifyPriceChangeEvent::dispatch($product);
             }
         });
     }
