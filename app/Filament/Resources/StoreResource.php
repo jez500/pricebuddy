@@ -161,6 +161,7 @@ class StoreResource extends Resource
             ->with('product')
             ->whereHas('product')
             ->latest()
+            ->latest('id') // deterministic tiebreaker when created_at values are equal
             ->get()
             ->unique('product_id')
             ->take(5);

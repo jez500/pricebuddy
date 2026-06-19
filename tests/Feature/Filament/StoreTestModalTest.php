@@ -120,11 +120,12 @@ class StoreTestModalTest extends TestCase
     {
         $store = $this->storeWithProducts(6);
 
+        // The 5 most-recently-added products are shown (newest first); the oldest is dropped.
         Livewire::test(EditStore::class, ['record' => $store->getKey()])
             ->mountAction('test')
-            ->assertSee('Shortcut Product 1')
-            ->assertSee('Shortcut Product 5')
-            ->assertDontSee('Shortcut Product 6');
+            ->assertSee('Shortcut Product 6')
+            ->assertSee('Shortcut Product 2')
+            ->assertDontSee('Shortcut Product 1');
     }
 
     public function test_modal_without_products_still_shows_url_input(): void
