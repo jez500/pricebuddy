@@ -372,4 +372,83 @@ class ProductApiTest extends TestCase
 
         $response->assertUnauthorized();
     }
+
+    public function test_can_pause_and_resume_product_via_api(): void
+    {
+        $product = Product::factory()->create(['user_id' => $this->user->id, 'paused' => false]);
+
+        $this->putJson("/api/products/{$product->id}", [
+            'title' => $product->title,
+            'image' => $product->image,
+            'paused' => true,
+        ])->assertSuccessful()->assertJsonPath('data.paused', true);
+
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'paused' => true]);
+
+        $this->putJson("/api/products/{$product->id}", [
+            'title' => $product->title,
+            'image' => $product->image,
+            'paused' => false,
+        ])->assertSuccessful()->assertJsonPath('data.paused', false);
+
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'paused' => false]);
+    }
+
+    public function test_can_set_refresh_interval_via_api(): void
+    {
+        $product = Product::factory()->create(['user_id' => $this->user->id, 'refresh_interval' => null]);
+
+        $this->putJson("/api/products/{$product->id}", [
+            'title' => $product->title,
+            'image' => $product->image,
+            'refresh_interval' => 3600,
+        ])->assertSuccessful()->assertJsonPath('data.refresh_interval', 3600);
+
+        $product->refresh();
+        $this->assertSame(3600, $product->refresh_interval);
+        $this->assertNotNull($product->next_check_at);
+    }
+
+    public function test_can_clear_refresh_interval_via_api(): void
+    {
+        $product = Product::factory()->create([
+            'user_id' => $this->user->id,
+            'refresh_interval' => 3600,
+            'next_check_at' => now(),
+        ]);
+
+        $this->putJson("/api/products/{$product->id}", [
+            'title' => $product->title,
+            'image' => $product->image,
+            'refresh_interval' => null,
+        ])->assertSuccessful()->assertJsonPath('data.refresh_interval', null);
+
+        $product->refresh();
+        $this->assertNull($product->refresh_interval);
+        $this->assertNull($product->next_check_at);
+    }
+
+    public function test_rejects_invalid_refresh_interval(): void
+    {
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+
+        $this->putJson("/api/products/{$product->id}", [
+            'title' => $product->title,
+            'image' => $product->image,
+            'refresh_interval' => 42,
+        ])->assertStatus(422);
+    }
+
+    public function test_can_toggle_notify_in_stock_via_api(): void
+    {
+        $product = Product::factory()->create(['user_id' => $this->user->id, 'notify_in_stock' => false]);
+
+        $this->putJson("/api/products/{$product->id}", [
+            'title' => $product->title,
+            'image' => $product->image,
+            'notify_in_stock' => true,
+        ])->assertSuccessful()->assertJsonPath('data.notify_in_stock', true);
+
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'notify_in_stock' => true]);
+    }
 }

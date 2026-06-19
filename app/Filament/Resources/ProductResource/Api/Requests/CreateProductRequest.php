@@ -3,8 +3,10 @@
 namespace App\Filament\Resources\ProductResource\Api\Requests;
 
 use App\Enums\Statuses;
+use App\Filament\Resources\ProductResource;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CreateProductRequest extends FormRequest
 {
@@ -35,6 +37,9 @@ class CreateProductRequest extends FormRequest
             'favourite' => 'sometimes|boolean',
             'only_official' => 'nullable|boolean',
             'create_store' => 'sometimes|boolean',
+            'notify_in_stock' => 'sometimes|boolean',
+            'paused' => 'sometimes|boolean',
+            'refresh_interval' => ['sometimes', 'nullable', 'integer', Rule::in(array_keys(ProductResource::REFRESH_INTERVALS))],
         ];
     }
 }
