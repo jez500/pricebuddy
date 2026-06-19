@@ -61,3 +61,67 @@ The response shape is:
 ```
 
 The `price` field is normalized to a numeric value in both the store-backed and auto-create paths.
+
+## Products
+
+Products are managed via the standard CRUD endpoints (`GET/POST /api/products`,
+`GET/PUT/DELETE /api/products/{id}`). The full request/response schema is in the
+interactive docs at `/docs/api`. A few fields have behaviour worth calling out.
+
+### Schedule & notification fields (writable via `PUT /api/products/{id}`)
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `paused` | boolean | When `true`, the product is skipped by both the global schedule and any custom cadence. |
+| `notify_in_stock` | boolean | Notify when a tracked URL becomes available again after being out of stock. |
+| `refresh_interval` | integer (seconds) or `null` | Custom check cadence. `null` follows the global fetch schedule. Setting or changing it makes the product due on the next run. |
+
+Allowed `refresh_interval` values (seconds): `300` (5m), `600` (10m), `900` (15m),
+`1800` (30m), `3600` (1h), `7200` (2h), `14400` (4h), `21600` (6h), `43200` (12h),
+`86400` (24h). Any other value is rejected with `422`.
+
+Example — pause a product and set a 1-hour check interval:
+
+```json
+PUT /api/products/42
+{
+  "title": "Example product",
+  "image": "https://example.com/image.jpg",
+  "paused": false,
+  "refresh_interval": 3600,
+  "notify_in_stock": true
+}
+```
+
+(`title` and `image` are required by the update endpoint.)
+
+### Insights (`GET /api/products/{id}?include=insights`)
+
+The product detail endpoint can embed the full insights data set — price statistics,
+deal score, percentile, price distribution, drop events, store showdown, seasonality,
+availability, and target tracker — under a top-level `insights` key. It is **opt-in**:
+pass `?include=insights`. Without it, the `insights` key is omitted. The data is served
+from a cache that refreshes whenever prices update, so it is cheap to request.
+
+The insights block is only available on the **detail** endpoint; the list endpoint
+(`GET /api/products`) ignores `include=insights`.
+
+Example response (truncated):
+
+```json
+{
+  "data": {
+    "id": 42,
+    "title": "Example product",
+    "insights": {
+      "hasEnoughData": true,
+      "bestPrice": 95.0,
+      "bestStore": "Acme",
+      "dealScore": { "score": 8.5, "verdictKey": "great", "verdict": "Great time to buy", "isAllTimeLow": false, "lowConfidence": false },
+      "stats": { "lowest": 80.0, "highest": 120.0, "average": 100.0, "current": 95.0, "percentVsAverage": -5.0 },
+      "percentile": { "beatFraction": 0.75, "percentCheaperThan": 75 },
+      "targetTracker": { "target": 90.0, "current": 95.0, "gap": 5.0, "progressPercent": 40 }
+    }
+  }
+}
+```
