@@ -71,6 +71,7 @@ class Product extends Model
         'status' => Statuses::class,
         'ignored_urls' => 'array',
         'price_cache' => 'array',
+        'insights_cache' => 'array',
         'created_at' => 'datetime',
         'favourite' => 'boolean',
         'notify_in_stock' => 'boolean',
