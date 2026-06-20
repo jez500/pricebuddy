@@ -653,7 +653,9 @@ class Product extends Model
      */
     public function updateInsightsCache(): void
     {
-        $this->update(['insights_cache' => $this->buildInsightsCache()]);
+        // Saved quietly so a pure cache write doesn't re-trigger the saving hook
+        // (which manages next_check_at) or the updated hook.
+        $this->forceFill(['insights_cache' => $this->buildInsightsCache()])->saveQuietly();
     }
 
     /**

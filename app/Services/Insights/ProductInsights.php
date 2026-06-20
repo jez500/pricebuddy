@@ -16,9 +16,9 @@ class ProductInsights
 
     public static function for(Product $product): ProductInsightsData
     {
-        return once(fn (): ProductInsightsData => is_array($product->insights_cache) && $product->insights_cache !== []
+        return is_array($product->insights_cache) && $product->insights_cache !== []
             ? ProductInsightsData::fromArray($product->insights_cache)
-            : self::build($product));
+            : self::build($product);
     }
 
     public static function build(Product $product): ProductInsightsData
