@@ -82,7 +82,10 @@ class Store extends Model
             $store->urls->each->delete();
 
             // Update price cache for all affected products.
-            $products->each(fn (Product $product) => $product->updatePriceCache());
+            $products->each(function (Product $product): void {
+                $product->updatePriceCache();
+                $product->updateInsightsCache();
+            });
         });
     }
 

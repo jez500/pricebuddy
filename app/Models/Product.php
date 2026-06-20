@@ -6,9 +6,11 @@ use App\Dto\PriceCacheDto;
 use App\Enums\Statuses;
 use App\Enums\StockStatus;
 use App\Enums\Trend;
+use App\Events\NotifyPriceChangeEvent;
 use App\Filament\Actions\BaseAction;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\SettingsHelper;
+use App\Services\Insights\ProductInsights;
 use App\Services\ScrapeUrl;
 use Carbon\Carbon;
 use Cron\CronExpression;
@@ -67,10 +69,15 @@ class Product extends Model
         'price',
     ];
 
+    protected $hidden = [
+        'insights_cache',
+    ];
+
     protected $casts = [
         'status' => Statuses::class,
         'ignored_urls' => 'array',
         'price_cache' => 'array',
+        'insights_cache' => 'array',
         'created_at' => 'datetime',
         'favourite' => 'boolean',
         'notify_in_stock' => 'boolean',
@@ -95,6 +102,14 @@ class Product extends Model
                 // Newly given (or changed) a custom interval: make it due on the
                 // next run so the new cadence takes effect immediately.
                 $product->next_check_at = now();
+            }
+        });
+
+        static::updated(function (Product $product): void {
+            // A changed target price affects the insights target tracker; rebuild
+            // the cache out-of-band (queued) so it is correct without a new scrape.
+            if ($product->wasChanged('notify_price')) {
+                NotifyPriceChangeEvent::dispatch($product);
             }
         });
     }
@@ -617,8 +632,28 @@ class Product extends Model
             ->values();
 
         $this->updatePriceCache();
+        $this->updateInsightsCache();
 
         return $failed; // @phpstan-ignore-line
+    }
+
+    /**
+     * Build the materialized insights payload for this product.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildInsightsCache(): array
+    {
+        return ProductInsights::build($this)->toArray();
+    }
+
+    /**
+     * Recompute and persist the insights cache. Heavy: rebuilds the full
+     * insights tree (a year of price history + all calculators).
+     */
+    public function updateInsightsCache(): void
+    {
+        $this->update(['insights_cache' => $this->buildInsightsCache()]);
     }
 
     /**

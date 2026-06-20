@@ -6,6 +6,7 @@ use App\Filament\Resources\ProductResource;
 use App\Filament\Resources\ProductResource\Api\Transformers\ProductTransformer;
 use App\Filament\Traits\ApiHelperTrait;
 use Dedoc\Scramble\Attributes\Group;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Rupadana\ApiService\Http\Handlers;
 use Spatie\QueryBuilder\QueryBuilder;
@@ -73,12 +74,19 @@ class PaginationHandler extends Handlers
      *
      * @return AnonymousResourceCollection
      */
-    public function handler()
+    public function handler(Request $request)
     {
         $query = static::getEloquentQuery()->where('user_id', auth()->id());
         $perPage = min(max((int) $this->getPerPage(), 1), 100);
 
-        $query = QueryBuilder::for($query)
+        // 'insights' is a detail-only pseudo-include; strip it so the list silently
+        // ignores it rather than Spatie rejecting an unknown include.
+        $includes = array_filter(explode(',', (string) $request->query('include', '')));
+        $apiRequest = $request->duplicate(
+            array_merge($request->query->all(), ['include' => implode(',', array_diff($includes, ['insights']))])
+        );
+
+        $query = QueryBuilder::for($query, $apiRequest)
             ->allowedFields($this->getAllowedFields())
             ->allowedSorts($this->getAllowedSorts())
             ->allowedFilters($this->getAllowedFilters())

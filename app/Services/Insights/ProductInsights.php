@@ -16,10 +16,17 @@ class ProductInsights
 
     public static function for(Product $product): ProductInsightsData
     {
-        return once(fn (): ProductInsightsData => (new self)->build($product));
+        return once(fn (): ProductInsightsData => is_array($product->insights_cache) && $product->insights_cache !== []
+            ? ProductInsightsData::fromArray($product->insights_cache)
+            : self::build($product));
     }
 
-    protected function build(Product $product): ProductInsightsData
+    public static function build(Product $product): ProductInsightsData
+    {
+        return (new self)->compute($product);
+    }
+
+    protected function compute(Product $product): ProductInsightsData
     {
         $listings = (new ListingHistoriesBuilder)->build($product);
         $series = (new DailyBestSeriesBuilder)->fromListings($listings);

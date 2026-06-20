@@ -29,6 +29,7 @@ class RetryUrlPriceJobTest extends TestCase
         $product = Mockery::mock(Product::class)->makePartial();
         $product->paused = $paused;
         $product->shouldReceive('updatePriceCache')->andReturnNull();
+        $product->shouldReceive('updateInsightsCache')->andReturnNull();
 
         $url = Mockery::mock(Url::class)->makePartial();
         $url->setRelation('product', $product);
@@ -95,6 +96,7 @@ class RetryUrlPriceJobTest extends TestCase
         $product->id = 1;
         $product->paused = false;
         $product->shouldReceive('updatePriceCache')->andReturnNull();
+        $product->shouldReceive('updateInsightsCache')->andReturnNull();
         $product->setRelation('user', $user);
 
         $urlA = Mockery::mock(Url::class)->makePartial();

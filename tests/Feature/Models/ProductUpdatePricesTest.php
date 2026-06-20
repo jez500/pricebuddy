@@ -21,6 +21,7 @@ class ProductUpdatePricesTest extends TestCase
 
         $product = Mockery::mock(Product::class)->makePartial();
         $product->shouldReceive('updatePriceCache')->once();
+        $product->shouldReceive('updateInsightsCache')->once();
         $product->setRelation('urls', new EloquentCollection([$url]));
 
         $failed = $product->updatePrices();
@@ -39,6 +40,7 @@ class ProductUpdatePricesTest extends TestCase
 
         $product = Mockery::mock(Product::class)->makePartial();
         $product->shouldReceive('updatePriceCache')->once();
+        $product->shouldReceive('updateInsightsCache')->once();
         $product->setRelation('urls', new EloquentCollection([$okUrl, $failUrl]));
 
         $failed = $product->updatePrices();

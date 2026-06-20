@@ -47,6 +47,7 @@ class RetryUrlPriceJob implements ShouldQueue
 
         $result = $this->url->updatePrice();
         $product->updatePriceCache();
+        $product->updateInsightsCache();
 
         // A non-null result means the scrape recovered (a price was recorded,
         // or the URL is legitimately out of stock). Nothing more to do.

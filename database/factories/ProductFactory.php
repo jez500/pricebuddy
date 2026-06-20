@@ -65,6 +65,7 @@ class ProductFactory extends Factory
             }
 
             $product->updatePriceCache();
+            $product->updateInsightsCache();
         });
     }
 
@@ -96,6 +97,9 @@ class ProductFactory extends Factory
                     ]);
                 }
             }
+
+            $product->updatePriceCache();
+            $product->updateInsightsCache();
         });
     }
 
