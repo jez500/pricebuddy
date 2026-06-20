@@ -46,9 +46,7 @@ class ProductTransformer extends JsonResource
         }
 
         if ($this->withInsights) {
-            $data['insights'] = is_array($this->resource->insights_cache) && $this->resource->insights_cache !== []
-                ? $this->resource->insights_cache
-                : ProductInsights::for($this->resource)->toArray();
+            $data['insights'] = ProductInsights::for($this->resource)->toArray();
         }
 
         return $data;

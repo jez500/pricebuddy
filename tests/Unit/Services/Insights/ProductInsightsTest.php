@@ -31,6 +31,22 @@ class ProductInsightsTest extends TestCase
         $this->assertTrue($insights->hasEnoughData);
     }
 
+    public function test_for_returns_distinct_insights_per_product_in_one_request(): void
+    {
+        $cheaper = Product::factory()
+            ->addUrlWithPrices('https://example-a.com/p', [60, 55, 50, 45, 42])
+            ->create();
+
+        $pricier = Product::factory()
+            ->addUrlWithPrices('https://example-b.com/p', [120, 118, 115])
+            ->create();
+
+        // Both resolved within the same request: each must reflect its own data,
+        // not a value memoized from the first call.
+        $this->assertSame(42.0, ProductInsights::for($cheaper)->bestPrice);
+        $this->assertSame(115.0, ProductInsights::for($pricier)->bestPrice);
+    }
+
     public function test_product_without_prices_reports_no_data(): void
     {
         $product = Product::factory()->create();
