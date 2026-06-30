@@ -1,0 +1,346 @@
+# PriceBuddy CLI
+
+[PriceBuddy CLI](https://github.com/jez500/pricebuddy-cli) is the command-line companion for PriceBuddy. It gives humans and agents structured access to a PriceBuddy instance from the shell.
+
+Use it when you want to script PriceBuddy, build reports, run local searches, ask price-history questions, or connect PriceBuddy to an AI agent through MCP.
+
+## Install
+
+### Go install
+
+Requires Go 1.26.3 or newer.
+
+```bash
+go install github.com/jez500/pricebuddy-cli/cmd/pricebuddy@latest
+```
+
+### Build from source
+
+```bash
+git clone https://github.com/jez500/pricebuddy-cli.git
+cd pricebuddy-cli
+make build      # produces ./bin/pricebuddy
+# or: make install
+```
+
+### Pre-built binary
+
+Download a binary for your platform from the [latest release](https://github.com/jez500/pricebuddy-cli/releases/latest).
+
+On macOS, clear Gatekeeper quarantine:
+
+```bash
+xattr -d com.apple.quarantine <binary>
+```
+
+On Linux and macOS, make it executable:
+
+```bash
+chmod +x <binary>
+```
+
+## Authentication
+
+PriceBuddy uses Laravel Sanctum personal access tokens for API access.
+
+```bash
+export PRICEBUDDY_BASE_URL="https://pricebuddy.example.com/api"
+export PRICEBUDDY_API_TOKEN="pb_your_token_here"
+pricebuddy doctor
+```
+
+You can also run:
+
+```bash
+pricebuddy pricebuddy-auth login --email user@example.com --password '...'
+```
+
+The CLI config file lives at `~/.config/pricebuddy/config.toml`. Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+Environment variables:
+
+| Name | Required | Description |
+| --- | --- | --- |
+| `PRICEBUDDY_BASE_URL` | Yes | API root for your PriceBuddy instance, for example `https://pricebuddy.example.com/api`. |
+| `PRICEBUDDY_API_TOKEN` | Yes | PriceBuddy API token. |
+
+## Quick start
+
+```bash
+# Verify PRICEBUDDY_BASE_URL, token and connectivity
+pricebuddy doctor
+
+# Pull products, stores, product sources and tags into the local mirror
+pricebuddy sync
+
+# See tracked products that crossed their notify threshold
+pricebuddy deals --agent
+
+# Inspect one product's price curve over time
+pricebuddy history 1
+
+# Report products that fell in price this week
+pricebuddy drops --days 7
+```
+
+## Local price intelligence
+
+These commands use the price history embedded in PriceBuddy products and, where useful, the CLI's local SQLite mirror.
+
+### `history`
+
+View a product's daily price history as a time series with min, max, average, current price and trend.
+
+```bash
+pricebuddy history 1 --agent --select points.date,points.price
+```
+
+### `deals`
+
+List tracked products whose current price is at or below their notify price or notify-percent threshold.
+
+```bash
+pricebuddy deals --agent
+```
+
+### `drops`
+
+Find products whose price fell over a time window.
+
+```bash
+pricebuddy drops --days 7 --agent
+```
+
+### `watch`
+
+Review favourite products with current price and distance to each notify target, sorted by closeness to trigger.
+
+```bash
+pricebuddy watch --json
+```
+
+### `lowest`
+
+Compute the historical minimum per store and show whether the current price matches the lowest price seen.
+
+```bash
+pricebuddy lowest 1
+```
+
+### `since`
+
+Show a digest of price moves across tracked products since a time window.
+
+```bash
+pricebuddy since 7d --agent
+```
+
+### `insights`
+
+Show PriceBuddy's server-computed product insights: deal score, buy/wait verdict, percentile, per-store win rates, cheapest months and target progress.
+
+```bash
+pricebuddy insights 3 --plain
+pricebuddy insights 3 --agent --select insights.dealScore
+```
+
+## Recipes
+
+### What's on sale right now?
+
+```bash
+pricebuddy deals --agent
+```
+
+Lists tracked products at or below their notify threshold in JSON.
+
+### Just the price series
+
+```bash
+pricebuddy history 1 --agent --select points.date,points.price
+```
+
+Returns date and price points for product 1 without the verbose per-store envelope.
+
+### Weekly drop report
+
+```bash
+pricebuddy drops --days 7 --json
+```
+
+Returns every tracked product whose price fell in the last seven days.
+
+### Find a new source to track
+
+```bash
+pricebuddy product-sources search-all ipad --json
+```
+
+Searches configured product sources for a query.
+
+### Offline full-text search
+
+```bash
+pricebuddy search ipad --data-source local
+```
+
+Searches the synced local mirror without an API call.
+
+### Preview a URL before tracking it
+
+```bash
+pricebuddy meta-extract https://example.com/product --agent
+```
+
+Returns the title, price, image, description and availability PriceBuddy would scrape without creating a product. Add `--store-file strategy.json` to dry-run a custom scrape strategy before saving the store.
+
+### Pause checks while something is out of stock
+
+```bash
+pricebuddy products pause 12
+pricebuddy products set-interval 12 3600   # or: --clear to follow the global schedule
+pricebuddy products resume 12
+```
+
+## Command groups
+
+Run `pricebuddy --help` for the command reference generated by your installed version.
+
+### Core commands
+
+| Command | What it does |
+| --- | --- |
+| `pricebuddy doctor` | Verify configuration, credentials and API connectivity. |
+| `pricebuddy sync` | Pull remote PriceBuddy data into the local SQLite mirror. |
+| `pricebuddy search <query>` | Search products, optionally using local data. |
+| `pricebuddy export <resource> [id]` | Export PriceBuddy resources. |
+| `pricebuddy import <resource>` | Import PriceBuddy resources. |
+| `pricebuddy version` | Print version information. |
+
+### API resource commands
+
+| Command group | What it manages |
+| --- | --- |
+| `pricebuddy products` | Products, including create, update, delete, pause, resume, custom intervals and in-stock notifications. |
+| `pricebuddy stores` | Store definitions and scrape strategies. |
+| `pricebuddy product-sources` | Product source configuration and source search. |
+| `pricebuddy tags` | Tags used to organise tracked products. |
+| `pricebuddy auth` | CLI credential setup, status, token storage and logout. |
+| `pricebuddy pricebuddy-auth` | PriceBuddy API login/logout endpoints, including email/password login. |
+| `pricebuddy analytics` | PriceBuddy analytics endpoints. |
+| `pricebuddy feedback` | Feedback commands, where enabled by the instance. |
+| `pricebuddy workflow` | Workflow/channel helper commands, where enabled by the instance. |
+
+## Output formats
+
+```bash
+# Human-readable output in a terminal
+pricebuddy products pagination
+
+# JSON for scripts and agents
+pricebuddy products pagination --json
+
+# Filter to specific fields
+pricebuddy products pagination --json --select id,title,current_price
+
+# Dry run: show the request without sending it
+pricebuddy products create --title "Example" --url "https://example.com" --dry-run
+
+# Agent mode: JSON, compact output, no prompts and no colour
+pricebuddy products pagination --agent
+```
+
+## Agent usage
+
+The CLI is designed to be safe and predictable when called by agents.
+
+- Non-interactive: inputs are flags or stdin, not prompts.
+- Pipeable: JSON goes to stdout; errors go to stderr.
+- Filterable: `--select id,title` returns only fields the caller needs.
+- Previewable: `--dry-run` shows writes before sending them.
+- Retry-aware: use `--idempotent` for safe create retries and `--ignore-missing` when delete no-ops are acceptable.
+- Confirmable: destructive actions can require `--yes`.
+- Offline-friendly: synced data can power local search and price-history commands.
+- Stable failure handling: exit codes distinguish usage, auth, not-found, API, rate-limit and config failures.
+
+Exit codes:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Success |
+| `2` | Usage error |
+| `3` | Not found |
+| `4` | Auth error |
+| `5` | API error |
+| `7` | Rate limited |
+| `10` | Config error |
+
+## Use with Claude Desktop
+
+The CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle for Claude Desktop. MCPB is Claude Desktop's one-click MCP extension format.
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/jez500/pricebuddy-cli/releases/latest).
+2. Double-click the file and follow Claude Desktop's install flow.
+3. Fill in `PRICEBUDDY_API_TOKEN` when prompted.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon and Windows amd64/arm64.
+
+### Manual MCP config
+
+If you cannot use the MCPB bundle, install the MCP binary and configure it manually.
+
+```bash
+go install github.com/jez500/pricebuddy-cli/cmd/pricebuddy-mcp@latest
+```
+
+Add this to Claude Desktop's config:
+
+```json
+{
+  "mcpServers": {
+    "pricebuddy": {
+      "command": "pricebuddy-mcp",
+      "env": {
+        "PRICEBUDDY_BASE_URL": "https://pricebuddy.example.com/api",
+        "PRICEBUDDY_API_TOKEN": "<your-token>"
+      }
+    }
+  }
+}
+```
+
+## agentcookie support
+
+If you use agentcookie to sync secrets across machines, the CLI can auto-adopt agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `pricebuddy doctor` reports `agentcookie: detected` and `auth status` labels the source as `agentcookie`.
+
+Skip this if you do not use agentcookie. The CLI works normally with environment variables or its config file.
+
+## Releasing
+
+Releases are automated with [GoReleaser](https://goreleaser.com/) via GitHub Actions. Pushing a semver tag (`v*`) to `github.com/jez500/pricebuddy-cli` runs tests, builds cross-platform archives for macOS, Linux and Windows on amd64/arm64, publishes checksums, and creates a GitHub release.
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Preview a release locally without publishing:
+
+```bash
+goreleaser release --snapshot --clean
+```
+
+## Troubleshooting
+
+Start with:
+
+```bash
+pricebuddy doctor
+```
+
+Common issues:
+
+- `401 Unauthorized`: set `PRICEBUDDY_API_TOKEN` to a valid Sanctum token, or run `pricebuddy pricebuddy-auth login`.
+- Connection refused or 404 on every call: set `PRICEBUDDY_BASE_URL` to your instance API root, for example `https://pricebuddy.example.com/api`.
+- `history`, `deals`, `drops`, `lowest` or `since` return nothing: run `pricebuddy sync` first.
+- Not-found errors: check the resource ID, or run the relevant list/pagination command to see available items.
