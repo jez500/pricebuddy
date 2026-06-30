@@ -1,74 +1,72 @@
 # <img src="public/images/logo-full.svg" width="250" height="auto" alt="PriceBuddy">
 
-**Stop overpaying. PriceBuddy watches the price of anything you want to buy and
-tells you the moment it drops.**
+**Track prices from the stores you actually use. Run it yourself. Keep the data. Know when a deal is real.**
 
-PriceBuddy is a free, open source, self-hostable price tracker. Add a product
-from almost any online store, and PriceBuddy will check the price for you every
-day, chart its history, and notify you when it hits the price you've been
-waiting for — all running on your own server, with your data staying yours.
+PriceBuddy is an open source, self-hostable price tracker for people who would rather watch products than browser tabs. Paste in a product URL, let PriceBuddy check it on a schedule, and get notified when the price or availability moves in your favour.
 
-[**📖 Read the docs**](https://pricebuddy.jez.me?ref=pb-gh) &nbsp;•&nbsp;
-[**🚀 Install in minutes**](#installation) &nbsp;•&nbsp;
-[**✨ Features**](#why-youll-like-it)
+It works across different stores, keeps price history, compares listings, handles stock status, and can use your own AI provider when a page is awkward to scrape. The web app is the main control room; the API and CLI make it scriptable.
+
+[Read the docs](https://pricebuddy.jez.me?ref=pb-gh) · [Install with Docker](#installation) · [Explore features](#features) · [CLI](https://github.com/jez500/pricebuddy-cli)
 
 ![Dashboard](docs/docs/.vuepress/public/screenshots/dashboard.png)
 
-## Why you'll like it
+## Why PriceBuddy?
 
-### 🛒 Works with almost any store
-No waiting for someone to add support for your favourite retailer. If a store
-has a product page, PriceBuddy can almost certainly track it — out of the box or
-with a few clicks. Many popular stores work the moment you paste a link.
+Most price trackers work only where someone has already built an integration. PriceBuddy is built for the messy web: normal product pages, changing markup, multiple listings for the same item, stores that go in and out of stock, and the usual "sale" prices that are not really sales.
 
-### 🤖 Optional AI assist
-Bring your own AI provider (OpenAI, Anthropic, Gemini or a local
-[Ollama](https://ollama.com) model) and let PriceBuddy lend a hand when a normal
-scrape struggles — it can recover a missing price straight from the page, and
-even repair or bootstrap a store's scraping rules for you. Entirely optional and
-off by default; PriceBuddy works great without it.
+Use it for everyday shopping, household wishlists, hobby gear, computer parts, baby stuff, subscriptions, marketplace listings, or anything else where timing matters.
 
-### 💰 Compare prices across stores
-Track the same product across multiple retailers (or multiple listings on the
-same site, like eBay) and instantly see where it's cheapest right now.
+## Features
 
-### 📉 Know exactly when to buy
-Every price is recorded over time and charted, so you can see the lows, the
-highs, and the trend at a glance — and avoid a "sale" that isn't really a sale.
+### Track almost any store
 
-### 🔔 Get notified, your way
-Set a target price or a price-drop threshold and let PriceBuddy do the watching.
-Alerts can reach you in the app, by email, or through
-**Pushover, Gotify, Apprise, Telegram, Discord and ntfy** — pick the ones you
-already use.
+Paste a product URL and PriceBuddy will try to read the product title, image, price and availability. Many stores work straight away. For trickier sites, you can tune the scrape strategy without changing code.
 
-### 📦 Availability tracking
-See whether the cheapest option is actually buyable. PriceBuddy detects in
-stock, pre-order, back order, special order, out of stock and discontinued so a
-tempting price on an unavailable item doesn't fool you.
+### Compare listings across retailers
 
-### ⚖️ Fair unit pricing
-Comparing a 3-pack against a 10-pack? PriceBuddy can show the price *per unit*,
-so a bigger box that's secretly worse value can't hide.
+Track the same product across multiple stores, or multiple listings on the same marketplace, and see the current best option in one place.
 
-### 🔎 Find products to track
-Connect your own [SearXNG](https://github.com/searxng/searxng) instance to
-search for products and add them to PriceBuddy without leaving the app.
+### Keep the price history
 
-### 🏷️ Stay organised
-Tag your products, filter your dashboard, and keep everything tidy — handy when
-you're tracking a lot of things at once.
+PriceBuddy records prices over time so you can see highs, lows and trends. That makes it easier to spot fake discounts and decide whether today's price is actually good.
 
-### 👥 Built for sharing
-Multi-user support means everyone in the household gets their own products,
-tags, settings and notification preferences.
+### Get notified where you already are
 
-### 🌗 Modern, mobile-friendly UI
-A clean interface with light and dark mode that works great on your phone.
+Set a target price or percentage drop and let PriceBuddy watch for it. Notifications can go through the app, email, Pushover, Gotify, Apprise, Telegram, Discord or ntfy.
 
-### 🔒 Yours to host
-Open source and fully self-hostable. Run it on your own hardware and keep
-complete control of your data.
+### Track availability, not just price
+
+A cheap listing is useless if it is out of stock. PriceBuddy tracks in stock, pre-order, back order, special order, out of stock and discontinued states.
+
+### Compare unit prices
+
+PriceBuddy can calculate price per unit, so a 10-pack and a 3-pack can be compared fairly.
+
+### Use AI only when it helps
+
+Bring your own OpenAI, Anthropic, Gemini or local Ollama provider. PriceBuddy can use AI to recover missing data from a page or help repair scraping rules. It is optional and off by default.
+
+### Search for products to track
+
+Connect a [SearXNG](https://github.com/searxng/searxng) instance and search for products from inside PriceBuddy.
+
+### Organise a shared watchlist
+
+Use tags, filters and multi-user accounts so each person can track their own products, targets and notification preferences.
+
+### Host it yourself
+
+Run PriceBuddy on your own server with Docker. Your watchlist, price history and notification settings stay under your control.
+
+## PriceBuddy tools
+
+PriceBuddy is designed to be useful from more than the web UI. The tool ecosystem is small for now, with more planned.
+
+| Tool | What it is for |
+| --- | --- |
+| [PriceBuddy CLI](https://github.com/jez500/pricebuddy-cli) | Command-line access for humans and agents. Sync a local mirror, search products, inspect price history, run deal/drop reports, call the REST API, and expose PriceBuddy through MCP. |
+
+A browser extension is planned.
 
 ## Screenshots
 
@@ -80,68 +78,73 @@ complete control of your data.
 
 All you need is [Docker](https://www.docker.com/).
 
-The easiest way is with docker-compose. Grab a copy of
-[docker-compose.yml](docker-compose.yml), tweak it to your liking, then run:
+Download [docker-compose.yml](docker-compose.yml), adjust it for your environment, then start PriceBuddy:
 
 ```shell
-touch .env && docker compose up -d
+touch .env
+docker compose up -d
 ```
 
-With the defaults, the app is available at `http://localhost:8080` — log in with
-`admin@example.com` / `admin` (change this straight away!).
+With the defaults, the app runs at `http://localhost:8080`.
 
-See the [installation guide](https://pricebuddy.jez.me/installation.html) for the
-full walkthrough and configuration options.
+Default login:
 
-> Other installation methods aren't recommended given the app's dependencies,
-> but if you'd rather not use Docker, look through `docker/php.dockerfile` and
-> `docker-compose.yml` to see what's required.
+```text
+admin@example.com / admin
+```
+
+Change that password immediately.
+
+See the [installation guide](https://pricebuddy.jez.me/installation.html) for the full setup and configuration options.
+
+> Docker is the recommended install path. If you want to run it another way, `docker/php.dockerfile` and `docker-compose.yml` are the best references for the required services and PHP extensions.
 
 ## Background tasks
 
-The Docker image has a cron job baked in that handles the background work —
-fetching prices on your schedule and sending notifications. Nothing extra to set
-up.
+The Docker image includes the scheduler needed for background work: checking prices, updating history and sending notifications. You do not need to run a separate cron container.
 
-## Settings & configuration
+## Settings and configuration
 
-The most common settings live on the in-app settings page. A handful of advanced
-options can be set via the `.env` file. See the
-[settings docs](https://pricebuddy.jez.me/settings.html) for details.
+Most settings live in the app. Advanced options can be set in `.env`.
+
+See the [settings docs](https://pricebuddy.jez.me/settings.html) for details.
 
 ## Affiliate codes
 
-By default, affiliate codes are added to a
-[couple of stores](config/affiliates.php) to support development of the project.
-Prefer not to? Set `AFFILIATE_ENABLED=false` in your `.env` or docker-compose
-file. If you do, please consider supporting the project in
-[other ways](https://pricebuddy.jez.me/support-project.html).
+PriceBuddy adds affiliate codes for a [small number of stores](config/affiliates.php) to help support development.
+
+If you do not want that, set this in `.env` or `docker-compose.yml`:
+
+```env
+AFFILIATE_ENABLED=false
+```
+
+If you disable affiliate support and still want to help, see [supporting the project](https://pricebuddy.jez.me/support-project.html).
 
 ## Inspiration
 
-PriceBuddy was largely inspired by
-[Discount Bandit](https://github.com/Cybrarist/Discount-Bandit), a similar app
-that lacked the flexibility to use any store without code changes.
+PriceBuddy was inspired by [Discount Bandit](https://github.com/Cybrarist/Discount-Bandit). PriceBuddy's main difference is flexibility: it aims to track products from arbitrary stores without requiring a code change for each retailer.
 
-## Contributing & development
+## Contributing and development
 
-Contributions are welcome — please open an issue or a pull request.
+Contributions are welcome. Open an issue or pull request if you have a bug fix, store compatibility improvement, documentation change or feature idea.
 
-PriceBuddy is built with [Laravel](https://laravel.com) and
-[Filament](https://filamentphp.com/), with a [Lando](https://lando.dev)-based dev
-environment (`lando start`). Coding standards (Pint), static analysis (PHPStan)
-and tests (Pest/PHPUnit) are enforced. See the
-[development docs](https://pricebuddy.jez.me/advanced.html) for the full setup.
+PriceBuddy is built with [Laravel](https://laravel.com) and [Filament](https://filamentphp.com). Local development uses [Lando](https://lando.dev):
+
+```shell
+lando start
+```
+
+Coding standards, static analysis and tests are handled with Pint, PHPStan and Pest/PHPUnit. See the [development docs](https://pricebuddy.jez.me/advanced.html) for the full setup.
 
 ## Supporting development
 
-Have a look [here](https://pricebuddy.jez.me/support-project.html) for ways to
-support the project.
+See [supporting the project](https://pricebuddy.jez.me/support-project.html) for ways to help keep PriceBuddy moving.
 
 ## License
 
-See [LICENSE.md](LICENSE.md) for more information.
+See [LICENSE.md](LICENSE.md).
 
 ## Contributors
 
-* [Jeremy Graham](https://jez.me)
+- [Jeremy Graham](https://jez.me)
