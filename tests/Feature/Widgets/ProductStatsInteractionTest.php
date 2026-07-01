@@ -90,14 +90,14 @@ class ProductStatsInteractionTest extends TestCase
         Livewire::test(ProductStats::class)->assertDontSee('Potential savings');
     }
 
-    public function test_needs_attention_section_colors_negative_verdict_correctly(): void
+    public function test_needs_attention_section_shows_negative_verdict_as_non_positive_badge(): void
     {
+        // needs_attention doesn't filter on deal score, so a product with a
+        // cached negative verdict ("wait") must render a danger-coloured badge,
+        // never the success colour used for a genuine great deal.
         // needs_attention is hidden by default; enable it so the product renders.
         (new DashboardLayoutService($this->user))->toggleSection('needs_attention');
 
-        // needs_attention doesn't filter on deal score, so a product with a
-        // cached negative verdict (e.g. "wait") must not be styled with the
-        // same positive/primary color used for a genuine great deal.
         $product = Product::factory()->create([
             'user_id' => $this->user->id,
             'status' => 'p',
@@ -122,8 +122,8 @@ class ProductStatsInteractionTest extends TestCase
 
         Livewire::test(ProductStats::class)
             ->assertSee("Wait — it's expensive right now")
-            ->assertSee('text-danger-600')
-            ->assertDontSee('text-primary-600');
+            ->assertSeeHtml('data-verdict-color="danger"')
+            ->assertDontSeeHtml('data-verdict-color="success"');
     }
 
     public function test_category_group_exposes_collapse_control(): void
@@ -185,5 +185,38 @@ class ProductStatsInteractionTest extends TestCase
 
         Livewire::test(ProductStats::class)
             ->assertSeeHtml('wire:click="toggleSection(\'recently_dropped\')"');
+    }
+
+    public function test_buy_now_verdict_renders_as_success_badge(): void
+    {
+        Product::factory()->create([
+            'user_id' => $this->user->id,
+            'status' => 'p',
+            'current_price' => 100.0,
+            'price_cache' => [['price' => 100.0, 'date' => now()->toDateString(), 'history' => []]],
+        ])->forceFill(['insights_cache' => ['dealScore' => [
+            'score' => 9.0, 'verdictKey' => 'great', 'verdict' => 'Great time to buy',
+            'isAllTimeLow' => true, 'lowConfidence' => false,
+        ]]])->saveQuietly();
+
+        Livewire::test(ProductStats::class)
+            ->assertSee('Great time to buy')
+            ->assertSeeHtml('data-verdict-color="success"');
+    }
+
+    public function test_section_header_has_no_hide_button(): void
+    {
+        Product::factory()->create([
+            'user_id' => $this->user->id,
+            'status' => 'p',
+            'current_price' => 100.0,
+            'price_cache' => [['price' => 100.0, 'date' => now()->toDateString(), 'history' => []]],
+        ])->forceFill(['insights_cache' => ['dealScore' => [
+            'score' => 9.0, 'verdictKey' => 'great', 'verdict' => 'Great time to buy',
+            'isAllTimeLow' => true, 'lowConfidence' => false,
+        ]]])->saveQuietly();
+
+        Livewire::test(ProductStats::class)
+            ->assertDontSeeHtml('class="ml-auto text-xs text-gray-400 hover:text-gray-600"');
     }
 }
