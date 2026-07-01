@@ -89,4 +89,37 @@ class ProductStatsInteractionTest extends TestCase
 
         Livewire::test(ProductStats::class)->assertDontSee('Potential savings');
     }
+
+    public function test_needs_attention_section_colors_negative_verdict_correctly(): void
+    {
+        // needs_attention doesn't filter on deal score, so a product with a
+        // cached negative verdict (e.g. "wait") must not be styled with the
+        // same positive/primary color used for a genuine great deal.
+        $product = Product::factory()->create([
+            'user_id' => $this->user->id,
+            'status' => 'p',
+            'paused' => false,
+            'current_price' => 100.0,
+            'price_cache' => [[
+                'price' => 100.0,
+                'date' => now()->toDateString(),
+                'history' => [],
+                'last_scrape' => now()->subDays(2)->toDateTimeString(),
+            ]],
+        ]);
+        $insights = $product->insights_cache ?? [];
+        $insights['dealScore'] = [
+            'score' => 3.0,
+            'verdictKey' => 'wait',
+            'verdict' => "Wait — it's expensive right now",
+            'isAllTimeLow' => false,
+            'lowConfidence' => false,
+        ];
+        $product->forceFill(['insights_cache' => $insights])->saveQuietly();
+
+        Livewire::test(ProductStats::class)
+            ->assertSee("Wait — it's expensive right now")
+            ->assertSee('text-danger-600')
+            ->assertDontSee('text-primary-600');
+    }
 }

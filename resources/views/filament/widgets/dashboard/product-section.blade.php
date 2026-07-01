@@ -8,12 +8,20 @@
             @foreach ($products as $product)
                 @php
                     $verdict = data_get($product->insights_cache, 'dealScore.verdict');
+                    $verdictKey = data_get($product->insights_cache, 'dealScore.verdictKey');
                     $lowConfidence = (bool) data_get($product->insights_cache, 'dealScore.lowConfidence', false);
+                    $verdictColor = match ($verdictKey) {
+                        'great', 'good' => 'text-primary-600 dark:text-primary-400',
+                        'average' => 'text-gray-600 dark:text-gray-300',
+                        'pricey' => 'text-amber-600 dark:text-amber-400',
+                        'wait' => 'text-danger-600 dark:text-danger-400',
+                        default => 'text-primary-600 dark:text-primary-400',
+                    };
                 @endphp
                 <div wire:key="{{ $sectionKey }}-{{ $product->id }}">
                     @if ($verdict)
                         <div class="mb-1 flex items-center gap-2">
-                            <span class="text-sm font-semibold text-primary-600 dark:text-primary-400">{{ $verdict }}</span>
+                            <span class="text-sm font-semibold {{ $verdictColor }}">{{ $verdict }}</span>
                             @if ($lowConfidence)
                                 @include('components.icon-badge', [
                                     'hoverText' => __('Not enough price history for a confident verdict'),
