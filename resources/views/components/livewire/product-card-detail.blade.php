@@ -34,7 +34,9 @@
 
         @include('components.price-aggregates', ['aggregates' => $product->price_aggregates, 'trend' => $product->trend, 'age' => $product->first_scrape_date])
 
-        @include('components.next-check-countdown', ['product' => $product])
+        @if ($showNextCheck)
+            @include('components.next-check-countdown', ['product' => $product])
+        @endif
     </div>
 
     <x-filament-actions::modals />

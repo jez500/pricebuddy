@@ -25,16 +25,19 @@ class ProductCardDetail extends Component implements HasActions, HasForms
 
     public bool $showChart = false;
 
+    public bool $showNextCheck = true;
+
     public function getRecord(): Product
     {
         return $this->product;
     }
 
-    public function mount(Product $product, bool $standalone = false, bool $showChart = false): void
+    public function mount(Product $product, bool $standalone = false, bool $showChart = false, bool $showNextCheck = true): void
     {
         $this->product = $product;
         $this->standalone = $standalone;
         $this->showChart = $showChart;
+        $this->showNextCheck = $showNextCheck;
     }
 
     public function addUrlAction(): Action

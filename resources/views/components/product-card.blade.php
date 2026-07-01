@@ -80,5 +80,5 @@
         </div>
     </div>
 
-    @livewire('product-card-detail', ['product' => $product], key('product-card-detail-'.$product->id))
+    @livewire('product-card-detail', ['product' => $product, 'showNextCheck' => false], key('product-card-detail-'.$product->id))
 </div>
