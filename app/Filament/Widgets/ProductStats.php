@@ -3,6 +3,8 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Product;
+use App\Services\Dashboard\DashboardLayoutService;
+use App\Services\Dashboard\DashboardSections;
 use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -12,14 +14,7 @@ class ProductStats extends Widget
 
     protected static bool $isLazy = false;
 
-    protected static ?array $cachedProducts = null;
-
     protected static string $view = 'filament.widgets.product-stats-grouped';
-
-    protected static function getCachedProducts(): array
-    {
-        return self::$cachedProducts ??= self::getProductsGrouped();
-    }
 
     public static function getProductsGrouped(): array
     {
@@ -58,8 +53,8 @@ class ProductStats extends Widget
     public function getViewData(): array
     {
         $user = auth()->user();
-        $layout = new \App\Services\Dashboard\DashboardLayoutService($user);
-        $sectionsService = new \App\Services\Dashboard\DashboardSections($user);
+        $layout = new DashboardLayoutService($user);
+        $sectionsService = new DashboardSections($user);
 
         $groups = $this->orderGroups(self::getProductsGrouped(), $layout);
 
@@ -79,7 +74,7 @@ class ProductStats extends Widget
      * @param  array<int|string, array<string, mixed>>  $groups
      * @return array<int, array<string, mixed>>
      */
-    private function orderGroups(array $groups, \App\Services\Dashboard\DashboardLayoutService $layout): array
+    private function orderGroups(array $groups, DashboardLayoutService $layout): array
     {
         $order = $layout->categoryOrder();
 
@@ -99,5 +94,49 @@ class ProductStats extends Widget
             ->sortBy(fn (array $group): int => $rank[$group['signature']] ?? PHP_INT_MAX)
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  array<int, int|string>  $orderedIds
+     */
+    public function reorderProducts(array $orderedIds): void
+    {
+        $owned = Product::query()
+            ->where('user_id', auth()->id())
+            ->whereIn('id', $orderedIds)
+            ->pluck('id')
+            ->all();
+
+        $ownedIds = array_map('intval', $owned);
+
+        $weight = 0;
+        foreach ($orderedIds as $id) {
+            if (! in_array((int) $id, $ownedIds, true)) {
+                continue;
+            }
+            Product::query()
+                ->where('user_id', auth()->id())
+                ->where('id', $id)
+                ->update(['weight' => $weight]);
+            $weight++;
+        }
+    }
+
+    /**
+     * @param  array<int, string>  $orderedSignatures
+     */
+    public function reorderCategories(array $orderedSignatures): void
+    {
+        (new DashboardLayoutService(auth()->user()))->setCategoryOrder($orderedSignatures);
+    }
+
+    public function toggleSection(string $key): void
+    {
+        (new DashboardLayoutService(auth()->user()))->toggleSection($key);
+    }
+
+    public function toggleCategoryCollapse(string $signature): void
+    {
+        (new DashboardLayoutService(auth()->user()))->toggleCategoryCollapse($signature);
     }
 }
