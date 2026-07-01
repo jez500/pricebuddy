@@ -67,4 +67,26 @@ class ProductStatsInteractionTest extends TestCase
 
         $this->assertTrue((new DashboardLayoutService($this->user->fresh()))->isCategoryCollapsed('3-7'));
     }
+
+    public function test_buy_now_section_renders_when_visible(): void
+    {
+        $product = Product::factory()->create([
+            'user_id' => $this->user->id,
+            'status' => 'p',
+            'current_price' => 100.0,
+            'price_cache' => [['price' => 100.0, 'date' => now()->toDateString(), 'history' => []]],
+        ]);
+        $insights = $product->insights_cache ?? [];
+        $insights['dealScore'] = ['score' => 9.0, 'verdictKey' => 'great', 'verdict' => 'Great time to buy', 'isAllTimeLow' => true, 'lowConfidence' => false];
+        $product->forceFill(['insights_cache' => $insights])->saveQuietly();
+
+        Livewire::test(ProductStats::class)->assertSee('Great time to buy');
+    }
+
+    public function test_hidden_section_not_rendered(): void
+    {
+        (new DashboardLayoutService($this->user))->toggleSection('stat_bar');
+
+        Livewire::test(ProductStats::class)->assertDontSee('Potential savings');
+    }
 }
