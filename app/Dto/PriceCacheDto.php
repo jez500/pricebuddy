@@ -260,7 +260,7 @@ class PriceCacheDto
             $data['url_id'] ?? null,
             $data['url'] ?? null,
             $data['trend'] ?? Trend::None->value,
-            $data['history'],
+            $data['history'] ?? [],
             $data['last_scrape'] ?? null,
             $data['locale'] ?? null,
             $data['currency'] ?? null,

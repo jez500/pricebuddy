@@ -32,7 +32,7 @@ class DashboardSectionsTest extends TestCase
             'user_id' => $this->user->id,
             'status' => 'p',
             'current_price' => 100.0,
-            'price_cache' => [['price' => 100.0, 'date' => now()->toDateString()]],
+            'price_cache' => [['price' => 100.0, 'date' => now()->toDateString(), 'history' => []]],
         ]);
 
         $insights = $product->insights_cache ?? [];
@@ -69,6 +69,22 @@ class DashboardSectionsTest extends TestCase
         $this->assertEquals($allTimeLow->id, $first->id);
     }
 
+    public function test_buy_now_caps_to_six_highest_ranked(): void
+    {
+        // Seven qualifying products with distinct scores (6.1..6.7); only the
+        // top six by score should survive the BUY_NOW_LIMIT cap.
+        $products = collect(range(1, 7))
+            ->map(fn (int $i): Product => $this->productWithDealScore(6.0 + $i * 0.1));
+
+        $lowestScored = $products->first(); // score 6.1
+
+        $ids = (new DashboardSections($this->user))->buyNow()->pluck('id');
+
+        $this->assertCount(6, $ids);
+        $this->assertFalse($ids->contains($lowestScored->id));
+        $products->skip(1)->each(fn (Product $p) => $this->assertTrue($ids->contains($p->id)));
+    }
+
     public function test_needs_attention_relaxes_favourite_filter(): void
     {
         // A non-favourite product with a failed last scrape must still surface.
@@ -95,6 +111,30 @@ class DashboardSectionsTest extends TestCase
         $ids = (new DashboardSections($this->user))->needsAttention()->pluck('id');
 
         $this->assertTrue($ids->contains($product->id));
+    }
+
+    public function test_needs_attention_caps_to_fifteen(): void
+    {
+        // Sixteen qualifying (non-favourite, failed-scrape) products; only
+        // NEEDS_ATTENTION_LIMIT (15) should be returned.
+        collect(range(1, 16))->each(function (int $i): void {
+            $product = Product::factory()
+                ->addUrlWithPrices('https://example.com/needs-attention-'.$i, [100.0])
+                ->create([
+                    'user_id' => $this->user->id,
+                    'status' => 'p',
+                    'favourite' => false,
+                    'paused' => false,
+                ]);
+
+            $cache = $product->price_cache;
+            $cache[0]['last_scrape'] = now()->subDays(2)->toDateTimeString();
+            $product->forceFill(['price_cache' => $cache])->saveQuietly();
+        });
+
+        $ids = (new DashboardSections($this->user))->needsAttention()->pluck('id');
+
+        $this->assertCount(15, $ids);
     }
 
     /**
@@ -230,6 +270,23 @@ class DashboardSectionsTest extends TestCase
         $ids = (new DashboardSections($this->user))->recentlyDropped()->pluck('id')->values();
 
         $this->assertSame([$biggerDrop->id, $smallerDrop->id], $ids->all());
+    }
+
+    public function test_recently_dropped_caps_to_six_highest_ranked(): void
+    {
+        // Seven qualifying products with distinct drop magnitudes (10..70 in
+        // steps of 10); only the top six by drop size should survive the
+        // RECENTLY_DROPPED_LIMIT cap.
+        $products = collect(range(1, 7))
+            ->map(fn (int $i): Product => $this->productWithPrices([100 + $i * 20, 100]));
+
+        $smallestDrop = $products->first(); // drop magnitude 10
+
+        $ids = (new DashboardSections($this->user))->recentlyDropped()->pluck('id');
+
+        $this->assertCount(6, $ids);
+        $this->assertFalse($ids->contains($smallestDrop->id));
+        $products->skip(1)->each(fn (Product $p) => $this->assertTrue($ids->contains($p->id)));
     }
 
     public function test_recently_dropped_excludes_zero_price_products_despite_a_recorded_drop(): void

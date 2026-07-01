@@ -17,16 +17,12 @@ class DashboardLayoutService
     {
         $stored = data_get($this->user->settings, 'dashboard.sections', []);
 
-        $sections = collect(self::SECTION_KEYS)
-            ->map(fn (string $key, int $index): array => [
+        return collect(self::SECTION_KEYS)
+            ->map(fn (string $key): array => [
                 'key' => $key,
                 'visible' => (bool) data_get($stored, $key.'.visible', true),
-                'order' => (int) data_get($stored, $key.'.order', $index),
             ])
-            ->sortBy('order')
-            ->values();
-
-        return $sections->map(fn (array $s): array => ['key' => $s['key'], 'visible' => $s['visible']])->all();
+            ->all();
     }
 
     public function isSectionVisible(string $key): bool

@@ -12,6 +12,12 @@ class DashboardSections
 {
     private const BUY_NOW_MIN_SCORE = 6.0;
 
+    private const BUY_NOW_LIMIT = 6;
+
+    private const RECENTLY_DROPPED_LIMIT = 6;
+
+    private const NEEDS_ATTENTION_LIMIT = 15;
+
     /** @var ?Collection<int, Product> */
     private ?Collection $trackedProducts = null;
 
@@ -72,7 +78,8 @@ class DashboardSections
                 (bool) data_get($p->insights_cache, 'dealScore.isAllTimeLow', false) ? 1 : 0,
                 (float) data_get($p->insights_cache, 'dealScore.score', 0),
             ])
-            ->values();
+            ->values()
+            ->take(self::BUY_NOW_LIMIT);
     }
 
     /**
@@ -89,7 +96,8 @@ class DashboardSections
         return $this->trackedProducts()
             ->filter(fn (Product $p): bool => $droppedIds->contains($p->id))
             ->sortByDesc(fn (Product $p): float => $p->getPriceCacheAggregate('avg') - $p->current_price)
-            ->values();
+            ->values()
+            ->take(self::RECENTLY_DROPPED_LIMIT);
     }
 
     /**
@@ -108,7 +116,8 @@ class DashboardSections
             ->where('paused', false)
             ->get()
             ->filter(fn (Product $p): bool => $this->isTracked($p) && ! $p->is_last_scrape_successful)
-            ->values();
+            ->values()
+            ->take(self::NEEDS_ATTENTION_LIMIT);
     }
 
     /**

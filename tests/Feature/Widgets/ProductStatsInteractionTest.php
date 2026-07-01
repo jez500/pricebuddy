@@ -134,6 +134,19 @@ class ProductStatsInteractionTest extends TestCase
             ->assertSeeHtml('wire:click="toggleCategoryCollapse(\''.$tag->id.'\')"');
     }
 
+    public function test_collapsed_category_grid_is_hidden(): void
+    {
+        $tag = Tag::factory()->create(['name' => 'Alpha', 'weight' => 10, 'user_id' => $this->user->id]);
+        $p = Product::factory()->create(['user_id' => $this->user->id, 'favourite' => true, 'status' => 'p', 'price_cache' => [['price' => 1, 'date' => now()->toDateString(), 'history' => []]]]);
+        $p->tags()->attach($tag);
+
+        (new DashboardLayoutService($this->user))->toggleCategoryCollapse((string) $tag->id);
+
+        Livewire::test(ProductStats::class)
+            ->assertSeeHtml('data-category-signature="'.$tag->id.'"')
+            ->assertSeeHtml('class="fi-wi-stats-overview-stats-ctn grid gap-6 md:grid-cols-2 2xl:grid-cols-3 hidden"');
+    }
+
     public function test_category_group_exposes_sortable_containers(): void
     {
         $tag = Tag::factory()->create(['name' => 'Alpha', 'weight' => 10, 'user_id' => $this->user->id]);
