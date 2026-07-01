@@ -12,22 +12,37 @@ class DashboardSections
 {
     private const BUY_NOW_MIN_SCORE = 6.0;
 
+    /** @var ?Collection<int, Product> */
+    private ?Collection $trackedProducts = null;
+
     public function __construct(private readonly User $user) {}
 
     /**
      * Products belonging to the user that are published and have a usable
      * materialized price cache (matches the widget's `price_cache[0]` guard).
+     * Memoized: repeated calls within one instance reuse the same query.
      *
      * @return Collection<int, Product>
      */
     private function trackedProducts(): Collection
     {
-        return Product::query()
+        return $this->trackedProducts ??= Product::query()
             ->where('user_id', $this->user->id)
             ->published()
             ->get()
-            ->filter(fn (Product $p): bool => $p->current_price > 0 && ! empty($p->price_cache))
+            ->filter(fn (Product $p): bool => $this->isTracked($p))
             ->values();
+    }
+
+    /**
+     * Whether a product has a usable materialized price cache (matches the
+     * widget's `price_cache[0]` guard). Shared by `trackedProducts()` and
+     * `needsAttention()` so the "excluded from all sections" invariant lives
+     * in one place.
+     */
+    private function isTracked(Product $p): bool
+    {
+        return $p->current_price > 0 && ! empty($p->price_cache);
     }
 
     /**
@@ -92,7 +107,7 @@ class DashboardSections
             ->published()
             ->where('paused', false)
             ->get()
-            ->filter(fn (Product $p): bool => $p->current_price > 0 && ! empty($p->price_cache) && ! $p->is_last_scrape_successful)
+            ->filter(fn (Product $p): bool => $this->isTracked($p) && ! $p->is_last_scrape_successful)
             ->values();
     }
 
