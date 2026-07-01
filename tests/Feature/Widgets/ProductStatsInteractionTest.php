@@ -162,4 +162,13 @@ class ProductStatsInteractionTest extends TestCase
         Livewire::test(ProductStats::class)
             ->assertSeeHtml('wire:click="toggleSection(\'buy_now\')"');
     }
+
+    public function test_all_sections_listed_in_customize_control(): void
+    {
+        // Even a hidden section must appear in the customise control so it can be re-enabled.
+        (new DashboardLayoutService($this->user))->toggleSection('recently_dropped');
+
+        Livewire::test(ProductStats::class)
+            ->assertSeeHtml('wire:click="toggleSection(\'recently_dropped\')"');
+    }
 }

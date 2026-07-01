@@ -1,7 +1,24 @@
 @php
     use App\Filament\Widgets\NoProductsFound;
+    $sectionLabels = ['stat_bar' => 'Summary stats', 'buy_now' => "What's good to buy now", 'recently_dropped' => 'Recently dropped', 'needs_attention' => 'Needs attention'];
 @endphp
 <x-filament-widgets::widget>
+    <x-filament::dropdown placement="bottom-end" class="mb-4">
+        <x-slot name="trigger">
+            <x-filament::button size="sm" color="gray" icon="heroicon-m-adjustments-horizontal">Customize</x-filament::button>
+        </x-slot>
+        <x-filament::dropdown.list>
+            @foreach ($sections as $section)
+                <x-filament::dropdown.list.item wire:click="toggleSection('{{ $section['key'] }}')" wire:key="toggle-{{ $section['key'] }}">
+                    <span class="flex items-center gap-2">
+                        <x-filament::icon :icon="$section['visible'] ? 'heroicon-s-eye' : 'heroicon-s-eye-slash'" class="h-4 w-4" />
+                        {{ $sectionLabels[$section['key']] ?? $section['key'] }}
+                    </span>
+                </x-filament::dropdown.list.item>
+            @endforeach
+        </x-filament::dropdown.list>
+    </x-filament::dropdown>
+
     @foreach ($sections as $section)
         @continue (! $section['visible'])
         @if ($section['key'] === 'stat_bar')
