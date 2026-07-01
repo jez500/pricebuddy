@@ -229,4 +229,22 @@ class ProductStatsInteractionTest extends TestCase
         Livewire::test(ProductStats::class)
             ->assertSeeHtml('w-20 h-20 min-w-20 m-2 rounded-md overflow-hidden p-1 flex items-center cursor-grab');
     }
+
+    public function test_customize_dropdown_opens_under_button(): void
+    {
+        Livewire::test(ProductStats::class)->assertSeeHtml('placement.bottom-start');
+    }
+
+    public function test_category_heading_is_drag_handle_with_chevron_on_right(): void
+    {
+        $tag = Tag::factory()->create(['name' => 'Alpha', 'weight' => 10, 'user_id' => $this->user->id]);
+        $p = Product::factory()->create(['user_id' => $this->user->id, 'favourite' => true, 'status' => 'p', 'price_cache' => [['price' => 1, 'date' => now()->toDateString(), 'history' => []]]]);
+        $p->tags()->attach($tag);
+
+        Livewire::test(ProductStats::class)
+            ->assertSeeHtml('cursor-ns-resize')
+            ->assertSeeHtml('wire:click="toggleCategoryCollapse(\''.$tag->id.'\')"')
+            ->assertSeeHtml('ml-auto text-gray-400')
+            ->assertDontSeeHtml('Drag to reorder');
+    }
 }

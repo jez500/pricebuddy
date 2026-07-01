@@ -3,7 +3,7 @@
     $sectionLabels = ['stat_bar' => 'Summary stats', 'buy_now' => "What's good to buy now", 'recently_dropped' => 'Recently dropped', 'needs_attention' => 'Needs attention'];
 @endphp
 <x-filament-widgets::widget>
-    <x-filament::dropdown placement="bottom-end" class="mb-4">
+    <x-filament::dropdown placement="bottom-start" class="mb-4">
         <x-slot name="trigger">
             <x-filament::button size="sm" color="gray" icon="heroicon-m-adjustments-horizontal">Customize</x-filament::button>
         </x-slot>
@@ -46,15 +46,15 @@
                     data-category-signature="{{ $group['signature'] }}"
                     x-sortable-item="{{ $group['signature'] }}"
                 >
-                    <h3 class="fi-header-heading mb-4 flex gap-2 items-center text-xl md:text-2xl font-bold tracking-tight text-gray-950 dark:text-white">
-                        <button type="button" x-sortable-handle class="cursor-grab text-gray-400" title="Drag to reorder">
-                            <x-filament::icon icon="heroicon-o-bars-3" class="h-5 w-5" />
-                        </button>
-                        <button type="button" wire:click="toggleCategoryCollapse('{{ $group['signature'] }}')" class="text-gray-400">
-                            <x-filament::icon :icon="$group['collapsed'] ? 'heroicon-s-chevron-right' : 'heroicon-s-chevron-down'" class="h-5 w-5" />
-                        </button>
+                    <h3
+                        x-sortable-handle
+                        class="fi-header-heading mb-4 flex gap-2 items-center text-xl md:text-2xl font-bold tracking-tight text-gray-950 dark:text-white cursor-ns-resize"
+                    >
                         <x-filament::icon icon="heroicon-s-tag" class="h-5 w-5 text-gray-400 dark:text-gray-600" />
                         {{ $group['heading'] }}
+                        <button type="button" wire:click="toggleCategoryCollapse('{{ $group['signature'] }}')" class="ml-auto text-gray-400">
+                            <x-filament::icon :icon="$group['collapsed'] ? 'heroicon-s-chevron-right' : 'heroicon-s-chevron-down'" class="h-5 w-5" />
+                        </button>
                     </h3>
 
                     <div
