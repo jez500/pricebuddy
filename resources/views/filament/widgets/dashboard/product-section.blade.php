@@ -3,6 +3,9 @@
         <h3 class="fi-header-heading mb-4 flex gap-2 items-center text-xl md:text-2xl font-bold tracking-tight text-gray-950 dark:text-white">
             <x-filament::icon :icon="$icon" class="h-5 w-5 text-gray-400 dark:text-gray-600" />
             {{ $heading }}
+            <button type="button" wire:click="toggleSection('{{ $sectionKey }}')" class="ml-auto text-xs text-gray-400 hover:text-gray-600">
+                Hide
+            </button>
         </h3>
         <div class="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
             @foreach ($products as $product)

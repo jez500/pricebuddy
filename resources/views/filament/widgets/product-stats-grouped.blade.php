@@ -18,20 +18,46 @@
     @if (empty($groups))
         @livewire(NoProductsFound::class)
     @else
-        @foreach ($groups as $group)
-            <div class="mb-8">
-                <h3 class="fi-header-heading mb-4 flex gap-2 items-center text-xl md:text-2xl font-bold tracking-tight text-gray-950 dark:text-white">
-                    <x-filament::icon icon="heroicon-s-tag" class="h-5 w-5 pt-1 text-gray-400 dark:text-gray-600" />
-                    {{ $group['heading'] }}
-                </h3>
-                <div class="fi-wi-stats-overview-stats-ctn grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
-                    @foreach ($group['products'] as $product)
-                        <div>
-                            <x-product-card :product="$product" />
-                        </div>
-                    @endforeach
+        <div
+            x-sortable
+            x-on:end.stop="$wire.reorderCategories($event.target.sortable.toArray())"
+        >
+            @foreach ($groups as $group)
+                <div
+                    class="mb-8"
+                    wire:key="cat-{{ $group['signature'] }}"
+                    data-category-signature="{{ $group['signature'] }}"
+                    x-sortable-item="{{ $group['signature'] }}"
+                >
+                    <h3 class="fi-header-heading mb-4 flex gap-2 items-center text-xl md:text-2xl font-bold tracking-tight text-gray-950 dark:text-white">
+                        <button type="button" x-sortable-handle class="cursor-grab text-gray-400" title="Drag to reorder">
+                            <x-filament::icon icon="heroicon-o-bars-3" class="h-5 w-5" />
+                        </button>
+                        <button type="button" wire:click="toggleCategoryCollapse('{{ $group['signature'] }}')" class="text-gray-400">
+                            <x-filament::icon :icon="$group['collapsed'] ? 'heroicon-s-chevron-right' : 'heroicon-s-chevron-down'" class="h-5 w-5" />
+                        </button>
+                        <x-filament::icon icon="heroicon-s-tag" class="h-5 w-5 text-gray-400 dark:text-gray-600" />
+                        {{ $group['heading'] }}
+                    </h3>
+
+                    <div
+                        @class(['fi-wi-stats-overview-stats-ctn grid gap-6 md:grid-cols-2 2xl:grid-cols-3', 'hidden' => $group['collapsed']])
+                        x-sortable
+                        x-on:end.stop="$wire.reorderProducts($event.target.sortable.toArray())"
+                    >
+                        @foreach ($group['products'] as $product)
+                            <div
+                                wire:key="prod-{{ $product->id }}"
+                                data-product-id="{{ $product->id }}"
+                                x-sortable-item="{{ $product->id }}"
+                                x-sortable-handle
+                            >
+                                <x-product-card :product="$product" />
+                            </div>
+                        @endforeach
+                    </div>
                 </div>
-            </div>
-        @endforeach
+            @endforeach
+        </div>
     @endif
 </x-filament-widgets::widget>
