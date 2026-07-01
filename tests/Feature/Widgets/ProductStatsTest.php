@@ -334,4 +334,37 @@ class ProductStatsTest extends TestCase
         $this->assertContains(min($tagA->id, $tagB->id).'-'.max($tagA->id, $tagB->id), $signatures);
         $this->assertContains('uncategorized', $signatures);
     }
+
+    public function test_view_data_orders_categories_by_user_preference(): void
+    {
+        $tagA = Tag::factory()->create(['name' => 'Alpha', 'weight' => 10, 'user_id' => $this->user->id]);
+        $tagB = Tag::factory()->create(['name' => 'Beta', 'weight' => 20, 'user_id' => $this->user->id]);
+
+        $pa = Product::factory()->create(['user_id' => $this->user->id, 'favourite' => true, 'status' => 'p', 'price_cache' => [['price' => 1, 'date' => now()->toDateString(), 'history' => []]]]);
+        $pa->tags()->attach($tagA);
+        $pb = Product::factory()->create(['user_id' => $this->user->id, 'favourite' => true, 'status' => 'p', 'price_cache' => [['price' => 1, 'date' => now()->toDateString(), 'history' => []]]]);
+        $pb->tags()->attach($tagB);
+
+        // User prefers Beta before Alpha (opposite of tag weight).
+        (new \App\Services\Dashboard\DashboardLayoutService($this->user))
+            ->setCategoryOrder([(string) $tagB->id, (string) $tagA->id]);
+
+        $data = \Livewire\Livewire::test(ProductStats::class)->instance()->getViewData();
+
+        $headings = array_column($data['groups'], 'heading');
+        $this->assertSame(['Beta', 'Alpha'], $headings);
+    }
+
+    public function test_view_data_marks_collapsed_categories(): void
+    {
+        $tag = Tag::factory()->create(['name' => 'Alpha', 'weight' => 10, 'user_id' => $this->user->id]);
+        $p = Product::factory()->create(['user_id' => $this->user->id, 'favourite' => true, 'status' => 'p', 'price_cache' => [['price' => 1, 'date' => now()->toDateString(), 'history' => []]]]);
+        $p->tags()->attach($tag);
+
+        (new \App\Services\Dashboard\DashboardLayoutService($this->user))->toggleCategoryCollapse((string) $tag->id);
+
+        $data = \Livewire\Livewire::test(ProductStats::class)->instance()->getViewData();
+
+        $this->assertTrue($data['groups'][0]['collapsed']);
+    }
 }

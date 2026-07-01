@@ -57,8 +57,47 @@ class ProductStats extends Widget
 
     public function getViewData(): array
     {
+        $user = auth()->user();
+        $layout = new \App\Services\Dashboard\DashboardLayoutService($user);
+        $sectionsService = new \App\Services\Dashboard\DashboardSections($user);
+
+        $groups = $this->orderGroups(self::getProductsGrouped(), $layout);
+
         return [
-            'groups' => self::getCachedProducts(),
+            'groups' => $groups,
+            'sections' => $layout->sections(),
+            'sectionData' => [
+                'stat_bar' => $sectionsService->statBar(),
+                'buy_now' => $sectionsService->buyNow(),
+                'recently_dropped' => $sectionsService->recentlyDropped(),
+                'needs_attention' => $sectionsService->needsAttention(),
+            ],
         ];
+    }
+
+    /**
+     * @param  array<int|string, array<string, mixed>>  $groups
+     * @return array<int, array<string, mixed>>
+     */
+    private function orderGroups(array $groups, \App\Services\Dashboard\DashboardLayoutService $layout): array
+    {
+        $order = $layout->categoryOrder();
+
+        $groups = collect($groups)->map(function (array $group) use ($layout): array {
+            $group['collapsed'] = $layout->isCategoryCollapsed($group['signature']);
+
+            return $group;
+        });
+
+        if ($order === []) {
+            return $groups->values()->all(); // already weight-sorted by getProductsGrouped()
+        }
+
+        $rank = array_flip($order); // signature => index
+
+        return $groups
+            ->sortBy(fn (array $group): int => $rank[$group['signature']] ?? PHP_INT_MAX)
+            ->values()
+            ->all();
     }
 }
