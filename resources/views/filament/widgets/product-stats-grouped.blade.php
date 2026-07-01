@@ -67,9 +67,8 @@
                                 wire:key="prod-{{ $product->id }}"
                                 data-product-id="{{ $product->id }}"
                                 x-sortable-item="{{ $product->id }}"
-                                x-sortable-handle
                             >
-                                <x-product-card :product="$product" />
+                                <x-product-card :product="$product" :draggable="true" />
                             </div>
                         @endforeach
                     </div>

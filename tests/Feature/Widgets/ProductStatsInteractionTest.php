@@ -219,4 +219,14 @@ class ProductStatsInteractionTest extends TestCase
         Livewire::test(ProductStats::class)
             ->assertDontSeeHtml('class="ml-auto text-xs text-gray-400 hover:text-gray-600"');
     }
+
+    public function test_product_image_is_the_drag_handle(): void
+    {
+        $tag = Tag::factory()->create(['name' => 'Alpha', 'weight' => 10, 'user_id' => $this->user->id]);
+        $p = Product::factory()->create(['user_id' => $this->user->id, 'favourite' => true, 'status' => 'p', 'price_cache' => [['price' => 1, 'date' => now()->toDateString(), 'history' => []]]]);
+        $p->tags()->attach($tag);
+
+        Livewire::test(ProductStats::class)
+            ->assertSeeHtml('w-20 h-20 min-w-20 m-2 rounded-md overflow-hidden p-1 flex items-center cursor-grab');
+    }
 }
