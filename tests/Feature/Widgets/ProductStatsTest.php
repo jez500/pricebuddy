@@ -306,4 +306,32 @@ class ProductStatsTest extends TestCase
         $this->assertEquals(50, $groupValues[0]['weight']);
         $this->assertEquals(50, $groupValues[1]['weight']);
     }
+
+    public function test_groups_include_stable_signature(): void
+    {
+        $tagA = Tag::factory()->create(['name' => 'Alpha', 'weight' => 10, 'user_id' => $this->user->id]);
+        $tagB = Tag::factory()->create(['name' => 'Beta', 'weight' => 20, 'user_id' => $this->user->id]);
+
+        $product = Product::factory()->create([
+            'user_id' => $this->user->id,
+            'favourite' => true,
+            'status' => 'p',
+            'price_cache' => [['price' => 100.00, 'date' => now()->toDateString()]],
+        ]);
+        $product->tags()->attach([$tagB->id, $tagA->id]);
+
+        $uncategorized = Product::factory()->create([
+            'user_id' => $this->user->id,
+            'favourite' => true,
+            'status' => 'p',
+            'price_cache' => [['price' => 50.00, 'date' => now()->toDateString()]],
+        ]);
+
+        $groups = ProductStats::getProductsGrouped();
+        $signatures = array_column($groups, 'signature');
+
+        // Sorted tag ids joined by '-', regardless of attach order.
+        $this->assertContains(min($tagA->id, $tagB->id).'-'.max($tagA->id, $tagB->id), $signatures);
+        $this->assertContains('uncategorized', $signatures);
+    }
 }

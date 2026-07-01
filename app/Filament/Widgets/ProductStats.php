@@ -38,6 +38,7 @@ class ProductStats extends Widget
             )
             ->map(fn (Collection $products, string $tagName) => [
                 'heading' => $tagName,
+                'signature' => self::categorySignature($products->first()->tags),
                 'products' => $products,
                 'weight' => $products->first()->tags->count() > 0
                     ? $products->first()->tags->max('weight')
@@ -45,6 +46,13 @@ class ProductStats extends Widget
             ])
             ->sortBy('weight')
             ->toArray();
+    }
+
+    public static function categorySignature(\Illuminate\Support\Collection $tags): string
+    {
+        return $tags->isEmpty()
+            ? 'uncategorized'
+            : $tags->pluck('id')->sort()->values()->implode('-');
     }
 
     public function getViewData(): array
