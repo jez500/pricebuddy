@@ -8,6 +8,18 @@ class DashboardLayoutService
 {
     public const SECTION_KEYS = ['stat_bar', 'buy_now', 'recently_dropped', 'needs_attention'];
 
+    /**
+     * Default visibility per section for users with no stored preference.
+     *
+     * @var array<string, bool>
+     */
+    private const DEFAULT_VISIBILITY = [
+        'stat_bar' => false,
+        'buy_now' => true,
+        'recently_dropped' => false,
+        'needs_attention' => false,
+    ];
+
     public function __construct(private readonly User $user) {}
 
     /**
@@ -20,14 +32,14 @@ class DashboardLayoutService
         return collect(self::SECTION_KEYS)
             ->map(fn (string $key): array => [
                 'key' => $key,
-                'visible' => (bool) data_get($stored, $key.'.visible', true),
+                'visible' => (bool) data_get($stored, $key.'.visible', $this->defaultVisibility($key)),
             ])
             ->all();
     }
 
     public function isSectionVisible(string $key): bool
     {
-        return (bool) data_get($this->user->settings, "dashboard.sections.$key.visible", true);
+        return (bool) data_get($this->user->settings, "dashboard.sections.$key.visible", $this->defaultVisibility($key));
     }
 
     /**
@@ -49,8 +61,13 @@ class DashboardLayoutService
             return;
         }
 
-        $current = (bool) data_get($this->user->settings, "dashboard.sections.$key.visible", true);
+        $current = (bool) data_get($this->user->settings, "dashboard.sections.$key.visible", $this->defaultVisibility($key));
         $this->write("dashboard.sections.$key.visible", ! $current);
+    }
+
+    private function defaultVisibility(string $key): bool
+    {
+        return self::DEFAULT_VISIBILITY[$key] ?? true;
     }
 
     public function toggleCategoryCollapse(string $signature): void

@@ -86,13 +86,15 @@ class ProductStatsInteractionTest extends TestCase
 
     public function test_hidden_section_not_rendered(): void
     {
-        (new DashboardLayoutService($this->user))->toggleSection('stat_bar');
-
+        // stat_bar is hidden by default, so its stats must not render.
         Livewire::test(ProductStats::class)->assertDontSee('Potential savings');
     }
 
     public function test_needs_attention_section_colors_negative_verdict_correctly(): void
     {
+        // needs_attention is hidden by default; enable it so the product renders.
+        (new DashboardLayoutService($this->user))->toggleSection('needs_attention');
+
         // needs_attention doesn't filter on deal score, so a product with a
         // cached negative verdict (e.g. "wait") must not be styled with the
         // same positive/primary color used for a genuine great deal.
