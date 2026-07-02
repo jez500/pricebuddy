@@ -187,12 +187,14 @@ class Product extends Model
             return __('due');
         }
 
-        if ($seconds >= 86400) {
-            return ((int) round($seconds / 86400)).'d';
-        }
-
         if ($seconds >= 3600) {
-            return ((int) round($seconds / 3600)).'h';
+            $hours = (int) round($seconds / 3600);
+
+            // Once the rounded hours reach a full day, show days so we never
+            // render "24h" instead of "1d".
+            return $hours >= 24
+                ? ((int) round($seconds / 86400)).'d'
+                : $hours.'h';
         }
 
         return '<1h';

@@ -287,4 +287,39 @@ class ProductTest extends TestCase
 
         $this->assertCount(0, $product->tags);
     }
+
+    public function test_url_new_product_create_ignores_tags_owned_by_other_users()
+    {
+        $this->actingAs($this->user);
+
+        Url::query()->delete();
+        Product::query()->delete();
+        Store::query()->delete();
+
+        Store::factory()->createOne([
+            'domains' => [['domain' => 'example.com']],
+        ]);
+
+        $ownTag = Tag::factory()->create(['user_id' => $this->user->getKey(), 'name' => 'Mine']);
+        $otherUser = User::factory()->create();
+        $foreignTag = Tag::factory()->create(['user_id' => $otherUser->getKey(), 'name' => 'Theirs']);
+
+        $url = 'https://example.com/product/foreign_tags';
+
+        $this->mockScrape('$20.00', 'Foreign tag product', 'https://example.com/image.jpg');
+
+        Livewire::test(CreateProduct::class)
+            ->fillForm([
+                'url' => $url,
+                'tags' => [$ownTag->getKey(), $foreignTag->getKey()],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        /** @var Product $product */
+        $product = Product::where('title', 'Foreign tag product')->first();
+
+        // Only the user's own tag is attached; a tampered foreign ID is dropped.
+        $this->assertEqualsCanonicalizing([$ownTag->getKey()], $product->tags->pluck('id')->all());
+    }
 }

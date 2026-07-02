@@ -63,14 +63,16 @@ class UrlsTableWidget extends BaseWidget
                             ->required(),
                     ])
                     ->using(function (Url $record, array $data): Url {
-                        $record->price_factor = (float) $data['price_factor'];
-                        $record->save();
-
+                        // Validate/apply the URL change first so a failed change leaves
+                        // nothing persisted (changeUrl fails closed) before price_factor.
                         if (trim($data['url']) !== $record->url && ! $record->changeUrl($data['url'])) {
                             throw ValidationException::withMessages([
                                 'url' => __('Unable to resolve a store or price for this URL'),
                             ]);
                         }
+
+                        $record->price_factor = (float) $data['price_factor'];
+                        $record->save();
 
                         return $record;
                     })

@@ -215,7 +215,11 @@ class ProductStatsInteractionTest extends TestCase
         $p->tags()->attach($tag);
 
         Livewire::test(ProductStats::class)
-            ->assertSeeHtml('wire:click="toggleCategoryCollapse(\''.$tag->id.'\')"');
+            ->assertSeeHtml('wire:click="toggleCategoryCollapse(\''.$tag->id.'\')"')
+            // Collapse control is announced to assistive tech: labelled, with state + target.
+            ->assertSeeHtml('aria-expanded="true"')
+            ->assertSeeHtml('aria-controls="cat-grid-'.$tag->id.'"')
+            ->assertSeeHtml('aria-label="Collapse Alpha"');
     }
 
     public function test_collapsed_category_grid_is_hidden(): void

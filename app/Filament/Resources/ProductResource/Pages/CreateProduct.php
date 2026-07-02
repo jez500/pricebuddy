@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\ProductResource\Pages;
 
 use App\Filament\Resources\ProductResource;
+use App\Models\Tag;
 use App\Models\Url;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
@@ -36,7 +37,13 @@ class CreateProduct extends CreateRecord
 
         $product = $urlModel->product;
 
-        $tagIds = array_filter((array) data_get($data, 'tags', []));
+        // Scope submitted tag IDs to the current user's own tags: the select only
+        // offers the user's tags, but a tampered request could submit arbitrary IDs.
+        $tagIds = Tag::query()
+            ->where('user_id', auth()->id())
+            ->whereIn('id', (array) data_get($data, 'tags', []))
+            ->pluck('id')
+            ->all();
 
         if ($tagIds !== []) {
             $product->tags()->syncWithoutDetaching($tagIds);

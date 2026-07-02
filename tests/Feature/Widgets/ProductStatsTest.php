@@ -367,4 +367,25 @@ class ProductStatsTest extends TestCase
 
         $this->assertTrue($data['groups'][0]['collapsed']);
     }
+
+    public function test_same_tag_set_produces_one_group_regardless_of_attach_order(): void
+    {
+        $alpha = Tag::factory()->create(['name' => 'Alpha', 'weight' => 10, 'user_id' => $this->user->id]);
+        $beta = Tag::factory()->create(['name' => 'Beta', 'weight' => 10, 'user_id' => $this->user->id]);
+
+        $first = Product::factory()->create(['user_id' => $this->user->id, 'favourite' => true, 'status' => 'p', 'price_cache' => [['price' => 1, 'date' => now()->toDateString()]]]);
+        $first->tags()->attach([$alpha->id, $beta->id]);
+
+        // Same tag set, attached in the opposite order.
+        $second = Product::factory()->create(['user_id' => $this->user->id, 'favourite' => true, 'status' => 'p', 'price_cache' => [['price' => 2, 'date' => now()->toDateString()]]]);
+        $second->tags()->attach([$beta->id, $alpha->id]);
+
+        $groups = ProductStats::getProductsGrouped();
+
+        // One canonical group containing both products, with a stable heading.
+        $this->assertCount(1, $groups);
+        $group = array_values($groups)[0];
+        $this->assertSame('Alpha, Beta', $group['heading']);
+        $this->assertCount(2, $group['products']);
+    }
 }

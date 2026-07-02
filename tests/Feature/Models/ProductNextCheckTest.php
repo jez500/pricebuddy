@@ -80,6 +80,15 @@ class ProductNextCheckTest extends TestCase
         $this->assertSame('2d', $product->nextCheckShortLabel());
     }
 
+    public function test_next_check_short_label_promotes_to_one_day_when_hours_round_up(): void
+    {
+        $product = Product::factory()->create(['refresh_interval' => 86400]);
+        // 23h40m rounds to 24 hours, which must display as "1d", not "24h".
+        $product->forceFill(['next_check_at' => now()->addMinutes((23 * 60) + 40)])->saveQuietly();
+
+        $this->assertSame('1d', $product->nextCheckShortLabel());
+    }
+
     public function test_next_check_short_label_uses_less_than_hour(): void
     {
         $product = Product::factory()->create(['refresh_interval' => 3600]);

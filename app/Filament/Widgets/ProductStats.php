@@ -8,6 +8,7 @@ use App\Services\Dashboard\DashboardLayoutService;
 use App\Services\Dashboard\DashboardSections;
 use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
 
 class ProductStats extends Widget
@@ -29,12 +30,9 @@ class ProductStats extends Widget
             ->orderByDesc('created_at')
             ->get()
             ->filter(fn (Product $product) => isset($product->price_cache[0]))
-            ->groupBy(fn (Product $product) => $product->tags->count() > 0
-                ? $product->tags->pluck('name')->implode(', ')
-                : 'Uncategorized'
-            )
-            ->map(fn (Collection $products, string $tagName) => [
-                'heading' => $tagName,
+            ->groupBy(fn (Product $product): string => self::categorySignature($product->tags))
+            ->map(fn (Collection $products): array => [
+                'heading' => self::categoryHeading($products->first()->tags),
                 'signature' => self::categorySignature($products->first()->tags),
                 'products' => $products,
                 'weight' => $products->first()->tags->count() > 0
@@ -50,6 +48,18 @@ class ProductStats extends Widget
         return $tags->isEmpty()
             ? 'uncategorized'
             : $tags->pluck('id')->sort()->values()->implode('-');
+    }
+
+    /**
+     * Deterministic display heading for a tag-set, so the same combination of
+     * tags always produces one group with a stable label regardless of the
+     * order tags were attached in.
+     */
+    public static function categoryHeading(\Illuminate\Support\Collection $tags): string
+    {
+        return $tags->isEmpty()
+            ? 'Uncategorized'
+            : $tags->sortBy('name')->pluck('name')->implode(', ');
     }
 
     public function getViewData(): array
@@ -111,17 +121,19 @@ class ProductStats extends Widget
 
         $ownedIds = array_map('intval', $owned);
 
-        $weight = 0;
-        foreach ($orderedIds as $id) {
-            if (! in_array((int) $id, $ownedIds, true)) {
-                continue;
+        DB::transaction(function () use ($orderedIds, $ownedIds): void {
+            $weight = 0;
+            foreach ($orderedIds as $id) {
+                if (! in_array((int) $id, $ownedIds, true)) {
+                    continue;
+                }
+                Product::query()
+                    ->where('user_id', auth()->id())
+                    ->where('id', $id)
+                    ->update(['weight' => $weight]);
+                $weight++;
             }
-            Product::query()
-                ->where('user_id', auth()->id())
-                ->where('id', $id)
-                ->update(['weight' => $weight]);
-            $weight++;
-        }
+        });
     }
 
     /**

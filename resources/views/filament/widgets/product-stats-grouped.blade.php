@@ -39,12 +39,20 @@
                             <x-filament::icon icon="heroicon-s-tag" class="h-5 w-5 text-gray-400 dark:text-gray-600" />
                             {{ $group['heading'] }}
                         </span>
-                        <button type="button" wire:click="toggleCategoryCollapse('{{ $group['signature'] }}')" class="ml-auto text-gray-400">
+                        <button
+                            type="button"
+                            wire:click="toggleCategoryCollapse('{{ $group['signature'] }}')"
+                            class="ml-auto text-gray-400"
+                            aria-expanded="{{ $group['collapsed'] ? 'false' : 'true' }}"
+                            aria-controls="cat-grid-{{ $group['signature'] }}"
+                            aria-label="{{ ($group['collapsed'] ? __('Expand') : __('Collapse')).' '.$group['heading'] }}"
+                        >
                             <x-filament::icon :icon="$group['collapsed'] ? 'heroicon-s-chevron-right' : 'heroicon-s-chevron-down'" class="h-5 w-5" />
                         </button>
                     </h3>
 
                     <div
+                        id="cat-grid-{{ $group['signature'] }}"
                         @class(['fi-wi-stats-overview-stats-ctn grid gap-6 md:grid-cols-2 2xl:grid-cols-3', 'hidden' => $group['collapsed']])
                         data-category-signature="{{ $group['signature'] }}"
                         x-sortable

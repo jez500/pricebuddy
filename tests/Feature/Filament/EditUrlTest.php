@@ -80,13 +80,15 @@ class EditUrlTest extends TestCase
         Livewire::test(UrlsTableWidget::class, ['record' => $this->product])
             ->callTableAction('edit', $this->url, data: [
                 'url' => 'not-a-valid-url',
-                'price_factor' => 1,
+                'price_factor' => 5,
             ])
             ->assertHasTableActionErrors(['url']);
 
         $this->url->refresh();
 
+        // Neither the URL nor the price factor is persisted when the URL is rejected.
         $this->assertSame('https://example.com/product', $this->url->url);
+        $this->assertSame(1.0, (float) $this->url->price_factor);
     }
 
     public function test_show_page_widget_can_change_url_and_keeps_history()
@@ -116,12 +118,14 @@ class EditUrlTest extends TestCase
         Livewire::test(ProductUrlStats::class, ['record' => $this->product])
             ->callAction('edit', data: [
                 'url' => 'not-a-valid-url',
-                'price_factor' => 1,
+                'price_factor' => 5,
             ], arguments: ['url' => $this->url->getKey()])
             ->assertHasActionErrors(['url']);
 
         $this->url->refresh();
 
+        // Neither the URL nor the price factor is persisted when the URL is rejected.
         $this->assertSame('https://example.com/product', $this->url->url);
+        $this->assertSame(1.0, (float) $this->url->price_factor);
     }
 }
