@@ -9,7 +9,7 @@
         'average' => 'gray',
         'pricey' => 'warning',
         'wait' => 'danger',
-        default => 'success',
+        default => 'gray',
     };
 @endphp
 @if (! $product->is_last_scrape_successful || $product->is_notified_price || $latestPrice?->isUnavailable() || $product->paused || $verdict)
@@ -34,7 +34,6 @@
                 </div>
             @endif
         @endif
-
         @if ($product->paused)
             <div class="mt-1 whitespace-nowrap">
                 @include('components.icon-badge', [

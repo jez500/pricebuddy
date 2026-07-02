@@ -165,8 +165,10 @@ class ProductStatsInteractionTest extends TestCase
             ->assertSeeHtml('x-sortable-item="'.$p->id.'"');
     }
 
-    public function test_section_exposes_hide_control(): void
+    public function test_visible_section_listed_in_customize_control(): void
     {
+        // A visible section (buy_now is visible by default) is toggleable via the
+        // customise dropdown (the section header no longer carries a Hide button).
         Product::factory()->create([
             'user_id' => $this->user->id,
             'status' => 'p',
@@ -178,7 +180,7 @@ class ProductStatsInteractionTest extends TestCase
             ->assertSeeHtml('wire:click="toggleSection(\'buy_now\')"');
     }
 
-    public function test_all_sections_listed_in_customize_control(): void
+    public function test_hidden_section_still_listed_in_customize_control(): void
     {
         // Even a hidden section must appear in the customise control so it can be re-enabled.
         (new DashboardLayoutService($this->user))->toggleSection('recently_dropped');
@@ -228,6 +230,26 @@ class ProductStatsInteractionTest extends TestCase
 
         Livewire::test(ProductStats::class)
             ->assertSeeHtml('w-20 h-20 min-w-20 m-2 rounded-md overflow-hidden p-1 flex items-center cursor-grab');
+    }
+
+    public function test_smart_section_card_is_not_draggable(): void
+    {
+        // A non-favourite product surfaces in buy_now (a smart section) but not
+        // in a draggable category group, so its card must omit the drag handle.
+        Product::factory()->create([
+            'user_id' => $this->user->id,
+            'favourite' => false,
+            'status' => 'p',
+            'current_price' => 100.0,
+            'price_cache' => [['price' => 100.0, 'date' => now()->toDateString(), 'history' => []]],
+        ])->forceFill(['insights_cache' => ['dealScore' => [
+            'score' => 9.0, 'verdictKey' => 'great', 'verdict' => 'Great time to buy',
+            'isAllTimeLow' => true, 'lowConfidence' => false,
+        ]]])->saveQuietly();
+
+        Livewire::test(ProductStats::class)
+            ->assertSee('Great time to buy')    // card rendered in the smart section
+            ->assertDontSeeHtml('cursor-grab'); // but without a drag handle
     }
 
     public function test_customize_dropdown_opens_under_button(): void

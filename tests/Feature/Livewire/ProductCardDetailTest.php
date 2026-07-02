@@ -18,12 +18,11 @@ class ProductCardDetailTest extends TestCase
         $user = User::factory()->create();
         $this->actingAs($user);
 
-        // Paused products render the "Next check: Paused" branch of the countdown.
+        // `paused` is the sole trigger for the countdown's "Next check: Paused"
+        // branch; the price_cache row just lets the card body render.
         return Product::factory()->create([
             'user_id' => $user->id,
-            'status' => 'p',
             'paused' => true,
-            'current_price' => 100.0,
             'price_cache' => [['price' => 100.0, 'date' => now()->toDateString(), 'history' => []]],
         ]);
     }
