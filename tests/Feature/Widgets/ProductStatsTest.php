@@ -306,4 +306,86 @@ class ProductStatsTest extends TestCase
         $this->assertEquals(50, $groupValues[0]['weight']);
         $this->assertEquals(50, $groupValues[1]['weight']);
     }
+
+    public function test_groups_include_stable_signature(): void
+    {
+        $tagA = Tag::factory()->create(['name' => 'Alpha', 'weight' => 10, 'user_id' => $this->user->id]);
+        $tagB = Tag::factory()->create(['name' => 'Beta', 'weight' => 20, 'user_id' => $this->user->id]);
+
+        $product = Product::factory()->create([
+            'user_id' => $this->user->id,
+            'favourite' => true,
+            'status' => 'p',
+            'price_cache' => [['price' => 100.00, 'date' => now()->toDateString()]],
+        ]);
+        $product->tags()->attach([$tagB->id, $tagA->id]);
+
+        $uncategorized = Product::factory()->create([
+            'user_id' => $this->user->id,
+            'favourite' => true,
+            'status' => 'p',
+            'price_cache' => [['price' => 50.00, 'date' => now()->toDateString()]],
+        ]);
+
+        $groups = ProductStats::getProductsGrouped();
+        $signatures = array_column($groups, 'signature');
+
+        // Sorted tag ids joined by '-', regardless of attach order.
+        $this->assertContains(min($tagA->id, $tagB->id).'-'.max($tagA->id, $tagB->id), $signatures);
+        $this->assertContains('uncategorized', $signatures);
+    }
+
+    public function test_view_data_orders_categories_by_user_preference(): void
+    {
+        $tagA = Tag::factory()->create(['name' => 'Alpha', 'weight' => 10, 'user_id' => $this->user->id]);
+        $tagB = Tag::factory()->create(['name' => 'Beta', 'weight' => 20, 'user_id' => $this->user->id]);
+
+        $pa = Product::factory()->create(['user_id' => $this->user->id, 'favourite' => true, 'status' => 'p', 'price_cache' => [['price' => 1, 'date' => now()->toDateString(), 'history' => []]]]);
+        $pa->tags()->attach($tagA);
+        $pb = Product::factory()->create(['user_id' => $this->user->id, 'favourite' => true, 'status' => 'p', 'price_cache' => [['price' => 1, 'date' => now()->toDateString(), 'history' => []]]]);
+        $pb->tags()->attach($tagB);
+
+        // User prefers Beta before Alpha (opposite of tag weight).
+        (new \App\Services\Dashboard\DashboardLayoutService($this->user))
+            ->setCategoryOrder([(string) $tagB->id, (string) $tagA->id]);
+
+        $data = \Livewire\Livewire::test(ProductStats::class)->instance()->getViewData();
+
+        $headings = array_column($data['groups'], 'heading');
+        $this->assertSame(['Beta', 'Alpha'], $headings);
+    }
+
+    public function test_view_data_marks_collapsed_categories(): void
+    {
+        $tag = Tag::factory()->create(['name' => 'Alpha', 'weight' => 10, 'user_id' => $this->user->id]);
+        $p = Product::factory()->create(['user_id' => $this->user->id, 'favourite' => true, 'status' => 'p', 'price_cache' => [['price' => 1, 'date' => now()->toDateString(), 'history' => []]]]);
+        $p->tags()->attach($tag);
+
+        (new \App\Services\Dashboard\DashboardLayoutService($this->user))->toggleCategoryCollapse((string) $tag->id);
+
+        $data = \Livewire\Livewire::test(ProductStats::class)->instance()->getViewData();
+
+        $this->assertTrue($data['groups'][0]['collapsed']);
+    }
+
+    public function test_same_tag_set_produces_one_group_regardless_of_attach_order(): void
+    {
+        $alpha = Tag::factory()->create(['name' => 'Alpha', 'weight' => 10, 'user_id' => $this->user->id]);
+        $beta = Tag::factory()->create(['name' => 'Beta', 'weight' => 10, 'user_id' => $this->user->id]);
+
+        $first = Product::factory()->create(['user_id' => $this->user->id, 'favourite' => true, 'status' => 'p', 'price_cache' => [['price' => 1, 'date' => now()->toDateString()]]]);
+        $first->tags()->attach([$alpha->id, $beta->id]);
+
+        // Same tag set, attached in the opposite order.
+        $second = Product::factory()->create(['user_id' => $this->user->id, 'favourite' => true, 'status' => 'p', 'price_cache' => [['price' => 2, 'date' => now()->toDateString()]]]);
+        $second->tags()->attach([$beta->id, $alpha->id]);
+
+        $groups = ProductStats::getProductsGrouped();
+
+        // One canonical group containing both products, with a stable heading.
+        $this->assertCount(1, $groups);
+        $group = array_values($groups)[0];
+        $this->assertSame('Alpha, Beta', $group['heading']);
+        $this->assertCount(2, $group['products']);
+    }
 }

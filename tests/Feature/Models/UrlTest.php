@@ -567,6 +567,71 @@ class UrlTest extends TestCase
 
     }
 
+    public function test_change_url_re_resolves_store_and_keeps_history()
+    {
+        $this->actingAs($this->user);
+
+        $this->mockScrape(100, 'Example Product');
+        /** @var Url $url */
+        $url = Url::createFromUrl(self::TEST_URL, userId: $this->user->getKey());
+
+        // An extra historical price so we can prove the series is retained.
+        $url->prices()->create([
+            'price' => 90,
+            'unit_price' => 90,
+            'price_factor' => 1,
+            'store_id' => $this->store->getKey(),
+        ]);
+
+        $historyPriceIds = $url->prices()->pluck('id')->all();
+        $this->assertCount(2, $historyPriceIds);
+
+        $newStore = Store::factory()->createOne([
+            'domains' => [['domain' => 'example2.com']],
+        ]);
+        $newUrl = 'https://example2.com/product';
+
+        $this->assertTrue($url->changeUrl($newUrl));
+
+        $url->refresh();
+
+        // URL re-pointed and store re-resolved from the new domain.
+        $this->assertSame($newUrl, $url->url);
+        $this->assertSame($newStore->getKey(), $url->store_id);
+
+        // The original history rows are untouched (retained on the same record).
+        $this->assertSame(
+            $historyPriceIds,
+            Price::whereIn('id', $historyPriceIds)->orderBy('id')->pluck('id')->all(),
+        );
+
+        // Exactly one fresh price was appended, recorded against the new store.
+        $this->assertSame(count($historyPriceIds) + 1, $url->prices()->count());
+        $newPrice = $url->prices()->whereNotIn('id', $historyPriceIds)->sole();
+        $this->assertSame($newStore->getKey(), $newPrice->store_id);
+    }
+
+    public function test_change_url_leaves_record_unchanged_when_url_cannot_resolve()
+    {
+        $this->actingAs($this->user);
+
+        $this->mockScrape(100, 'Example Product');
+        /** @var Url $url */
+        $url = Url::createFromUrl(self::TEST_URL, userId: $this->user->getKey());
+
+        $originalStoreId = $url->store_id;
+        $countBefore = $url->prices()->count();
+
+        // Domain with no matching store, and auto-create disabled so it cannot resolve.
+        $this->assertFalse($url->changeUrl('https://no-store-here.test/product', createStore: false));
+
+        $url->refresh();
+
+        $this->assertSame(self::TEST_URL, $url->url);
+        $this->assertSame($originalStoreId, $url->store_id);
+        $this->assertSame($countBefore, $url->prices()->count());
+    }
+
     protected function createOneProductWithUrlAndPrices(string $url = 'https://example.com', array $prices = [10, 15, 20], array $attrs = []): Product
     {
         return Product::factory()

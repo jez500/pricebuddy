@@ -71,6 +71,23 @@ in a docker container with a rest api.
 Tag products to better organise them. Tags can be used to filter products on the
 dashboard.
 
+## Customisable dashboard
+
+Arrange the dashboard to suit you. Products are grouped by [tag](/tags.html#tags-on-the-dashboard),
+and you can drag to reorder the groups and the products within them, drag a
+product from one group to another to re-tag it, and collapse groups you don't
+need open.
+
+Use the **Customize** button to show or hide the summary stats and the smart
+sections that sit above your groups:
+
+- **What's good to buy now** — products that are a good buy right now.
+- **Recently dropped** — products whose price has recently fallen.
+- **Needs attention** — tracked products whose latest price check failed.
+
+Your layout, group order, collapse state and section choices are all saved per
+user.
+
 ## Multi-user support
 
 Each user has their own products, tags and settings. Great for sharing with others

@@ -13,7 +13,8 @@ class ProductCard extends Component
      * Create a new component instance.
      */
     public function __construct(
-        public Product $product
+        public Product $product,
+        public bool $draggable = false,
     ) {
         //
     }

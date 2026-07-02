@@ -7,6 +7,7 @@ use App\Filament\Resources\ProductResource;
 use App\Filament\Resources\ProductResource\Pages\CreateProduct;
 use App\Models\Product;
 use App\Models\Store;
+use App\Models\Tag;
 use App\Models\Url;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -178,5 +179,147 @@ class ProductTest extends TestCase
         $scrapedCache = $product->getPriceCache();
         $this->assertSame(800.01, $scrapedCache->first()->getPrice());
         $this->assertSame($url, $scrapedCache->first()->getUrl());
+    }
+
+    public function test_url_new_product_create_with_tags()
+    {
+        $this->actingAs($this->user);
+
+        Url::query()->delete();
+        Product::query()->delete();
+        Store::query()->delete();
+
+        Store::factory()->createOne([
+            'domains' => [['domain' => 'example.com']],
+        ]);
+
+        $tagA = Tag::factory()->create(['user_id' => $this->user->getKey(), 'name' => 'Groceries']);
+        $tagB = Tag::factory()->create(['user_id' => $this->user->getKey(), 'name' => 'Health']);
+
+        $url = 'https://example.com/product/create_with_tags';
+
+        $this->mockScrape('$42.00', 'Tagged product', 'https://example.com/image.jpg');
+
+        Livewire::test(CreateProduct::class)
+            ->fillForm([
+                'url' => $url,
+                'tags' => [$tagA->getKey(), $tagB->getKey()],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        /** @var Product $product */
+        $product = Product::where('title', 'Tagged product')->first();
+
+        $this->assertEqualsCanonicalizing(
+            [$tagA->getKey(), $tagB->getKey()],
+            $product->tags->pluck('id')->all(),
+        );
+    }
+
+    public function test_url_existing_product_create_merges_tags()
+    {
+        $this->actingAs($this->user);
+
+        Url::query()->delete();
+        Product::query()->delete();
+        Store::query()->delete();
+
+        $existingTag = Tag::factory()->create(['user_id' => $this->user->getKey(), 'name' => 'Existing']);
+        $newTag = Tag::factory()->create(['user_id' => $this->user->getKey(), 'name' => 'Added']);
+
+        $product = Product::factory()->create([
+            'title' => 'Product with a tag',
+            'user_id' => $this->user->getKey(),
+        ]);
+        $product->tags()->attach($existingTag);
+
+        Store::factory()->createOne([
+            'domains' => [['domain' => 'example.com']],
+        ]);
+
+        $url = 'https://example.com/product/merge_tags';
+
+        $this->mockScrape('$10.00', 'Product with a tag', 'https://example.com/image.jpg');
+
+        Livewire::test(CreateProduct::class)
+            ->fillForm([
+                'product_id' => $product->getKey(),
+                'url' => $url,
+                'tags' => [$newTag->getKey()],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $product->refresh();
+
+        $this->assertEqualsCanonicalizing(
+            [$existingTag->getKey(), $newTag->getKey()],
+            $product->tags->pluck('id')->all(),
+        );
+    }
+
+    public function test_url_new_product_create_without_tags_has_no_tags()
+    {
+        $this->actingAs($this->user);
+
+        Url::query()->delete();
+        Product::query()->delete();
+        Store::query()->delete();
+
+        Store::factory()->createOne([
+            'domains' => [['domain' => 'example.com']],
+        ]);
+
+        $url = 'https://example.com/product/no_tags';
+
+        $this->mockScrape('$15.00', 'Untagged product', 'https://example.com/image.jpg');
+
+        Livewire::test(CreateProduct::class)
+            ->fillForm([
+                'url' => $url,
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        /** @var Product $product */
+        $product = Product::where('title', 'Untagged product')->first();
+
+        $this->assertCount(0, $product->tags);
+    }
+
+    public function test_url_new_product_create_ignores_tags_owned_by_other_users()
+    {
+        $this->actingAs($this->user);
+
+        Url::query()->delete();
+        Product::query()->delete();
+        Store::query()->delete();
+
+        Store::factory()->createOne([
+            'domains' => [['domain' => 'example.com']],
+        ]);
+
+        $ownTag = Tag::factory()->create(['user_id' => $this->user->getKey(), 'name' => 'Mine']);
+        $otherUser = User::factory()->create();
+        $foreignTag = Tag::factory()->create(['user_id' => $otherUser->getKey(), 'name' => 'Theirs']);
+
+        $url = 'https://example.com/product/foreign_tags';
+
+        $this->mockScrape('$20.00', 'Foreign tag product', 'https://example.com/image.jpg');
+
+        Livewire::test(CreateProduct::class)
+            ->fillForm([
+                'url' => $url,
+                'tags' => [$ownTag->getKey(), $foreignTag->getKey()],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        /** @var Product $product */
+        $product = Product::where('title', 'Foreign tag product')->first();
+
+        // Only the user's own tag is attached; a tampered foreign ID is dropped.
+        $this->assertEqualsCanonicalizing([$ownTag->getKey()], $product->tags->pluck('id')->all());
     }
 }

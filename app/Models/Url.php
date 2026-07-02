@@ -174,30 +174,7 @@ class Url extends Model
     {
         $userId = $userId ?? auth()->id();
 
-        if ($createStore) {
-            AutoCreateStore::createStoreFromUrl($url);
-        }
-
-        // Suppress UI toasts on these intermediate scrapes: a first attempt may legitimately
-        // fail (e.g. bot-blocked) before AI self-healing switches to browser scraping. The
-        // only user-facing feedback is the final outcome (product created, or the caller's error).
-        $scrape = ScrapeUrl::new($url)->setSendUiNotifications(false)->scrape();
-
-        /** @var ?Store $store */
-        $store = data_get($scrape, 'store');
-
-        $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
-        $isUnavailable = StockStatus::resolveAvailability(data_get($scrape, 'availability'), $availabilityStrategy)->isUnavailable();
-
-        // AI fallback: when a normal create would fail, let the healing agent build or
-        // repair the store config, then re-scrape once with the new config.
-        if ((! $store || (! data_get($scrape, 'price') && ! $isUnavailable))
-            && AiConfigHealer::new()->healStoreForUrl($url, $store, data_get($scrape, 'body')) !== null) {
-            $scrape = ScrapeUrl::new($url)->setSendUiNotifications(false)->scrape();
-            $store = data_get($scrape, 'store');
-            $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
-            $isUnavailable = StockStatus::resolveAvailability(data_get($scrape, 'availability'), $availabilityStrategy)->isUnavailable();
-        }
+        ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable] = self::scrapeAndResolveStore($url, $createStore);
 
         if (! $store || (! data_get($scrape, 'price') && ! $isUnavailable)) {
             return false;
@@ -229,6 +206,76 @@ class Url extends Model
         $urlModel->updatePrice(data_get($scrape, 'price'), $scrape);
 
         return $urlModel;
+    }
+
+    /**
+     * Re-point this URL to a new address, keeping the record (and therefore its price
+     * history) intact. The store is re-resolved from the new domain and a fresh price is
+     * scraped and appended. Fails closed: on an invalid/unresolvable URL the record is
+     * left untouched and `false` is returned.
+     */
+    public function changeUrl(string $newUrl, bool $createStore = true): bool
+    {
+        $newUrl = trim($newUrl);
+
+        if ($newUrl === '' || ! filter_var($newUrl, FILTER_VALIDATE_URL)) {
+            return false;
+        }
+
+        if ($newUrl === $this->url) {
+            return true;
+        }
+
+        ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable] = self::scrapeAndResolveStore($newUrl, $createStore);
+
+        if (! $store || (! data_get($scrape, 'price') && ! $isUnavailable)) {
+            return false;
+        }
+
+        $this->forceFill([
+            'url' => $newUrl,
+            'store_id' => $store->getKey(),
+        ])->save();
+
+        $this->updatePrice(data_get($scrape, 'price'), $scrape);
+
+        return true;
+    }
+
+    /**
+     * Scrape a URL and resolve its Store, using AI self-healing as a fallback when a
+     * normal scrape would not yield a usable store/price.
+     *
+     * @return array{store: ?Store, scrape: array<string, mixed>, isUnavailable: bool}
+     */
+    protected static function scrapeAndResolveStore(string $url, bool $createStore = true): array
+    {
+        if ($createStore) {
+            AutoCreateStore::createStoreFromUrl($url);
+        }
+
+        // Suppress UI toasts on these intermediate scrapes: a first attempt may legitimately
+        // fail (e.g. bot-blocked) before AI self-healing switches to browser scraping. The
+        // only user-facing feedback is the final outcome (product created, or the caller's error).
+        $scrape = ScrapeUrl::new($url)->setSendUiNotifications(false)->scrape();
+
+        /** @var ?Store $store */
+        $store = data_get($scrape, 'store');
+
+        $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
+        $isUnavailable = StockStatus::resolveAvailability(data_get($scrape, 'availability'), $availabilityStrategy)->isUnavailable();
+
+        // AI fallback: when a normal create would fail, let the healing agent build or
+        // repair the store config, then re-scrape once with the new config.
+        if ((! $store || (! data_get($scrape, 'price') && ! $isUnavailable))
+            && AiConfigHealer::new()->healStoreForUrl($url, $store, data_get($scrape, 'body')) !== null) {
+            $scrape = ScrapeUrl::new($url)->setSendUiNotifications(false)->scrape();
+            $store = data_get($scrape, 'store');
+            $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
+            $isUnavailable = StockStatus::resolveAvailability(data_get($scrape, 'availability'), $availabilityStrategy)->isUnavailable();
+        }
+
+        return ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable];
     }
 
     public function updatePrice(int|float|string|null $price = null, ?array $scrapeResult = null): Price|Model|null

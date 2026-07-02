@@ -5,6 +5,7 @@
     use function Filament\Support\get_color_css_variables;
     $hideTrend ?? $hideTrend = true;
     $age = isset($age) ? Carbon::parse($age) : null;
+    $nextCheck = $nextCheck ?? null;
 @endphp
 <div
     class="py-2 px-4 gap-2 flex"
@@ -26,6 +27,11 @@
     @if ($age)
         <div class="text-xs text-gray-500 dark:text-gray-400 pr-2" title="First price on: {{ $age->toDateString() }}">
             Age: {{ $age->diffForHumans(syntax: CarbonInterface::DIFF_ABSOLUTE, short: true) }}
+        </div>
+    @endif
+    @if (! empty($nextCheck))
+        <div class="text-xs text-gray-500 dark:text-gray-400 pr-2">
+            {{ __('Next check') }}: {{ $nextCheck }}
         </div>
     @endif
     @if (! $hideTrend)

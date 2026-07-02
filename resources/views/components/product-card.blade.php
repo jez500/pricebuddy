@@ -18,7 +18,7 @@
             :class="expanded ? 'rounded-bl-none' : ''"
         >
             <a class="flex gap-2" href="{{ $product->view_url }}">
-                <div class="w-20 h-20 min-w-20 m-2 rounded-md overflow-hidden p-1 flex items-center">
+                <div @class(['w-20 h-20 min-w-20 m-2 rounded-md overflow-hidden p-1 flex items-center', 'cursor-grab' => $draggable]) @if ($draggable) x-sortable-handle @endif>
                     <x-product-image :product="$product" />
                 </div>
                 <div class="my-1 flex flex-col min-w-0 justify-center" style="width: calc(100% - 5rem)">
@@ -80,5 +80,5 @@
         </div>
     </div>
 
-    @livewire('product-card-detail', ['product' => $product], key('product-card-detail-'.$product->id))
+    @livewire('product-card-detail', ['product' => $product, 'showNextCheck' => false], key('product-card-detail-'.$product->id))
 </div>

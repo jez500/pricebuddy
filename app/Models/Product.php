@@ -170,6 +170,37 @@ class Product extends Model
     }
 
     /**
+     * Coarse, rounded label for the upcoming check, e.g. "1h", "2d" or "<1h".
+     * Null when there is no scheduled check (paused / unscheduled).
+     */
+    public function nextCheckShortLabel(): ?string
+    {
+        $next = $this->nextCheckEstimate();
+
+        if (! $next) {
+            return null;
+        }
+
+        $seconds = $next->getTimestamp() - now()->getTimestamp();
+
+        if ($seconds <= 0) {
+            return __('due');
+        }
+
+        if ($seconds >= 3600) {
+            $hours = (int) round($seconds / 3600);
+
+            // Once the rounded hours reach a full day, show days so we never
+            // render "24h" instead of "1d".
+            return $hours >= 24
+                ? ((int) round($seconds / 86400)).'d'
+                : $hours.'h';
+        }
+
+        return '<1h';
+    }
+
+    /**
      * Resolve the next/previous run of the global scrape_schedule cron.
      */
     protected function globalScheduleRun(string $direction): ?Carbon
