@@ -58,6 +58,29 @@ class DashboardLayoutServiceTest extends TestCase
         $this->assertTrue($service->isSectionVisible('stat_bar'));
     }
 
+    public function test_set_section_visible_persists_explicit_value(): void
+    {
+        $user = User::factory()->create(['settings' => []]);
+        $service = new DashboardLayoutService($user);
+
+        $service->setSectionVisible('buy_now', false);
+        $service->setSectionVisible('stat_bar', true);
+
+        $fresh = new DashboardLayoutService($user->fresh());
+        $this->assertFalse($fresh->isSectionVisible('buy_now'));
+        $this->assertTrue($fresh->isSectionVisible('stat_bar'));
+    }
+
+    public function test_set_section_visible_ignores_unknown_key(): void
+    {
+        $user = User::factory()->create(['settings' => []]);
+        $service = new DashboardLayoutService($user);
+
+        $service->setSectionVisible('not_a_section', true);
+
+        $this->assertNull(data_get($user->fresh()->settings, 'dashboard.sections.not_a_section'));
+    }
+
     public function test_toggle_section_ignores_unknown_key(): void
     {
         $user = User::factory()->create(['settings' => []]);

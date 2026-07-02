@@ -3,10 +3,12 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Product;
+use App\Models\Tag;
 use App\Services\Dashboard\DashboardLayoutService;
 use App\Services\Dashboard\DashboardSections;
 use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Collection;
+use Livewire\Attributes\On;
 
 class ProductStats extends Widget
 {
@@ -130,10 +132,54 @@ class ProductStats extends Widget
         (new DashboardLayoutService(auth()->user()))->setCategoryOrder($orderedSignatures);
     }
 
-    public function toggleSection(string $key): void
+    /**
+     * Move a product into another category by replacing its tags with the
+     * destination group's tag-set, then persist the destination ordering.
+     *
+     * @param  array<int, int|string>  $orderedIds
+     */
+    public function moveProductToCategory(int $productId, string $targetSignature, array $orderedIds): void
     {
-        (new DashboardLayoutService(auth()->user()))->toggleSection($key);
+        $product = Product::query()
+            ->where('user_id', auth()->id())
+            ->find($productId);
+
+        if (! $product instanceof Product) {
+            return;
+        }
+
+        $product->tags()->sync($this->tagIdsForSignature($targetSignature));
+
+        $this->reorderProducts($orderedIds);
     }
+
+    /**
+     * Resolve a category signature (sorted tag IDs joined by '-', or the
+     * 'uncategorized' sentinel) to the current user's matching tag IDs.
+     *
+     * @return array<int, int>
+     */
+    private function tagIdsForSignature(string $signature): array
+    {
+        if ($signature === 'uncategorized' || $signature === '') {
+            return [];
+        }
+
+        $ids = array_map('intval', explode('-', $signature));
+
+        return Tag::query()
+            ->where('user_id', auth()->id())
+            ->whereIn('id', $ids)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+    }
+
+    /**
+     * Re-render when the page's Customize modal changes section visibility.
+     */
+    #[On('dashboard-sections-updated')]
+    public function refreshSections(): void {}
 
     public function toggleCategoryCollapse(string $signature): void
     {

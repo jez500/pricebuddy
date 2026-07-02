@@ -65,6 +65,15 @@ class DashboardLayoutService
         $this->write("dashboard.sections.$key.visible", ! $current);
     }
 
+    public function setSectionVisible(string $key, bool $visible): void
+    {
+        if (! in_array($key, self::SECTION_KEYS, true)) {
+            return;
+        }
+
+        $this->write("dashboard.sections.$key.visible", $visible);
+    }
+
     private function defaultVisibility(string $key): bool
     {
         return self::DEFAULT_VISIBILITY[$key] ?? true;

@@ -55,11 +55,93 @@ class ProductStatsInteractionTest extends TestCase
         $this->assertSame(['3-7', '12', 'uncategorized'], (new DashboardLayoutService($this->user->fresh()))->categoryOrder());
     }
 
-    public function test_toggle_section_persists(): void
+    public function test_move_product_to_category_replaces_tags(): void
     {
-        Livewire::test(ProductStats::class)->call('toggleSection', 'buy_now');
+        $from = Tag::factory()->create(['user_id' => $this->user->id]);
+        $to = Tag::factory()->create(['user_id' => $this->user->id]);
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+        $product->tags()->attach($from);
 
-        $this->assertFalse((new DashboardLayoutService($this->user->fresh()))->isSectionVisible('buy_now'));
+        Livewire::test(ProductStats::class)
+            ->call('moveProductToCategory', $product->id, (string) $to->id, [$product->id]);
+
+        $this->assertSame([$to->id], $product->fresh()->tags->pluck('id')->all());
+    }
+
+    public function test_move_product_to_multi_tag_category_syncs_full_set(): void
+    {
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+        $t1 = Tag::factory()->create(['user_id' => $this->user->id]);
+        $t2 = Tag::factory()->create(['user_id' => $this->user->id]);
+        $signature = collect([$t1->id, $t2->id])->sort()->values()->implode('-');
+
+        Livewire::test(ProductStats::class)
+            ->call('moveProductToCategory', $product->id, $signature, [$product->id]);
+
+        $this->assertEqualsCanonicalizing([$t1->id, $t2->id], $product->fresh()->tags->pluck('id')->all());
+    }
+
+    public function test_move_product_to_uncategorized_clears_tags(): void
+    {
+        $tag = Tag::factory()->create(['user_id' => $this->user->id]);
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+        $product->tags()->attach($tag);
+
+        Livewire::test(ProductStats::class)
+            ->call('moveProductToCategory', $product->id, 'uncategorized', [$product->id]);
+
+        $this->assertCount(0, $product->fresh()->tags);
+    }
+
+    public function test_move_product_reweights_destination_order(): void
+    {
+        $to = Tag::factory()->create(['user_id' => $this->user->id]);
+        $a = Product::factory()->create(['user_id' => $this->user->id, 'weight' => 0]);
+        $moved = Product::factory()->create(['user_id' => $this->user->id, 'weight' => 0]);
+        $b = Product::factory()->create(['user_id' => $this->user->id, 'weight' => 0]);
+
+        Livewire::test(ProductStats::class)
+            ->call('moveProductToCategory', $moved->id, (string) $to->id, [$a->id, $moved->id, $b->id]);
+
+        $this->assertSame(0, $a->fresh()->weight);
+        $this->assertSame(1, $moved->fresh()->weight);
+        $this->assertSame(2, $b->fresh()->weight);
+        $this->assertSame([$to->id], $moved->fresh()->tags->pluck('id')->all());
+    }
+
+    public function test_move_product_ignores_foreign_product(): void
+    {
+        $theirs = Product::factory()->create(['user_id' => User::factory()->create()->id]);
+        $myTag = Tag::factory()->create(['user_id' => $this->user->id]);
+
+        Livewire::test(ProductStats::class)
+            ->call('moveProductToCategory', $theirs->id, (string) $myTag->id, [$theirs->id]);
+
+        $this->assertCount(0, $theirs->fresh()->tags);
+    }
+
+    public function test_move_product_ignores_foreign_tag_in_signature(): void
+    {
+        $foreignTag = Tag::factory()->create(['user_id' => User::factory()->create()->id]);
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+
+        Livewire::test(ProductStats::class)
+            ->call('moveProductToCategory', $product->id, (string) $foreignTag->id, [$product->id]);
+
+        // Foreign tag is filtered out, so the product ends up uncategorised
+        // rather than attached to another user's tag.
+        $this->assertCount(0, $product->fresh()->tags);
+    }
+
+    public function test_product_lists_share_sortable_group_for_cross_category_drops(): void
+    {
+        $tag = Tag::factory()->create(['name' => 'Alpha', 'weight' => 10, 'user_id' => $this->user->id]);
+        $p = Product::factory()->create(['user_id' => $this->user->id, 'favourite' => true, 'status' => 'p', 'price_cache' => [['price' => 1, 'date' => now()->toDateString(), 'history' => []]]]);
+        $p->tags()->attach($tag);
+
+        Livewire::test(ProductStats::class)
+            ->assertSeeHtml('x-sortable-group="products"')
+            ->assertSeeHtml('$wire.moveProductToCategory(');
     }
 
     public function test_toggle_collapse_persists(): void
@@ -158,35 +240,11 @@ class ProductStatsInteractionTest extends TestCase
         Livewire::test(ProductStats::class)
             ->assertSeeHtml('x-sortable')
             ->assertSeeHtml('x-on:end.stop="$wire.reorderCategories($event.target.sortable.toArray())"')
-            ->assertSeeHtml('x-on:end.stop="$wire.reorderProducts($event.target.sortable.toArray())"')
+            ->assertSeeHtml('$wire.reorderProducts($event.to.sortable.toArray())')
             ->assertSeeHtml('data-category-signature="'.$tag->id.'"')
             ->assertSeeHtml('data-product-id="'.$p->id.'"')
             ->assertSeeHtml('x-sortable-item="'.$tag->id.'"')
             ->assertSeeHtml('x-sortable-item="'.$p->id.'"');
-    }
-
-    public function test_visible_section_listed_in_customize_control(): void
-    {
-        // A visible section (buy_now is visible by default) is toggleable via the
-        // customise dropdown (the section header no longer carries a Hide button).
-        Product::factory()->create([
-            'user_id' => $this->user->id,
-            'status' => 'p',
-            'current_price' => 100.0,
-            'price_cache' => [['price' => 100.0, 'date' => now()->toDateString(), 'history' => []]],
-        ])->forceFill(['insights_cache' => ['dealScore' => ['score' => 9.0, 'verdictKey' => 'great', 'verdict' => 'Great time to buy', 'isAllTimeLow' => true, 'lowConfidence' => false]]])->saveQuietly();
-
-        Livewire::test(ProductStats::class)
-            ->assertSeeHtml('wire:click="toggleSection(\'buy_now\')"');
-    }
-
-    public function test_hidden_section_still_listed_in_customize_control(): void
-    {
-        // Even a hidden section must appear in the customise control so it can be re-enabled.
-        (new DashboardLayoutService($this->user))->toggleSection('recently_dropped');
-
-        Livewire::test(ProductStats::class)
-            ->assertSeeHtml('wire:click="toggleSection(\'recently_dropped\')"');
     }
 
     public function test_buy_now_verdict_renders_as_success_badge(): void
@@ -252,19 +310,19 @@ class ProductStatsInteractionTest extends TestCase
             ->assertDontSeeHtml('cursor-grab'); // but without a drag handle
     }
 
-    public function test_customize_dropdown_opens_under_button(): void
-    {
-        Livewire::test(ProductStats::class)->assertSeeHtml('placement.bottom-start');
-    }
-
-    public function test_category_heading_is_drag_handle_with_chevron_on_right(): void
+    public function test_category_drag_handle_is_heading_icon_and_text_only(): void
     {
         $tag = Tag::factory()->create(['name' => 'Alpha', 'weight' => 10, 'user_id' => $this->user->id]);
         $p = Product::factory()->create(['user_id' => $this->user->id, 'favourite' => true, 'status' => 'p', 'price_cache' => [['price' => 1, 'date' => now()->toDateString(), 'history' => []]]]);
         $p->tags()->attach($tag);
 
         Livewire::test(ProductStats::class)
-            ->assertSeeHtml('cursor-ns-resize')
+            // The drag handle is the inner span (icon + text) carrying the resize cursor.
+            ->assertSeeHtml('x-sortable-handle')
+            ->assertSeeHtml('class="flex gap-2 items-center cursor-ns-resize"')
+            // The <h3> heading row itself no longer carries the resize cursor / handle.
+            ->assertDontSeeHtml('dark:text-white cursor-ns-resize')
+            // Collapse chevron stays outside the handle, pushed to the right.
             ->assertSeeHtml('wire:click="toggleCategoryCollapse(\''.$tag->id.'\')"')
             ->assertSeeHtml('ml-auto text-gray-400')
             ->assertDontSeeHtml('Drag to reorder');

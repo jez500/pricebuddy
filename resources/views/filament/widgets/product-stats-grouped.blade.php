@@ -1,24 +1,7 @@
 @php
     use App\Filament\Widgets\NoProductsFound;
-    $sectionLabels = ['stat_bar' => 'Summary stats', 'buy_now' => "What's good to buy now", 'recently_dropped' => 'Recently dropped', 'needs_attention' => 'Needs attention'];
 @endphp
 <x-filament-widgets::widget>
-    <x-filament::dropdown placement="bottom-start" class="mb-4">
-        <x-slot name="trigger">
-            <x-filament::button size="sm" color="gray" icon="heroicon-m-adjustments-horizontal">Customize</x-filament::button>
-        </x-slot>
-        <x-filament::dropdown.list>
-            @foreach ($sections as $section)
-                <x-filament::dropdown.list.item wire:click="toggleSection('{{ $section['key'] }}')" wire:key="toggle-{{ $section['key'] }}">
-                    <span class="flex items-center gap-2">
-                        <x-filament::icon :icon="$section['visible'] ? 'heroicon-s-eye' : 'heroicon-s-eye-slash'" class="h-4 w-4" />
-                        {{ $sectionLabels[$section['key']] ?? $section['key'] }}
-                    </span>
-                </x-filament::dropdown.list.item>
-            @endforeach
-        </x-filament::dropdown.list>
-    </x-filament::dropdown>
-
     @foreach ($sections as $section)
         @continue (! $section['visible'])
         @if ($section['key'] === 'stat_bar')
@@ -47,11 +30,15 @@
                     x-sortable-item="{{ $group['signature'] }}"
                 >
                     <h3
-                        x-sortable-handle
-                        class="fi-header-heading mb-4 flex gap-2 items-center text-xl md:text-2xl font-bold tracking-tight text-gray-950 dark:text-white cursor-ns-resize"
+                        class="fi-header-heading mb-4 flex gap-2 items-center text-xl md:text-2xl font-bold tracking-tight text-gray-950 dark:text-white"
                     >
-                        <x-filament::icon icon="heroicon-s-tag" class="h-5 w-5 text-gray-400 dark:text-gray-600" />
-                        {{ $group['heading'] }}
+                        <span
+                            x-sortable-handle
+                            class="flex gap-2 items-center cursor-ns-resize"
+                        >
+                            <x-filament::icon icon="heroicon-s-tag" class="h-5 w-5 text-gray-400 dark:text-gray-600" />
+                            {{ $group['heading'] }}
+                        </span>
                         <button type="button" wire:click="toggleCategoryCollapse('{{ $group['signature'] }}')" class="ml-auto text-gray-400">
                             <x-filament::icon :icon="$group['collapsed'] ? 'heroicon-s-chevron-right' : 'heroicon-s-chevron-down'" class="h-5 w-5" />
                         </button>
@@ -59,8 +46,10 @@
 
                     <div
                         @class(['fi-wi-stats-overview-stats-ctn grid gap-6 md:grid-cols-2 2xl:grid-cols-3', 'hidden' => $group['collapsed']])
+                        data-category-signature="{{ $group['signature'] }}"
                         x-sortable
-                        x-on:end.stop="$wire.reorderProducts($event.target.sortable.toArray())"
+                        x-sortable-group="products"
+                        x-on:end.stop="$event.from === $event.to ? $wire.reorderProducts($event.to.sortable.toArray()) : $wire.moveProductToCategory($event.item.getAttribute('x-sortable-item'), $event.to.getAttribute('data-category-signature'), $event.to.sortable.toArray())"
                     >
                         @foreach ($group['products'] as $product)
                             <div
