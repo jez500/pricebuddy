@@ -32,7 +32,9 @@
             {{ $this->deleteAction }}
         </div>
 
-        @include('components.price-aggregates', ['aggregates' => $product->price_aggregates, 'trend' => $product->trend, 'age' => $product->first_scrape_date])
+        @php($nextCheckLabel = $showNextCheck ? null : ($product->nextCheckShortLabel() ?? ($product->paused ? __('Paused') : null)))
+
+        @include('components.price-aggregates', ['aggregates' => $product->price_aggregates, 'trend' => $product->trend, 'age' => $product->first_scrape_date, 'nextCheck' => $nextCheckLabel])
 
         @if ($showNextCheck)
             @include('components.next-check-countdown', ['product' => $product])

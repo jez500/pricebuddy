@@ -14,25 +14,15 @@
 @endphp
 @if (! $product->is_last_scrape_successful || $product->is_notified_price || $latestPrice?->isUnavailable() || $product->paused || $verdict)
     <div {{ $attributes->merge(['class' => 'inline-flex gap-2 mt-1 flex-wrap']) }}>
-        @if ($verdict)
-            <div class="mt-1 whitespace-nowrap" data-verdict-color="{{ $verdictColor }}">
+        @if ($verdict && ! $product->is_notified_price)
+            <div class="mt-1 whitespace-nowrap" data-verdict-color="{{ $lowConfidence ? 'gray' : $verdictColor }}">
                 @include('components.icon-badge', [
-                    'hoverText' => $verdict,
+                    'hoverText' => $lowConfidence ? __('Not enough price history for a confident verdict') : $verdict,
                     'label' => $verdict,
-                    'color' => $verdictColor,
-                    'icon' => 'heroicon-m-sparkles',
+                    'color' => $lowConfidence ? 'gray' : $verdictColor,
+                    'icon' => $lowConfidence ? 'heroicon-m-question-mark-circle' : 'heroicon-m-sparkles',
                 ])
             </div>
-            @if ($lowConfidence)
-                <div class="mt-1 whitespace-nowrap">
-                    @include('components.icon-badge', [
-                        'hoverText' => __('Not enough price history for a confident verdict'),
-                        'label' => __('Low confidence'),
-                        'color' => 'gray',
-                        'icon' => 'heroicon-m-question-mark-circle',
-                    ])
-                </div>
-            @endif
         @endif
         @if ($product->paused)
             <div class="mt-1 whitespace-nowrap">

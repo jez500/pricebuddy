@@ -13,33 +13,41 @@ class ProductCardDetailTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function pausedProduct(): Product
+    private function scheduledProduct(): Product
     {
         $user = User::factory()->create();
         $this->actingAs($user);
 
-        // `paused` is the sole trigger for the countdown's "Next check: Paused"
-        // branch; the price_cache row just lets the card body render.
-        return Product::factory()->create([
+        // A future check with price history so both the live countdown and the
+        // static label branches have data to render.
+        $product = Product::factory()->create([
             'user_id' => $user->id,
-            'paused' => true,
+            'refresh_interval' => 7200,
             'price_cache' => [['price' => 100.0, 'date' => now()->toDateString(), 'history' => []]],
         ]);
+
+        $product->forceFill(['next_check_at' => now()->addMinutes(70)])->saveQuietly();
+
+        return $product;
     }
 
-    public function test_next_check_shown_by_default(): void
+    public function test_live_countdown_shown_by_default(): void
     {
-        $product = $this->pausedProduct();
+        $product = $this->scheduledProduct();
 
+        // `setInterval` only appears in the live-countdown Alpine component.
         Livewire::test(ProductCardDetail::class, ['product' => $product])
-            ->assertSee('Next check');
+            ->assertSee('Next check')
+            ->assertSee('setInterval');
     }
 
-    public function test_next_check_hidden_when_disabled(): void
+    public function test_static_next_check_shown_when_countdown_disabled(): void
     {
-        $product = $this->pausedProduct();
+        $product = $this->scheduledProduct();
 
         Livewire::test(ProductCardDetail::class, ['product' => $product, 'showNextCheck' => false])
-            ->assertDontSee('Next check');
+            ->assertSee('Next check')
+            ->assertSee($product->nextCheckShortLabel())
+            ->assertDontSee('setInterval');
     }
 }

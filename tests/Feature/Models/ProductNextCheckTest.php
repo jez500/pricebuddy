@@ -63,4 +63,36 @@ class ProductNextCheckTest extends TestCase
 
         $this->assertNull($product->currentCheckPeriodStart());
     }
+
+    public function test_next_check_short_label_rounds_to_hours(): void
+    {
+        $product = Product::factory()->create(['refresh_interval' => 7200]);
+        $product->forceFill(['next_check_at' => now()->addMinutes(70)])->saveQuietly();
+
+        $this->assertSame('1h', $product->nextCheckShortLabel());
+    }
+
+    public function test_next_check_short_label_rounds_to_days(): void
+    {
+        $product = Product::factory()->create(['refresh_interval' => 172800]);
+        $product->forceFill(['next_check_at' => now()->addHours(47)])->saveQuietly();
+
+        $this->assertSame('2d', $product->nextCheckShortLabel());
+    }
+
+    public function test_next_check_short_label_uses_less_than_hour(): void
+    {
+        $product = Product::factory()->create(['refresh_interval' => 3600]);
+        $product->forceFill(['next_check_at' => now()->addMinutes(20)])->saveQuietly();
+
+        $this->assertSame('<1h', $product->nextCheckShortLabel());
+    }
+
+    public function test_next_check_short_label_is_null_when_paused(): void
+    {
+        $product = Product::factory()->create(['refresh_interval' => 3600, 'paused' => true]);
+        $product->forceFill(['next_check_at' => now()->addMinutes(30)])->saveQuietly();
+
+        $this->assertNull($product->nextCheckShortLabel());
+    }
 }
