@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ProductResource\Widgets;
 
 use App\Models\Product;
 use App\Models\Url;
+use App\Rules\StoreUrl;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables;
@@ -12,6 +13,7 @@ use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class UrlsTableWidget extends BaseWidget
 {
@@ -51,7 +53,8 @@ class UrlsTableWidget extends BaseWidget
                     ->form([
                         TextInput::make('url')
                             ->label('URL')
-                            ->disabled(),
+                            ->required()
+                            ->rules([new StoreUrl]),
                         TextInput::make('price_factor')
                             ->label('Price Factor')
                             ->numeric()
@@ -59,12 +62,24 @@ class UrlsTableWidget extends BaseWidget
                             ->minValue(0.01)
                             ->required(),
                     ])
+                    ->using(function (Url $record, array $data): Url {
+                        $record->price_factor = (float) $data['price_factor'];
+                        $record->save();
+
+                        if (trim($data['url']) !== $record->url && ! $record->changeUrl($data['url'])) {
+                            throw ValidationException::withMessages([
+                                'url' => __('Unable to resolve a store or price for this URL'),
+                            ]);
+                        }
+
+                        return $record;
+                    })
                     ->after(function (Url $record) {
                         $record->syncStoredPricesForCurrentFactor();
                         $record->product->updatePriceCache();
 
-                        Notification::make('price_factor_updated')
-                            ->title('Price factor updated')
+                        Notification::make('url_updated')
+                            ->title('URL updated')
                             ->success()
                             ->send();
                     }),

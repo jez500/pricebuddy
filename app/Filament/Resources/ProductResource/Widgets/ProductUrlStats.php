@@ -5,18 +5,17 @@ namespace App\Filament\Resources\ProductResource\Widgets;
 use App\Dto\PriceCacheDto;
 use App\Models\Product;
 use App\Models\Url;
+use App\Rules\StoreUrl;
 use Exception;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\HtmlString;
 
 class ProductUrlStats extends BaseWidget implements HasActions, HasForms
 {
@@ -119,11 +118,10 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
                 ];
             })
             ->form([
-                Placeholder::make('url')
+                TextInput::make('url')
                     ->label('URL')
-                    ->content(fn ($get) => new HtmlString(
-                        '<span style="cursor:pointer" x-on:click="const range = document.createRange(); range.selectNodeContents($el); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range)">'.e($get('url')).'</span>'
-                    )),
+                    ->required()
+                    ->rules([new StoreUrl]),
                 TextInput::make('price_factor')
                     ->label('Price Factor')
                     ->numeric()
@@ -133,12 +131,22 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
             ])
             ->action(function ($arguments, $data) {
                 $url = Url::find($arguments['url']);
+
+                if (trim($data['url']) !== $url->url && ! $url->changeUrl($data['url'])) {
+                    Notification::make('url_update_failed')
+                        ->title('Unable to resolve a store or price for this URL')
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
                 $url->update(['price_factor' => $data['price_factor']]);
                 $url->syncStoredPricesForCurrentFactor();
                 $url->product->updatePriceCache();
 
-                Notification::make('price_factor_updated')
-                    ->title('Price factor updated')
+                Notification::make('url_updated')
+                    ->title('URL updated')
                     ->success()
                     ->send();
 
