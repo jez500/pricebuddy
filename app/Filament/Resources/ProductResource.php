@@ -11,7 +11,7 @@ use App\Filament\Resources\ProductResource\Api\Transformers\ProductTransformer;
 use App\Filament\Resources\ProductResource\Columns\ProductCardColumn;
 use App\Filament\Resources\ProductResource\Pages;
 use App\Models\Product;
-use App\Models\Tag; // ADD THIS - Missing Tag import
+use App\Models\Tag;
 use App\Providers\Filament\AdminPanelProvider;
 use App\Rules\StoreUrl;
 use App\Services\Helpers\CurrencyHelper;
@@ -81,6 +81,12 @@ class ProductResource extends Resource
     {
         $components = [];
 
+        $components[] = TextInput::make('url')
+            ->label('Product URL')
+            ->hintIcon(Icons::Help->value, 'The domain of the URL must be in the list of available stores')
+            ->rules([new StoreUrl])
+            ->columnSpanFull();
+
         if (is_null($productId)) {
             $components[] = Select::make('product_id')
                 ->label('Existing product')
@@ -93,10 +99,7 @@ class ProductResource extends Resource
                 ->nullable();
         }
 
-        $components[] = TextInput::make('url')
-            ->label('Product URL')
-            ->hintIcon(Icons::Help->value, 'The domain of the URL must be in the list of available stores')
-            ->rules([new StoreUrl]);
+        $components[] = self::createTagsSelect();
 
         $components[] = TextInput::make('price_factor')
             ->label(__('Price Factor'))
@@ -112,8 +115,52 @@ class ProductResource extends Resource
 
         return [
             Forms\Components\Section::make(__('Url of the product'))->schema($components)
+                ->columns(2)
                 ->description(__('Given the url we will scrape the product information. Products and their urls are unique to your user account')),
         ];
+    }
+
+    /**
+     * Tags multi-select for the create form. Unlike the edit form it does not use
+     * `->relationship()` because CreateProduct::handleRecordCreation() persists tags
+     * manually (merging onto existing products); the field just collects tag IDs.
+     */
+    protected static function createTagsSelect(): Select
+    {
+        return Select::make('tags')
+            ->label('Tags')
+            ->multiple()
+            ->options(fn (): array => Tag::where('user_id', auth()->id())
+                ->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray()
+            )
+            ->searchable()
+            ->preload()
+            ->native(false)
+            ->createOptionForm([
+                TextInput::make('name')
+                    ->label('Tag name')
+                    ->required()
+                    ->maxLength(255)
+                    ->unique(
+                        Tag::class,
+                        'name',
+                        modifyRuleUsing: fn ($rule) => $rule->where('user_id', auth()->id())
+                    ),
+
+                TextInput::make('weight')
+                    ->label('Sort weight')
+                    ->numeric()
+                    ->default(0)
+                    ->helperText(TagResource::getWeightHelperText()),
+
+                Hidden::make('user_id')
+                    ->default(auth()->id()),
+            ])
+            ->createOptionUsing(fn (array $data) => Tag::create($data)->id)
+            ->placeholder('Search tags or create new...')
+            ->noSearchResultsMessage('No tags found');
     }
 
     public static function editForm(Form $form): array

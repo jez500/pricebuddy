@@ -34,7 +34,15 @@ class CreateProduct extends CreateRecord
             ]);
         }
 
-        return $urlModel->product;
+        $product = $urlModel->product;
+
+        $tagIds = array_filter((array) data_get($data, 'tags', []));
+
+        if ($tagIds !== []) {
+            $product->tags()->syncWithoutDetaching($tagIds);
+        }
+
+        return $product;
     }
 
     public function getFooterWidgetsColumns(): int|array
