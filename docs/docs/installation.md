@@ -51,6 +51,17 @@ the CSS and JS not loading. This is due to the app not being able to determine t
 correct URL to use. You can fix this by setting the `APP_URL` and `ASSET_URL` environment
 variables to the correct URL.
 
+### HTTPS / SSL-terminating proxies
+
+If your proxy terminates SSL (public HTTPS, but HTTP between the proxy and the
+container), the app trusts the proxy's forwarded headers by default (`TRUSTED_PROXIES=*`),
+so `X-Forwarded-Proto: https` is honoured and absolute URLs (such as the logout form)
+are generated over HTTPS. Ensure your proxy forwards `X-Forwarded-Proto` and, for
+HTTPS-only setups, set `SESSION_SECURE_COOKIE=true`.
+
+To restrict which proxies are trusted, set `TRUSTED_PROXIES` to a comma-separated list
+of proxy IPs instead of `*`.
+
 ## Debugging install
 
 The `docker-compose.yml` file has been tested to get you up and running quickly. You 
