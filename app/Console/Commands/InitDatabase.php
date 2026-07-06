@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\Role;
+use App\Models\User;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -62,13 +64,10 @@ class InitDatabase extends Command
             $pass = env('APP_USER_PASSWORD');
             if ($email && $pass) {
                 $this->line('Creating new user with email: '.$email.' and password: '.$pass);
+                // @phpstan-ignore-next-line
+                $name = env('APP_USER_NAME', 'Admin');
                 $this->components->task('Creating the default user', fn () => $this
-                    ->callSilent('make:filament-user', [
-                        // @phpstan-ignore-next-line
-                        '--name' => env('APP_USER_NAME', 'Admin'),
-                        '--email' => $email,
-                        '--password' => $pass,
-                    ])
+                    ->createDefaultUser($name, $email, $pass)->exists
                 );
             }
         }
@@ -76,5 +75,23 @@ class InitDatabase extends Command
         $this->getOutput()->success('Database init complete');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Create the initial user for a fresh install.
+     *
+     * The first user of an install must be an Admin so they can access
+     * admin-only features (e.g. the Settings menu). The `role` column
+     * defaults to "user", so it is set explicitly here rather than relying
+     * on `make:filament-user`, which never sets a role.
+     */
+    protected function createDefaultUser(string $name, string $email, string $password): User
+    {
+        return User::create([
+            'name' => $name,
+            'email' => $email,
+            'password' => $password,
+            'role' => Role::Admin,
+        ]);
     }
 }

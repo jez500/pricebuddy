@@ -13,8 +13,10 @@ use App\Models\User;
 use Database\Seeders\StoreSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use ReflectionMethod;
 use Tests\TestCase;
 
 class ConsoleCommandsTest extends TestCase
@@ -134,6 +136,25 @@ class ConsoleCommandsTest extends TestCase
         // Command should run successfully when database is already initialized
         $this->artisan(InitDatabase::COMMAND)
             ->assertExitCode(0);
+    }
+
+    public function test_init_database_creates_default_user_as_admin()
+    {
+        // Regression: the default user created on a fresh deploy must be an
+        // Admin, otherwise the Settings menu (and other admin-only features)
+        // are hidden. The `role` column defaults to "user", so creation must
+        // set the role explicitly.
+        $command = new InitDatabase;
+
+        $createDefaultUser = new ReflectionMethod($command, 'createDefaultUser');
+        $createDefaultUser->setAccessible(true);
+
+        /** @var User $user */
+        $user = $createDefaultUser->invoke($command, 'Admin', 'admin@example.com', 'secret-pass');
+
+        $this->assertTrue($user->isAdmin(), 'The default user should have the Admin role.');
+        $this->assertTrue(Hash::check('secret-pass', $user->password), 'The password should be hashed.');
+        $this->assertTrue(User::whereEmail('admin@example.com')->sole()->isAdmin());
     }
 
     public function test_init_database_command_detects_database_connection()
