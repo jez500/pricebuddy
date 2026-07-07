@@ -14,12 +14,22 @@ return [
                 'type' => 'selector',
             ],
             'price' => [
-                'value' => '.a-price > .a-offscreen',
+                'value' => '.apex-pricetopay-value > .a-offscreen',
                 'type' => 'selector',
             ],
             'image' => [
                 'value' => '~"hiRes":"(.+?)"~',
                 'type' => 'regex',
+            ],
+            'availability' => [
+                'type' => 'selector',
+                'value' => '#outOfStock',
+            ],
+        ],
+        'settings' => [
+            'locale_settings' => [
+                'locale' => 'en_US',
+                'currency' => 'USD',
             ],
         ],
     ],
