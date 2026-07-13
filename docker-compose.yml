@@ -1,6 +1,9 @@
 services:
     app:
-        image: ghcr.io/ashwini1028/pricebuddy:feature-test-notification
+        # Defaults to the production image (latest/main). Override the tag by setting
+        # APP_IMAGE_TAG in your .env (e.g. APP_IMAGE_TAG=stage) or by layering the
+        # docker-compose.stage.yml override file. See notes below.
+        image: ghcr.io/ashwini1028/pricebuddy:${APP_IMAGE_TAG:-latest}
         ports:
             - 8080:80
         volumes:

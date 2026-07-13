@@ -1,0 +1,11 @@
+# Stage override — deploys the "stage" image published from feature branches.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.stage.yml pull app
+#   docker compose -f docker-compose.yml -f docker-compose.stage.yml up -d
+#
+# This layers on top of docker-compose.yml and only changes the app image tag,
+# so it reuses the same database/volumes (your data is unaffected).
+services:
+    app:
+        image: ghcr.io/ashwini1028/pricebuddy:stage

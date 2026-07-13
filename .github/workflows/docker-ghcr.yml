@@ -48,9 +48,9 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=ref,event=branch
-            type=sha
+            type=ref,event=branch,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=stage,enable=${{ startsWith(github.ref, 'refs/heads/feature/') }}
             type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event.inputs.tag != '' }}
       -
         name: Update version file
