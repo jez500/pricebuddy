@@ -13,8 +13,12 @@ use App\Filament\Actions\Notifications\TestGotifyAction;
 use App\Filament\Actions\Notifications\TestTelegramAction;
 use App\Filament\Traits\FormHelperTrait;
 use App\Models\UrlResearch;
+use App\Notifications\PriceAlertNotification;
+use App\Notifications\StockAlertNotification;
 use App\Rules\ValidCron;
 use App\Services\AiService;
+use App\Services\DummyNotificationFactory;
+use App\Services\Helpers\NotificationsHelper;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\IntegrationHelper;
 use App\Services\Helpers\LocaleHelper;
@@ -22,9 +26,11 @@ use App\Services\Helpers\ScheduleHelper;
 use App\Services\OllamaService;
 use App\Services\SearchService;
 use App\Settings\AppSettings;
+use Filament\Actions\Action as PageAction;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Group;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Tabs;
@@ -76,6 +82,83 @@ class AppSettingsPage extends SettingsPage
 
         Cache::flush();
         Once::flush();
+    }
+
+    /**
+     * Header actions for the settings page.
+     *
+     * @return array<int, PageAction>
+     */
+    protected function getHeaderActions(): array
+    {
+        return [
+            PageAction::make('sendTestNotification')
+                ->label(__('Send test notification'))
+                ->icon('heroicon-o-bell-alert')
+                ->color('gray')
+                ->modalHeading(__('Send a test notification'))
+                ->modalDescription(__('Sends a dummy alert to your account through every notification channel you have enabled, so you can verify they work.'))
+                ->modalSubmitActionLabel(__('Send'))
+                ->form([
+                    Radio::make('type')
+                        ->label(__('Alert type'))
+                        ->options([
+                            'price' => __('Price drop'),
+                            'stock' => __('Back in stock'),
+                        ])
+                        ->default('price')
+                        ->required(),
+                ])
+                ->action(fn (array $data) => $this->sendTestAlertNotification($data['type'] ?? 'price')),
+        ];
+    }
+
+    /**
+     * Dispatch a dummy price-drop or back-in-stock notification to the current
+     * user through the real notification pipeline (all their enabled channels).
+     */
+    public function sendTestAlertNotification(string $type = 'price'): void
+    {
+        $user = auth()->user();
+
+        if ($user === null) {
+            Notification::make()->title(__('You must be logged in to send a test notification.'))->danger()->send();
+
+            return;
+        }
+
+        $enabledMethods = collect(NotificationMethods::cases())
+            ->filter(fn (NotificationMethods $method): bool => $method !== NotificationMethods::Database
+                && NotificationsHelper::isEnabled($method)
+                && NotificationsHelper::getUserEnabled($user, $method))
+            ->map(fn (NotificationMethods $method): string => $method->name)
+            ->push('Database')
+            ->values();
+
+        $url = DummyNotificationFactory::makeUrl();
+
+        $notification = $type === 'stock'
+            ? new StockAlertNotification($url)
+            : new PriceAlertNotification($url);
+
+        try {
+            $user->notify($notification);
+
+            Notification::make()
+                ->title(__('Test notification sent'))
+                ->body(__('Sent a dummy :type alert via: :channels', [
+                    'type' => $type === 'stock' ? __('back in stock') : __('price drop'),
+                    'channels' => $enabledMethods->implode(', '),
+                ]))
+                ->success()
+                ->send();
+        } catch (\Throwable $e) {
+            Notification::make()
+                ->title(__('Failed to send test notification'))
+                ->body(__('Error: :message', ['message' => $e->getMessage()]))
+                ->danger()
+                ->send();
+        }
     }
 
     /**
