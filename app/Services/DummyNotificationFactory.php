@@ -63,7 +63,7 @@ class DummyNotificationFactory
     {
         $product = new class extends Product
         {
-            protected function priceAggregates(): Attribute
+            public function priceAggregates(): Attribute
             {
                 return Attribute::make(get: fn (): Collection => collect([
                     'max' => '$79.99',
