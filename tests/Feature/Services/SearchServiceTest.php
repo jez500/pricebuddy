@@ -275,6 +275,19 @@ class SearchServiceTest extends TestCase
         $this->assertSame([], $service->setQuiet(false)->getLog());
     }
 
+    public function test_quiet_mode_does_not_pop_existing_log_entries()
+    {
+        $service = SearchService::new('laptop');
+        $service->log('live progress');
+
+        $before = $service->getLog();
+        $this->assertCount(1, $before);
+
+        $service->setQuiet(true)->replaceLastLogEntry('should not replace');
+
+        $this->assertSame($before, $service->setQuiet(false)->getLog());
+    }
+
     public function test_product_source_count_is_interpolated_in_the_log()
     {
         $service = new SearchService('laptop');
