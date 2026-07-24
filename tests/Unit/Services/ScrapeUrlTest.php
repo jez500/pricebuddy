@@ -241,4 +241,52 @@ class ScrapeUrlTest extends TestCase
         $this->assertEquals('49.99', $result['price']);
         $this->assertEquals('https://example.com/schema.jpg', $result['image']);
     }
+
+    public function test_soft_404_pages_drop_banner_prices_and_mark_discontinued()
+    {
+        $this->store->update([
+            'settings' => ['scraper_service' => 'http'],
+            'scrape_strategy' => [
+                'title' => ['type' => 'selector', 'value' => 'title'],
+                'price' => ['type' => 'regex', 'value' => '\$([0-9]+(?:\.[0-9]{2})?)'],
+                'image' => ['type' => 'selector', 'value' => 'img|src'],
+            ],
+        ]);
+
+        // Soft 404: real title/body markers, but a shipping-threshold dollar amount
+        // that a naive price regex would happily scrape.
+        Http::fake([
+            '*' => Http::response(<<<'HTML'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>404 Not Found</title>
+    <link rel="canonical" href="https://example.com/404">
+</head>
+<body class="template-404">
+    <p>Orders Over $899!</p>
+    <p>Sorry, the page you were looking for does not exist.</p>
+</body>
+</html>
+HTML),
+        ]);
+
+        $result = ScrapeUrl::new(self::TEST_URL)->scrape();
+
+        $this->assertNull($result['price'] ?? null);
+        $this->assertSame('https://schema.org/Discontinued', $result['availability'] ?? null);
+    }
+
+    public function test_looks_like_not_found_page_detects_common_markers()
+    {
+        $scrapeUrl = ScrapeUrl::new(self::TEST_URL);
+        $method = new \ReflectionMethod(ScrapeUrl::class, 'looksLikeNotFoundPage');
+        $method->setAccessible(true);
+
+        $this->assertTrue($method->invoke($scrapeUrl, '404 Not Found', ''));
+        $this->assertTrue($method->invoke($scrapeUrl, 'Page not found', ''));
+        $this->assertTrue($method->invoke($scrapeUrl, 'Widget', '<body class="template-404"></body>'));
+        $this->assertTrue($method->invoke($scrapeUrl, 'Widget', '<html data-page-type="404"></html>'));
+        $this->assertFalse($method->invoke($scrapeUrl, 'Pellet Grill', '<body><p>$899 product</p></body>'));
+    }
 }
