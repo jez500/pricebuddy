@@ -204,13 +204,8 @@ class CreateViaSearchForm extends Widget implements HasForms
             $this->progressLog = $log;
         }
 
-        if ($inProgress = $service->getInProgress()) {
-            $this->inProgress = $inProgress;
-        }
-
-        if ($isComplete = $service->getIsComplete()) {
-            $this->isComplete = $isComplete;
-        }
+        $this->inProgress = $service->getInProgress() ?: false;
+        $this->isComplete = $service->getIsComplete() ?: false;
     }
 
     protected function getSearchKeywordFromForm(): string
