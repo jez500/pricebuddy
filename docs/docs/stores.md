@@ -145,6 +145,8 @@ If your JSON looks like this:
 
 You would use the JSON Path `product.price` to extract the price.
 
+You can test and validate your JSON Path expressions easily using tools like [this resource](https://jsoning.com/jsonpath/).
+
 ## Locale
 
 This is default locale settings for the store, the default can be set in 
