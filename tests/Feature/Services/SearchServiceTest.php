@@ -197,6 +197,84 @@ class SearchServiceTest extends TestCase
         $this->assertSame(Icons::Success->value, data_get($priceEntry, 'data.icon'));
     }
 
+    public function test_hydration_failures_do_not_serialize_exception_traces_into_the_search_log()
+    {
+        $service = new class('laptop') extends SearchService
+        {
+            protected function getHydratedResultData(array $result): array
+            {
+                throw new Exception('scrape failed', previous: new Exception('root cause'));
+            }
+        };
+
+        $service->results = collect([
+            ['title' => 'Broken', 'url' => 'https://example.com/broken', 'domain' => 'example.com'],
+        ]);
+
+        $service->hydrateWithScrapedData();
+
+        $failed = collect($service->getLog())
+            ->first(fn ($entry) => str_contains($entry['message'], 'Failed for'));
+
+        $this->assertNotNull($failed);
+        $this->assertArrayNotHasKey('trace', $failed['data'] ?? []);
+        $this->assertSame(Icons::Warning->value, data_get($failed, 'data.icon'));
+        $this->assertSame(1, UrlResearch::query()->count());
+    }
+
+    public function test_non_utf8_html_is_sanitized_before_url_research_persist()
+    {
+        $service = new class('laptop') extends SearchService
+        {
+            protected function getHydratedResultData(array $result): array
+            {
+                // Windows-1252 curly quote (0x94) — invalid as UTF-8.
+                return [
+                    'price' => 12.0,
+                    'image' => null,
+                    'strategies' => [],
+                    'is_product_page' => null,
+                    'html' => "<html><body>smart\x94quote</body></html>",
+                ];
+            }
+        };
+
+        $service->results = collect([
+            ['title' => 'Legacy', 'url' => 'https://example.com/legacy', 'domain' => 'example.com'],
+        ]);
+
+        $service->hydrateWithScrapedData();
+
+        $research = UrlResearch::query()->first();
+        $this->assertNotNull($research);
+        $this->assertTrue(mb_check_encoding((string) $research->html, 'UTF-8'));
+        $this->assertStringNotContainsString("\x94", (string) $research->html);
+    }
+
+    public function test_add_stores_tolerates_null_domains()
+    {
+        $service = new SearchService('laptop');
+        $service->results = collect([
+            ['title' => 'No host', 'url' => 'not-a-url', 'domain' => null],
+            ['title' => 'Blank host', 'url' => 'https:///', 'domain' => ''],
+        ]);
+
+        $method = new \ReflectionMethod(SearchService::class, 'addStores');
+        $method->setAccessible(true);
+        $method->invoke($service);
+
+        $this->assertNull($service->results[0]['store_id']);
+        $this->assertNull($service->results[1]['store_id']);
+    }
+
+    public function test_quiet_mode_skips_search_log_writes()
+    {
+        $service = SearchService::new('laptop')->setQuiet(true);
+        $service->log('should not appear');
+
+        $this->assertSame([], $service->setQuiet(false)->getLog());
+    }
+
     public function test_product_source_count_is_interpolated_in_the_log()
     {
         $service = new SearchService('laptop');

@@ -60,22 +60,25 @@ class UrlResearch extends Model
             return $query->whereRaw('1 = 0'); // Return no results
         }
 
-        $service = SearchService::new($searchQuery);
+        // Quiet: this scope only needs URLs, not a progress log in cache.
+        $service = SearchService::new($searchQuery)->setQuiet(true);
 
         // If a specific product source is provided, filter by it
         if ($productSource) {
             $service->setProductSource($productSource);
         }
 
-        $urls = $service
-            ->getProductSourceResults();
+        $builder = $service->getProductSourceResults();
 
         // Only call getRawResults if not filtering by specific source
         if (! $productSource) {
-            $urls = $urls->getRawResults();
+            $builder->getRawResults();
         }
 
-        $urls = $urls->getResults()->pluck('url');
+        $urls = $builder
+            ->filterResults()
+            ->getResults()
+            ->pluck('url');
 
         return $query->whereIn('url', $urls);
     }

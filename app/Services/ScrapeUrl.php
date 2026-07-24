@@ -242,6 +242,10 @@ class ScrapeUrl
     {
         $host = Uri::of($this->url)->host();
 
+        if (blank($host)) {
+            return null;
+        }
+
         return Store::query()->domainFilter($host)->oldest()->first();
     }
 

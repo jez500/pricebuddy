@@ -37,6 +37,8 @@ class SearchService
 
     protected bool $useLaravelLog = false;
 
+    protected bool $quiet = false;
+
     protected array $ignoredExtensions = ['pdf', 'doc', 'xls', 'ppt', 'jpg', 'png', 'jpeg'];
 
     public function __construct(?string $query = null)
@@ -292,8 +294,14 @@ class SearchService
     {
         $this->log('Adding stores to search results');
 
-        $domains = $this->results->pluck('domain')->toArray();
-        $stores = Store::query()->select('id', 'domains')->domainFilter($domains)->get();
+        $domains = array_values(array_filter(
+            $this->results->pluck('domain')->all(),
+            fn ($domain) => filled($domain)
+        ));
+
+        $stores = $domains === []
+            ? collect()
+            : Store::query()->select('id', 'domains')->domainFilter($domains)->get();
 
         $this->results = $this->results
             ->map(function ($result) use ($stores) {
@@ -338,8 +346,18 @@ class SearchService
                         $this->replaceLastLogEntry(__('No Price found ":title" (:domain)', $logArgs), ['icon' => Icons::Warning->value]);
                     }
                 } catch (Exception $e) {
-                    $trace = $e->getTrace();
-                    $this->log(__('Failed for ":title": :error', array_merge($logArgs, ['error' => $e->getMessage()])), ['subtitle' => $result['url'], 'trace' => array_splice($trace, 0, 5)]);
+                    // Never put getTrace() into the search log cache — frames can contain
+                    // Closures and will throw "Serialization of 'Closure' is not allowed",
+                    // aborting the job before setIsComplete() runs.
+                    logger()->warning('Search hydration failed', [
+                        'url' => $result['url'],
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                    $this->log(__('Failed for ":title": :error', array_merge($logArgs, ['error' => $e->getMessage()])), [
+                        'subtitle' => $result['url'],
+                        'icon' => Icons::Warning->value,
+                    ]);
                 }
 
                 $result['execution_time'] = (microtime(true) - $timeStart);
@@ -383,12 +401,44 @@ class SearchService
 
     protected function persistUrlResearchResult(array $result): void
     {
-        UrlResearch::updateOrCreate(
-            ['url' => $result['url']],
-            collect($result)->only([
+        try {
+            $payload = collect($result)->only([
                 'html', 'title', 'image', 'price', 'store_id', 'strategies', 'execution_time',
-            ])->all()
-        );
+            ])->all();
+
+            if (! empty($payload['html'])) {
+                $payload['html'] = $this->sanitizeUtf8($payload['html']);
+            }
+
+            UrlResearch::updateOrCreate(['url' => $result['url']], $payload);
+        } catch (Exception $e) {
+            // Persistence failures must not abort the rest of the search job.
+            logger()->warning('Failed to persist url research', [
+                'url' => $result['url'],
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Normalize scraped HTML to UTF-8 so utf8mb4 MySQL / cache stores do not reject it.
+     */
+    protected function sanitizeUtf8(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return $value;
+        }
+
+        if (mb_check_encoding($value, 'UTF-8')) {
+            return $value;
+        }
+
+        $converted = @mb_convert_encoding($value, 'UTF-8', 'Windows-1252');
+        if ($converted !== false && mb_check_encoding($converted, 'UTF-8')) {
+            return $converted;
+        }
+
+        return iconv('UTF-8', 'UTF-8//IGNORE', $value) ?: '';
     }
 
     public static function getSettings(): array
@@ -462,6 +512,10 @@ class SearchService
 
     public function log(string $message, array $data = []): self
     {
+        if ($this->quiet) {
+            return $this;
+        }
+
         $cache = Cache::get($this->getLogKey(), []);
 
         $cache[] = [
@@ -500,6 +554,13 @@ class SearchService
         return $this;
     }
 
+    public function setQuiet(bool $quiet): self
+    {
+        $this->quiet = $quiet;
+
+        return $this;
+    }
+
     public function getLog(?string $searchQuery = null): array
     {
         if ($searchQuery) {
@@ -511,6 +572,10 @@ class SearchService
 
     public function logReset(): self
     {
+        if ($this->quiet) {
+            return $this;
+        }
+
         Cache::delete($this->getLogKey());
 
         return $this;

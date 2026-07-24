@@ -44,6 +44,17 @@ class StoreTest extends TestCase
         $this->assertEquals('', $store->domains_html);
     }
 
+    public function test_domain_filter_accepts_null_and_empty_domains_without_error()
+    {
+        Store::factory()->create(['domains' => [['domain' => 'example.com']]]);
+
+        $this->assertSame(0, Store::query()->domainFilter(null)->count());
+        $this->assertSame(0, Store::query()->domainFilter([])->count());
+        $this->assertSame(0, Store::query()->domainFilter(['', null])->count());
+        $this->assertSame(1, Store::query()->domainFilter('example.com')->count());
+        $this->assertSame(0, Store::query()->domainFilter('missing.example')->count());
+    }
+
     public function test_scraper_service_returns_default_value()
     {
         $store = Store::factory()->create(['settings' => []]);
