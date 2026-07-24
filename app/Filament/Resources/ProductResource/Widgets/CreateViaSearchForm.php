@@ -140,9 +140,6 @@ class CreateViaSearchForm extends Widget implements HasForms
             return;
         }
 
-        // Avoid empty log.
-        $this->progressLog[] = ['message' => __('Preparing to search'), 'timestamp' => now()];
-
         $service = SearchService::new($this->searchQuery);
 
         if ($inProgress = $service->getInProgress()) {
@@ -160,10 +157,13 @@ class CreateViaSearchForm extends Widget implements HasForms
         }
 
         if ($this->isComplete || $this->inProgress) {
-            $this->refreshProgress();
+            $this->syncProgressFromService();
 
             return;
         }
+
+        // Avoid empty log.
+        $this->progressLog[] = ['message' => __('Preparing to search'), 'timestamp' => now()];
 
         $this->inProgress = now()->toDateTimeString();
         $this->progressLog[] = ['message' => __('Dispatching search job for ":query"', ['query' => $this->searchQuery]), 'timestamp' => now()];
@@ -182,15 +182,34 @@ class CreateViaSearchForm extends Widget implements HasForms
      */
     public function refreshProgress(): void
     {
+        if ($this->isComplete && ! $this->inProgress) {
+            return;
+        }
+
+        $this->syncProgressFromService();
+    }
+
+    protected function syncProgressFromService(): void
+    {
         $searchQuery = $this->searchQuery ?? $this->getSearchKeywordFromForm();
 
-        if ($searchQuery && ! $this->isComplete) {
-            $this->progressLog[] = ['message' => __('Refreshing progress for ":query"', ['query' => $searchQuery]), 'timestamp' => now()];
+        if (! $searchQuery) {
+            return;
+        }
 
-            $service = SearchService::new($searchQuery);
-            $this->progressLog = $service->getLog();
-            $this->inProgress = $service->getInProgress();
-            $this->isComplete = $service->getIsComplete();
+        $service = SearchService::new($searchQuery);
+        $log = $service->getLog();
+
+        if (! empty($log)) {
+            $this->progressLog = $log;
+        }
+
+        if ($inProgress = $service->getInProgress()) {
+            $this->inProgress = $inProgress;
+        }
+
+        if ($isComplete = $service->getIsComplete()) {
+            $this->isComplete = $isComplete;
         }
     }
 

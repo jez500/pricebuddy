@@ -112,11 +112,6 @@ class SearchProductSource extends EditRecord
 
         $this->showLog = ! empty($this->searchQuery);
 
-        // Avoid empty log
-        if (empty($this->progressLog)) {
-            $this->progressLog[] = ['message' => __('Preparing to search'), 'timestamp' => now()];
-        }
-
         $source = $this->getRecord();
 
         $service = SearchService::new($this->searchQuery)->setProductSource($source);
@@ -136,9 +131,14 @@ class SearchProductSource extends EditRecord
         }
 
         if ($this->isComplete || $this->inProgress) {
-            $this->refreshProgress();
+            $this->syncProgressFromService();
 
             return;
+        }
+
+        // Avoid empty log
+        if (empty($this->progressLog)) {
+            $this->progressLog[] = ['message' => __('Preparing to search'), 'timestamp' => now()];
         }
 
         $this->inProgress = now()->toDateTimeString();
@@ -155,13 +155,32 @@ class SearchProductSource extends EditRecord
 
     public function refreshProgress(): void
     {
-        if ($this->searchQuery && ! $this->isComplete) {
-            $this->progressLog[] = ['message' => __('Refreshing progress for ":query"', ['query' => $this->searchQuery]), 'timestamp' => now()];
+        if ($this->isComplete && ! $this->inProgress) {
+            return;
+        }
 
-            $service = SearchService::new($this->searchQuery)->setProductSource($this->getRecord());
-            $this->progressLog = $service->getLog();
-            $this->inProgress = $service->getInProgress();
-            $this->isComplete = $service->getIsComplete();
+        $this->syncProgressFromService();
+    }
+
+    protected function syncProgressFromService(): void
+    {
+        if (! $this->searchQuery) {
+            return;
+        }
+
+        $service = SearchService::new($this->searchQuery)->setProductSource($this->getRecord());
+        $log = $service->getLog();
+
+        if (! empty($log)) {
+            $this->progressLog = $log;
+        }
+
+        if ($inProgress = $service->getInProgress()) {
+            $this->inProgress = $inProgress;
+        }
+
+        if ($isComplete = $service->getIsComplete()) {
+            $this->isComplete = $isComplete;
         }
     }
 
