@@ -249,6 +249,7 @@ class SearchServiceTest extends TestCase
         $this->assertNotNull($research);
         $this->assertTrue(mb_check_encoding((string) $research->html, 'UTF-8'));
         $this->assertStringNotContainsString("\x94", (string) $research->html);
+        $this->assertStringContainsString("\u{201D}", (string) $research->html);
     }
 
     public function test_add_stores_tolerates_null_domains()
