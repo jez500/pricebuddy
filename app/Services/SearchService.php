@@ -424,8 +424,9 @@ class SearchService
     /**
      * Normalize scraped HTML to UTF-8 so utf8mb4 MySQL / cache stores do not reject it.
      *
-     * Prefer repairing invalid UTF-8 sequences over assuming Windows-1252, so a
-     * mostly-UTF-8 body with a few bad bytes is not wholesale re-decoded.
+     * Prefer Windows-1252 conversion only for single-byte legacy content. Bodies
+     * that already contain UTF-8 multi-byte sequences are repaired in place so
+     * mostly-UTF-8 pages are not wholesale re-decoded as Windows-1252.
      */
     protected function sanitizeUtf8(?string $value): ?string
     {
@@ -437,15 +438,14 @@ class SearchService
             return $value;
         }
 
-        $repaired = @iconv('UTF-8', 'UTF-8//IGNORE', $value);
-        if (is_string($repaired) && mb_check_encoding($repaired, 'UTF-8') && strlen($repaired) >= (int) (strlen($value) * 0.9)) {
-            return $repaired;
+        if (! preg_match('/[\xC2-\xF4][\x80-\xBF]/', $value)) {
+            $converted = @mb_convert_encoding($value, 'UTF-8', 'Windows-1252');
+            if ($converted !== false && mb_check_encoding($converted, 'UTF-8')) {
+                return $converted;
+            }
         }
 
-        $converted = @mb_convert_encoding($value, 'UTF-8', 'Windows-1252');
-        if ($converted !== false && mb_check_encoding($converted, 'UTF-8')) {
-            return $converted;
-        }
+        $repaired = @iconv('UTF-8', 'UTF-8//IGNORE', $value);
 
         return is_string($repaired) && mb_check_encoding($repaired, 'UTF-8') ? $repaired : '';
     }
