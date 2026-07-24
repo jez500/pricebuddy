@@ -208,6 +208,7 @@ class ScrapeUrl
 
             $output['body'] = $page->getBody();
             $output['errors'] = $scraper->getErrors();
+            $output = $this->applyNotFoundPageGuards($output);
         } catch (Exception $e) {
             $this->errorLog('Error scraping URL', [
                 'error' => $e->getMessage(),
@@ -215,6 +216,43 @@ class ScrapeUrl
         }
 
         return $output;
+    }
+
+    /**
+     * Soft 404s still return HTML with a title and often an unrelated dollar
+     * amount in banners (e.g. "Orders Over $899!"). Treat those pages as
+     * discontinued and drop any scraped price so shipping thresholds are never
+     * stored as product prices.
+     */
+    protected function applyNotFoundPageGuards(array $output): array
+    {
+        if (! $this->looksLikeNotFoundPage(
+            (string) ($output['title'] ?? ''),
+            (string) ($output['body'] ?? ''),
+        )) {
+            return $output;
+        }
+
+        $output['price'] = null;
+        $output['availability'] = 'https://schema.org/Discontinued';
+
+        return $output;
+    }
+
+    protected function looksLikeNotFoundPage(string $title, string $body): bool
+    {
+        if ($title !== '' && preg_match('/\b404\b|not\s+found|page\s+(?:you\s+(?:were|are)\s+looking\s+for\s+)?(?:does\s+not\s+exist|not\s+found)/i', $title) === 1) {
+            return true;
+        }
+
+        if ($body === '') {
+            return false;
+        }
+
+        return preg_match(
+            '/\btemplate-404\b|data-page-type=["\']404["\']|"pageType"\s*:\s*"404"|rel=["\']canonical["\'][^>]*href=["\'][^"\']*\/404["\']|href=["\'][^"\']*\/404["\'][^>]*rel=["\']canonical["\']/i',
+            $body
+        ) === 1;
     }
 
     public function getStore(): ?Store
