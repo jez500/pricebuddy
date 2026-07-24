@@ -126,9 +126,17 @@ class Store extends Model
      * Scopes.
      **************************************************/
 
-    public function scopeDomainFilter(Builder $query, string|array $domains): Builder
+    public function scopeDomainFilter(Builder $query, string|array|null $domains): Builder
     {
-        $domains = Arr::wrap($domains);
+        $domains = array_values(array_filter(
+            Arr::wrap($domains),
+            fn ($domain) => filled($domain)
+        ));
+
+        if ($domains === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
         $first = array_shift($domains);
 
         return $query->where(function (Builder $subQuery) use ($first, $domains) {
