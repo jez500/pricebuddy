@@ -287,6 +287,16 @@ HTML),
         $this->assertTrue($method->invoke($scrapeUrl, 'Page not found', ''));
         $this->assertTrue($method->invoke($scrapeUrl, 'Widget', '<body class="template-404"></body>'));
         $this->assertTrue($method->invoke($scrapeUrl, 'Widget', '<html data-page-type="404"></html>'));
+        $this->assertTrue($method->invoke(
+            $scrapeUrl,
+            'Widget',
+            '<link rel="canonical" href="https://example.com/404">'
+        ));
+        $this->assertTrue($method->invoke(
+            $scrapeUrl,
+            'Widget',
+            '<link href="https://example.com/404" rel="canonical">'
+        ));
         $this->assertFalse($method->invoke($scrapeUrl, 'Pellet Grill', '<body><p>$899 product</p></body>'));
     }
 }
