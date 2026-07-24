@@ -345,10 +345,11 @@ class SearchService
                     } else {
                         $this->replaceLastLogEntry(__('No Price found ":title" (:domain)', $logArgs), ['icon' => Icons::Warning->value]);
                     }
-                } catch (Exception $e) {
+                } catch (Throwable $e) {
                     // Never put getTrace() into the search log cache — frames can contain
                     // Closures and will throw "Serialization of 'Closure' is not allowed",
-                    // aborting the job before setIsComplete() runs.
+                    // aborting the job before setIsComplete() runs. Catch Throwable so
+                    // TypeError and friends also stay per-result instead of killing the job.
                     logger()->warning('Search hydration failed', [
                         'url' => $result['url'],
                         'error' => $e->getMessage(),
@@ -411,7 +412,7 @@ class SearchService
             }
 
             UrlResearch::updateOrCreate(['url' => $result['url']], $payload);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             // Persistence failures must not abort the rest of the search job.
             logger()->warning('Failed to persist url research', [
                 'url' => $result['url'],
@@ -422,6 +423,9 @@ class SearchService
 
     /**
      * Normalize scraped HTML to UTF-8 so utf8mb4 MySQL / cache stores do not reject it.
+     *
+     * Prefer repairing invalid UTF-8 sequences over assuming Windows-1252, so a
+     * mostly-UTF-8 body with a few bad bytes is not wholesale re-decoded.
      */
     protected function sanitizeUtf8(?string $value): ?string
     {
@@ -433,12 +437,17 @@ class SearchService
             return $value;
         }
 
+        $repaired = @iconv('UTF-8', 'UTF-8//IGNORE', $value);
+        if (is_string($repaired) && mb_check_encoding($repaired, 'UTF-8') && strlen($repaired) >= (int) (strlen($value) * 0.9)) {
+            return $repaired;
+        }
+
         $converted = @mb_convert_encoding($value, 'UTF-8', 'Windows-1252');
         if ($converted !== false && mb_check_encoding($converted, 'UTF-8')) {
             return $converted;
         }
 
-        return iconv('UTF-8', 'UTF-8//IGNORE', $value) ?: '';
+        return is_string($repaired) && mb_check_encoding($repaired, 'UTF-8') ? $repaired : '';
     }
 
     public static function getSettings(): array
@@ -535,6 +544,10 @@ class SearchService
 
     public function replaceLastLogEntry(string $message, array $data = []): self
     {
+        if ($this->quiet) {
+            return $this;
+        }
+
         $cache = Cache::get($this->getLogKey(), []);
 
         if (! empty($cache)) {
