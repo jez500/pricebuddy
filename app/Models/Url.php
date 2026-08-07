@@ -18,8 +18,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Illuminate\Support\Uri;
 
 /**
  * Product URL.
@@ -149,6 +151,116 @@ class Url extends Model
     /***************************************************
      * Helpers.
      **************************************************/
+
+    /**
+     * Build the normalised key used to decide whether two URLs point at the same
+     * product page.
+     *
+     * Rule: lowercase host without a leading "www.", plus the lowercased path with
+     * trailing slashes removed, plus the surviving query parameters sorted and
+     * joined. Scheme, port, userinfo and fragment are discarded. Returns an empty
+     * string for anything unparseable — callers must coerce that to NULL before
+     * persisting, or every malformed row would share one key.
+     *
+     * The tracking-parameter denylist lives in config/url_matching.php. It is
+     * internal only: it is never exposed in an API response and has no client-side
+     * mirror, so it can be extended freely. Changing it does invalidate every
+     * stored `url_normalized` value — run `urls:renormalize` afterwards.
+     */
+    public static function normalizeForMatch(string $url): string
+    {
+        $input = trim($url);
+
+        if ($input === '') {
+            return '';
+        }
+
+        if (! preg_match('/^[a-zA-Z][a-zA-Z0-9+.\-]*:\/\//', $input)) {
+            $input = 'https://'.$input;
+        }
+
+        try {
+            $uri = Uri::of($input);
+        } catch (\Throwable) {
+            return '';
+        }
+
+        $host = static::normalizeHost((string) $uri->host());
+
+        if ($host === '') {
+            return '';
+        }
+
+        $path = $uri->path();
+        $path = $path === '/' ? '' : '/'.Str::lower($path);
+
+        $query = static::filterTrackingParams((string) $uri->query()->value());
+
+        return Str::substr($host.$path.($query === '' ? '' : '?'.$query), 0, 255);
+    }
+
+    /**
+     * Normalise a bare host: drop any port, lowercase, strip one leading "www.".
+     * Shared by normalizeForMatch() and the stores `filter[domain]` so there is a
+     * single host rule rather than two.
+     */
+    public static function normalizeHost(string $host): string
+    {
+        $host = trim($host);
+
+        if ($host === '') {
+            return '';
+        }
+
+        $host = Str::lower(Str::before($host, ':'));
+
+        return Str::startsWith($host, 'www.') ? Str::substr($host, 4) : $host;
+    }
+
+    /**
+     * Drop tracking parameters from a raw query string and sort what remains.
+     * Tokens are kept verbatim, so "?foo" stays "foo" and "?foo=" stays "foo=".
+     */
+    protected static function filterTrackingParams(string $query): string
+    {
+        if (trim($query) === '') {
+            return '';
+        }
+
+        $exact = static::configuredList('url_matching.tracking_params');
+        $prefixes = static::configuredList('url_matching.tracking_param_prefixes');
+
+        return collect(explode('&', Str::lower($query)))
+            ->reject(function (string $token) use ($exact, $prefixes): bool {
+                $key = Str::before($token, '=');
+
+                if ($key === '') {
+                    return true;
+                }
+
+                return in_array($key, $exact, true)
+                    || ($prefixes !== [] && Str::startsWith($key, $prefixes));
+            })
+            ->sort(SORT_STRING)
+            ->values()
+            ->implode('&');
+    }
+
+    /**
+     * Read a denylist from config, trimmed, lowercased, de-duplicated and with
+     * empties removed, so a messy env value behaves.
+     *
+     * @return array<int, string>
+     */
+    protected static function configuredList(string $key): array
+    {
+        return collect(Arr::wrap(config($key, [])))
+            ->map(fn ($value): string => Str::lower(trim((string) $value)))
+            ->filter(fn (string $value): bool => $value !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
 
     public function scrape(): array
     {
