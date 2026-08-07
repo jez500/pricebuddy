@@ -657,6 +657,23 @@ class ProductApiTest extends TestCase
         $this->assertArrayNotHasKey('is_current', $response->json('data.price_cache.0'));
     }
 
+    public function test_is_current_is_present_but_false_when_the_param_is_supplied_empty(): void
+    {
+        // Laravel's global ConvertEmptyStringsToNull middleware collapses a literal
+        // `?current_url=` query value to null before the handler sees it, so this
+        // "supplied but empty" branch is unreachable via a real HTTP request in this
+        // app. It is still a real contract of the transformer (see withCurrentUrl()'s
+        // null-vs-empty-string distinction), so exercise it directly.
+        [$product] = $this->productWithTrackedUrl('https://shop.com/p/x');
+
+        $data = (new \App\Filament\Resources\ProductResource\Api\Transformers\ProductTransformer($product))
+            ->withCurrentUrl('')
+            ->toArray(request());
+
+        $this->assertArrayHasKey('is_current', $data['price_cache'][0]);
+        $this->assertFalse($data['price_cache'][0]['is_current']);
+    }
+
     public function test_current_url_flags_every_matching_entry(): void
     {
         $product = Product::factory()->create(['user_id' => $this->user->id]);
@@ -674,6 +691,18 @@ class ProductApiTest extends TestCase
     {
         [$product] = $this->productWithTrackedUrl('https://shop.com/p/x');
 
+        // Exercise the transformer directly so this test actually fails if
+        // decoratePriceCache() ever writes back into $this->resource->price_cache,
+        // rather than only reconfirming that the HTTP path never calls save().
+        $data = (new \App\Filament\Resources\ProductResource\Api\Transformers\ProductTransformer($product))
+            ->withCurrentUrl('https://shop.com/p/x')
+            ->toArray(request());
+
+        $this->assertTrue($data['price_cache'][0]['is_current']);
+        $this->assertArrayNotHasKey('is_current', $product->price_cache[0]);
+        $this->assertFalse($product->isDirty());
+
+        // Belt-and-braces: confirm the materialised column is untouched end-to-end too.
         $this->getJson("/api/products/{$product->id}?current_url=".urlencode('https://shop.com/p/x'))
             ->assertSuccessful();
 
