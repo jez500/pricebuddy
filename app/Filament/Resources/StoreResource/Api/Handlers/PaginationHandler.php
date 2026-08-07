@@ -5,7 +5,11 @@ namespace App\Filament\Resources\StoreResource\Api\Handlers;
 use App\Filament\Resources\StoreResource;
 use App\Filament\Resources\StoreResource\Api\Transformers\StoreTransformer;
 use App\Filament\Traits\ApiHelperTrait;
+use App\Models\Store;
+use App\Models\Url;
 use Dedoc\Scramble\Attributes\Group;
+use Dedoc\Scramble\Attributes\QueryParameter;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Rupadana\ApiService\Http\Handlers;
 use Spatie\QueryBuilder\AllowedFilter;
@@ -51,6 +55,37 @@ class PaginationHandler extends Handlers
         return [
             AllowedFilter::partial('domains'),
             AllowedFilter::exact('scraper_service', 'settings->scraper_service'),
+            AllowedFilter::callback('domain', function (Builder $query, $value): void {
+                $host = Url::normalizeHost((string) $value);
+
+                if ($host === '') {
+                    $query->whereRaw('0 = 1');
+
+                    return;
+                }
+
+                // MySQL JSON columns collate utf8mb4_bin, so neither whereJsonContains
+                // nor a plain LIKE can compare case-insensitively. Narrow in SQL, then
+                // compare exactly in PHP. The LIKE is a sound superset: normalizeHost
+                // only lowercases and strips a leading "www.", so the normalised host is
+                // always a substring of the lowercased stored value.
+                $ids = Store::query()
+                    ->where('user_id', auth()->id())
+                    ->whereRaw('LOWER(domains) LIKE ?', ['%'.$host.'%'])
+                    ->get(['id', 'domains'])
+                    ->filter(fn (Store $store): bool => collect($store->domains)
+                        ->contains(fn ($entry): bool => Url::normalizeHost((string) data_get($entry, 'domain')) === $host))
+                    ->pluck('id')
+                    ->all();
+
+                $query->whereIn('id', $ids);
+            })
+                // Laravel's ConvertEmptyStringsToNull middleware turns filter[domain]=
+                // into a null value before Spatie sees it. AllowedFilter::filter() skips
+                // invoking the callback for null values unless the filter is nullable, so
+                // without this the empty-string/garbage case would silently fall through
+                // to an unfiltered query instead of reaching the "0 = 1" guard above.
+                ->nullable(),
         ];
     }
 
@@ -68,6 +103,7 @@ class PaginationHandler extends Handlers
      *
      * @return AnonymousResourceCollection
      */
+    #[QueryParameter('domain', description: 'Exact-match filter on a bare host such as "www.Target.com.au". Case and a leading "www." are ignored. Unlike filter[domains], this does not partial match.', type: 'string')]
     public function handler()
     {
         $query = static::getEloquentQuery()->where('user_id', auth()->id());
