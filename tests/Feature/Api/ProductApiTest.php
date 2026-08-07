@@ -798,6 +798,33 @@ class ProductApiTest extends TestCase
         $this->assertSame($product->id, $response->json('data.0.id'));
     }
 
+    public function test_url_filter_handles_a_comma_url_sent_as_a_bracket_array(): void
+    {
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+        $url = 'https://shop.com/p/x?size=s,m';
+        \App\Models\Url::factory()->create(['product_id' => $product->id, 'url' => $url]);
+
+        // filter[url][]= produces a NESTED array once Spatie splits each element on
+        // the comma, which used to reach implode() and raise "Array to string
+        // conversion" -> ErrorException -> HTTP 500.
+        $response = $this->getJson('/api/products?filter[url][]='.urlencode($url));
+
+        $response->assertSuccessful()->assertJsonCount(1, 'data');
+        $this->assertSame($product->id, $response->json('data.0.id'));
+    }
+
+    public function test_url_filter_returns_empty_for_multiple_bracket_array_values(): void
+    {
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+        \App\Models\Url::factory()->create(['product_id' => $product->id, 'url' => 'https://shop.com/p/x']);
+
+        // Two distinct URLs is not a supported query; it must return no rows rather
+        // than error or silently match on just one of them.
+        $response = $this->getJson('/api/products?filter[url][]='.urlencode('https://shop.com/p/x').'&filter[url][]='.urlencode('https://shop.com/p/y'));
+
+        $response->assertSuccessful()->assertJsonCount(0, 'data');
+    }
+
     public function test_url_filter_handles_a_realistic_amazon_style_comma_url_without_erroring(): void
     {
         $product = Product::factory()->create(['user_id' => $this->user->id]);

@@ -57,10 +57,9 @@ class PaginationHandler extends Handlers
             AllowedFilter::exact('scraper_service', 'settings->scraper_service'),
             AllowedFilter::callback('domain', function (Builder $query, $value): void {
                 // Spatie splits filter values on its array delimiter (default ','),
-                // so a value containing a comma arrives here as an array. Rejoin
-                // with ',' to reconstruct the original string before normalising.
-                $raw = is_array($value) ? implode(',', $value) : (string) $value;
-                $host = Url::normalizeHost($raw);
+                // so a value containing a comma arrives here as an array — nested
+                // again if sent as filter[domain][]=.
+                $host = Url::normalizeHost($this->filterValueToString($value));
 
                 if ($host === '') {
                     $query->whereRaw('0 = 1');

@@ -64,10 +64,8 @@ class PaginationHandler extends Handlers
             AllowedFilter::callback('url', function (Builder $query, $value): void {
                 // Spatie splits filter values on its array delimiter (default ','),
                 // so a value containing a comma (e.g. Amazon's sprefix=tv,aps,300)
-                // arrives here as an array. Rejoin with ',' to reconstruct the
-                // original string before normalising.
-                $raw = is_array($value) ? implode(',', $value) : (string) $value;
-                $normalized = Url::normalizeForMatch($raw);
+                // arrives here as an array — nested again if sent as filter[url][]=.
+                $normalized = Url::normalizeForMatch($this->filterValueToString($value));
 
                 // An unparseable URL must match nothing rather than error. Short-circuit
                 // without touching the join; stored rows hold NULL for unparseable URLs
