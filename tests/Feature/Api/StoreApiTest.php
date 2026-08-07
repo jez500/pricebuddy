@@ -373,4 +373,115 @@ class StoreApiTest extends TestCase
 
         $response->assertUnauthorized();
     }
+
+    public function test_domain_filter_matches_regardless_of_www_and_case(): void
+    {
+        $store = Store::factory()->create([
+            'user_id' => $this->user->id,
+            'domains' => [['domain' => 'www.Target.com.au']],
+        ]);
+        Store::factory()->create([
+            'user_id' => $this->user->id,
+            'domains' => [['domain' => 'kmart.com.au']],
+        ]);
+
+        foreach (['www.Target.com.au', 'target.com.au', 'TARGET.COM.AU', 'target.com.au:443'] as $host) {
+            $response = $this->getJson('/api/stores?filter[domain]='.urlencode($host));
+
+            $response->assertSuccessful()->assertJsonCount(1, 'data');
+            $this->assertSame($store->id, $response->json('data.0.id'), "Failed for host: {$host}");
+        }
+    }
+
+    public function test_domain_filter_does_not_match_a_different_domain(): void
+    {
+        Store::factory()->create([
+            'user_id' => $this->user->id,
+            'domains' => [['domain' => 'target.com.au']],
+        ]);
+
+        $this->getJson('/api/stores?filter[domain]='.urlencode('kmart.com.au'))
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_domain_filter_does_not_partially_match(): void
+    {
+        Store::factory()->create([
+            'user_id' => $this->user->id,
+            'domains' => [['domain' => 'target.com.au']],
+        ]);
+
+        $this->getJson('/api/stores?filter[domain]='.urlencode('arget.com.au'))
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_domain_filter_returns_empty_for_garbage(): void
+    {
+        Store::factory()->create([
+            'user_id' => $this->user->id,
+            'domains' => [['domain' => 'target.com.au']],
+        ]);
+
+        $this->getJson('/api/stores?filter[domain]=')
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_domain_filter_does_not_leak_another_users_store(): void
+    {
+        $other = User::factory()->create();
+        Store::factory()->create([
+            'user_id' => $other->id,
+            'domains' => [['domain' => 'target.com.au']],
+        ]);
+
+        $this->getJson('/api/stores?filter[domain]='.urlencode('target.com.au'))
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_domain_filter_handles_a_comma_without_erroring(): void
+    {
+        Store::factory()->create([
+            'user_id' => $this->user->id,
+            'domains' => [['domain' => 'target.com.au']],
+        ]);
+
+        $this->getJson('/api/stores?filter[domain]='.urlencode('target.com.au,other.com'))
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_domain_filter_handles_a_bracket_array_without_erroring(): void
+    {
+        $store = Store::factory()->create([
+            'user_id' => $this->user->id,
+            'domains' => [['domain' => 'target.com.au']],
+        ]);
+
+        // A single bracket-array value must still resolve to the plain host.
+        $response = $this->getJson('/api/stores?filter[domain][]='.urlencode('www.Target.com.au'));
+        $response->assertSuccessful()->assertJsonCount(1, 'data');
+        $this->assertSame($store->id, $response->json('data.0.id'));
+
+        // A comma inside a bracket-array value nests once Spatie splits it, which
+        // used to reach implode() and raise "Array to string conversion" -> HTTP 500.
+        $this->getJson('/api/stores?filter[domain][]='.urlencode('target.com.au,other.com'))
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_partial_domains_filter_still_works(): void
+    {
+        Store::factory()->create([
+            'user_id' => $this->user->id,
+            'domains' => [['domain' => 'target.com.au']],
+        ]);
+
+        $this->getJson('/api/stores?filter[domains]=target')
+            ->assertSuccessful()
+            ->assertJsonCount(1, 'data');
+    }
 }

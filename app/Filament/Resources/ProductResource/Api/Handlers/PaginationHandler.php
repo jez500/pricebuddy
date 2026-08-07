@@ -5,10 +5,14 @@ namespace App\Filament\Resources\ProductResource\Api\Handlers;
 use App\Filament\Resources\ProductResource;
 use App\Filament\Resources\ProductResource\Api\Transformers\ProductTransformer;
 use App\Filament\Traits\ApiHelperTrait;
+use App\Models\Url;
 use Dedoc\Scramble\Attributes\Group;
+use Dedoc\Scramble\Attributes\QueryParameter;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Rupadana\ApiService\Http\Handlers;
+use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 
 #[Group(ProductResource::API_GROUP)]
@@ -57,6 +61,29 @@ class PaginationHandler extends Handlers
             'status',
             'favourite',
             'only_official',
+            AllowedFilter::callback('url', function (Builder $query, $value): void {
+                // Spatie splits filter values on its array delimiter (default ','),
+                // so a value containing a comma (e.g. Amazon's sprefix=tv,aps,300)
+                // arrives here as an array — nested again if sent as filter[url][]=.
+                $normalized = Url::normalizeForMatch($this->filterValueToString($value));
+
+                // An unparseable URL must match nothing rather than error. Short-circuit
+                // without touching the join; stored rows hold NULL for unparseable URLs
+                // so they could never match '' anyway.
+                if ($normalized === '') {
+                    $query->whereRaw('0 = 1');
+
+                    return;
+                }
+
+                $query->whereHas('urls', fn (Builder $urlQuery) => $urlQuery->where('url_normalized', $normalized));
+            })
+                // Laravel's ConvertEmptyStringsToNull middleware turns filter[url]=
+                // into a null value before Spatie sees it. AllowedFilter::filter() skips
+                // invoking the callback for null values unless the filter is nullable, so
+                // without this the empty-string case would silently fall through to an
+                // unfiltered query instead of reaching the "0 = 1" guard above.
+                ->nullable(),
         ];
     }
 
@@ -74,6 +101,8 @@ class PaginationHandler extends Handlers
      *
      * @return AnonymousResourceCollection
      */
+    #[QueryParameter('filter[url]', description: 'Return products tracking this page URL. Matching is normalised: scheme, port, "www.", trailing slashes, casing and tracking parameters are ignored.', type: 'string')]
+    #[QueryParameter('current_url', description: 'Raw URL of the page being viewed. When supplied, each price_cache entry gains an `is_current` boolean.', type: 'string')]
     public function handler(Request $request)
     {
         $query = static::getEloquentQuery()->where('user_id', auth()->id());
@@ -94,6 +123,45 @@ class PaginationHandler extends Handlers
             ->paginate($perPage)
             ->appends(request()->query());
 
-        return ProductTransformer::collection($query);
+        $transformed = ProductTransformer::collection($query);
+
+        $currentUrl = $request->query('current_url');
+
+        if (is_string($currentUrl)) {
+            $matchingUrlIds = $this->resolveMatchingUrlIds($currentUrl, $query->getCollection()->pluck('id')->filter()->all());
+
+            $transformed->collection->each(
+                fn (ProductTransformer $transformer) => $transformer->withCurrentUrl($currentUrl, $matchingUrlIds)
+            );
+        }
+
+        return $transformed;
+    }
+
+    /**
+     * Resolve the url ids matching the current page across a whole page of products,
+     * in one query rather than one per product.
+     *
+     * @param  array<int, int>  $productIds
+     * @return array<int, int>
+     */
+    protected function resolveMatchingUrlIds(string $currentUrl, array $productIds): array
+    {
+        if ($productIds === [] || strlen($currentUrl) > ProductTransformer::MAX_CURRENT_URL_LENGTH) {
+            return [];
+        }
+
+        $normalized = Url::normalizeForMatch($currentUrl);
+
+        if ($normalized === '') {
+            return [];
+        }
+
+        return Url::query()
+            ->where('url_normalized', $normalized)
+            ->whereIn('product_id', $productIds)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
     }
 }
