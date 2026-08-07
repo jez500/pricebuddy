@@ -500,4 +500,104 @@ class ProductApiTest extends TestCase
             ->assertOk()
             ->assertJsonMissingPath('data.0.insights');
     }
+
+    public function test_can_filter_products_by_url(): void
+    {
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+        \App\Models\Url::factory()->create([
+            'product_id' => $product->id,
+            'url' => 'https://www.target.com.au/p/xbox-controller/',
+        ]);
+        Product::factory()->create(['user_id' => $this->user->id]);
+
+        $response = $this->getJson('/api/products?filter[url]='.urlencode('https://target.com.au/p/Xbox-Controller?ref=nav'));
+
+        $response->assertSuccessful()->assertJsonCount(1, 'data');
+        $this->assertSame($product->id, $response->json('data.0.id'));
+    }
+
+    public function test_url_filter_distinguishes_significant_query_params(): void
+    {
+        $red = Product::factory()->create(['user_id' => $this->user->id]);
+        $blue = Product::factory()->create(['user_id' => $this->user->id]);
+        \App\Models\Url::factory()->create(['product_id' => $red->id, 'url' => 'https://shop.com/p/tee?variant=red']);
+        \App\Models\Url::factory()->create(['product_id' => $blue->id, 'url' => 'https://shop.com/p/tee?variant=blue']);
+
+        $response = $this->getJson('/api/products?filter[url]='.urlencode('https://shop.com/p/tee?variant=blue&utm_source=x'));
+
+        $response->assertSuccessful()->assertJsonCount(1, 'data');
+        $this->assertSame($blue->id, $response->json('data.0.id'));
+    }
+
+    public function test_url_filter_returns_empty_for_an_untracked_url(): void
+    {
+        Product::factory()->create(['user_id' => $this->user->id]);
+
+        $this->getJson('/api/products?filter[url]='.urlencode('https://shop.com/never-tracked'))
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_url_filter_returns_empty_for_garbage_input(): void
+    {
+        Product::factory()->create(['user_id' => $this->user->id]);
+
+        $this->getJson('/api/products?filter[url]=not%20a%20url')
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_url_filter_does_not_leak_another_users_product(): void
+    {
+        $other = User::factory()->create();
+        $theirs = Product::factory()->create(['user_id' => $other->id]);
+        \App\Models\Url::factory()->create(['product_id' => $theirs->id, 'url' => 'https://shop.com/p/shared']);
+
+        $this->getJson('/api/products?filter[url]='.urlencode('https://shop.com/p/shared'))
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_url_filter_returns_every_matching_product(): void
+    {
+        $first = Product::factory()->create(['user_id' => $this->user->id]);
+        $second = Product::factory()->create(['user_id' => $this->user->id]);
+        \App\Models\Url::factory()->create(['product_id' => $first->id, 'url' => 'https://shop.com/p/dupe']);
+        \App\Models\Url::factory()->create(['product_id' => $second->id, 'url' => 'https://www.shop.com/p/dupe/']);
+
+        $this->getJson('/api/products?filter[url]='.urlencode('https://shop.com/p/dupe'))
+            ->assertSuccessful()
+            ->assertJsonCount(2, 'data');
+    }
+
+    public function test_url_filter_does_not_duplicate_a_product_with_two_matching_urls(): void
+    {
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+        \App\Models\Url::factory()->create(['product_id' => $product->id, 'url' => 'https://shop.com/p/x']);
+        \App\Models\Url::factory()->create(['product_id' => $product->id, 'url' => 'https://www.shop.com/p/x/?utm_source=a']);
+
+        $this->getJson('/api/products?filter[url]='.urlencode('https://shop.com/p/x'))
+            ->assertSuccessful()
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_url_filter_finds_an_affiliate_tagged_product_from_the_untagged_browser_url(): void
+    {
+        config()->set('affiliates.enabled', true);
+
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+        $url = \App\Models\Url::factory()->create([
+            'product_id' => $product->id,
+            'url' => 'https://www.ebay.com.au/itm/123456',
+        ]);
+
+        // buy_url carries six eBay affiliate params that are deliberately NOT on the
+        // denylist. This pins that url_normalized derives from urls.url and never from
+        // buy_url — if that ever flips, every eBay product silently stops matching.
+        $this->assertStringContainsString('campid=', $url->buy_url);
+
+        $this->getJson('/api/products?filter[url]='.urlencode('https://www.ebay.com.au/itm/123456'))
+            ->assertSuccessful()
+            ->assertJsonCount(1, 'data');
+    }
 }
