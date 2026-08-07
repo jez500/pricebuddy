@@ -785,4 +785,19 @@ class ProductApiTest extends TestCase
 
         $this->assertSame(1, $lookups, 'current_url must resolve in one query for the whole page, not per product.');
     }
+
+    public function test_sparse_fieldsets_do_not_break_the_urls_eager_load(): void
+    {
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+        \App\Models\Url::factory()->create([
+            'product_id' => $product->id,
+            'url' => 'https://shop.com/p/x',
+        ]);
+
+        $response = $this->getJson('/api/products?fields[products]=id&include=urls');
+
+        $response->assertSuccessful();
+        $this->assertSame(['id', 'urls'], array_keys($response->json('data.0')));
+        $this->assertCount(1, $response->json('data.0.urls'));
+    }
 }

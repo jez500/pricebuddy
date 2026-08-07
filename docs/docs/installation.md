@@ -44,6 +44,27 @@ file for the environment variables that can be set.
 
 If you just use the variables set in the docker compose file, you should be good to go.
 
+### URL matching
+
+PriceBuddy decides whether two URLs point at the same product page by building a
+normalised key: the host without `www.`, the path, and any query parameters that are not
+known tracking noise. The defaults live in `config/url_matching.php` and cover the common
+networks (`utm_*`, `gclid`, `fbclid`, Amazon's `ref_`/`pd_rd_*`, and so on).
+
+If a store you track uses a tracking parameter that is not covered, append to the list:
+
+```dotenv
+URL_MATCHING_TRACKING_PARAMS_EXTRA=mystoreparam,anotherparam
+URL_MATCHING_TRACKING_PARAM_PREFIXES_EXTRA=track_
+```
+
+Both variables **add to** the defaults rather than replacing them. To remove a default,
+edit `config/url_matching.php` directly.
+
+> **Important:** the normalised key is stored on each URL when it is saved. After
+> changing either variable, run `php artisan urls:renormalize` to rebuild the stored
+> keys. Without it, existing URLs keep the old key and matching will silently miss.
+
 ## Reverse proxy configuration
 
 If you are using a reverse proxy (eg nginx) to access the app, you may have issues with

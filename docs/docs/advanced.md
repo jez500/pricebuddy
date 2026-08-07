@@ -39,3 +39,8 @@ via `php artisan buddy:fetch-all`
 
 For performance reasons, PriceBuddy caches prices against a product, on the 
 rare occasion you want to regenerate this cache, you can run `php artisan buddy:regenerate-price-cache`
+
+### Rebuild URL match keys
+
+Rebuild the normalised match key for every tracked URL. Run after changing the tracking
+parameter denylist: `php artisan urls:renormalize`

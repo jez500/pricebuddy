@@ -125,3 +125,71 @@ Example response (truncated):
   }
 }
 ```
+
+### Finding a product by page URL
+
+`GET /api/products?filter[url]=<raw page URL>`
+
+Returns every product tracking that page. Matching is normalised, so all of these find
+the same product:
+
+```
+https://www.target.com.au/p/xbox-controller/
+http://target.com.au/p/Xbox-Controller
+https://target.com.au/p/xbox-controller?utm_source=news&gclid=abc
+```
+
+Scheme, port, userinfo, fragment, a leading `www.`, trailing slashes and letter case are
+all ignored, as are tracking parameters (`utm_*`, `gclid`, `fbclid`, `ref`, `tag` and
+others — see `config/url_matching.php`). Parameters that identify a product, such as
+Shopify's `?variant=`, are significant and are NOT ignored, so two variants of the same
+page remain distinct products.
+
+An unmatched or unparseable URL returns `200` with an empty `data` array, never an error.
+
+### Marking the listing you are on
+
+`GET /api/products/{id}?include=insights&current_url=<raw page URL>`
+
+When `current_url` is supplied, every entry in `price_cache` gains an `is_current`
+boolean, true for the listing matching that page. The same URL normalisation applies.
+Without the parameter the key is absent and the response is unchanged.
+
+All matching entries are flagged, so a product tracking the same page twice gets `true`
+on both. `current_url` is also accepted on `GET /api/products`.
+
+## Client config
+
+`GET /api/client-config`
+
+Capability discovery, so a client can tell whether this instance supports the URL
+matching endpoints without probing for a 4xx.
+
+```json
+{
+  "data": {
+    "capabilities": {
+      "products_filter_url": true,
+      "products_current_url": true,
+      "products_sparse_fieldsets": true
+    },
+    "app_version": "1.4.2"
+  }
+}
+```
+
+Requires a token with the `client-config:read` ability, or an all-access token. Tokens
+created before this endpoint existed will need re-minting to gain the ability.
+
+The response carries an `ETag` and `Cache-Control: private, max-age=86400`. Send
+`If-None-Match` to get a `304`.
+
+## Stores
+
+### Finding a store by domain
+
+`GET /api/stores?filter[domain]=<bare host>`
+
+Exact match on a host such as `www.Target.com.au` or `location.host` with a port. A
+leading `www.`, letter case and any port are ignored. Unlike `filter[domains]`, which is
+a partial match, this will not match a substring.
