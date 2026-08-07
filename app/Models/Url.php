@@ -27,6 +27,7 @@ use Illuminate\Support\Uri;
  * Product URL.
  *
  * @property ?string $url
+ * @property ?string $url_normalized
  * @property float $price_factor
  * @property string $product_name_short
  * @property string $store_name
@@ -50,6 +51,10 @@ class Url extends Model
 
     public static function booted()
     {
+        static::saving(function (Url $url) {
+            $url->url_normalized = static::normalizeForMatch((string) $url->url) ?: null;
+        });
+
         static::deleted(function (Url $url) {
             $url->prices()->delete();
             $url->product->updatePriceCache();
@@ -260,6 +265,41 @@ class Url extends Model
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * Recompute `url_normalized` for every row and return how many rows changed.
+     *
+     * Writes through the query builder so no model events fire and `updated_at` is
+     * left alone. Shared by the backfill migration and the `urls:renormalize`
+     * command, which must be run after any change to the tracking-param denylist —
+     * stored keys are computed at save time and go stale otherwise.
+     */
+    public static function renormalizeAll(): int
+    {
+        $changed = 0;
+
+        static::query()
+            ->select(['id', 'url', 'url_normalized'])
+            ->chunkById(500, function ($urls) use (&$changed): void {
+                /** @var Url $url */
+                foreach ($urls as $url) {
+                    $normalized = static::normalizeForMatch((string) $url->url) ?: null;
+
+                    if ($normalized === $url->url_normalized) {
+                        continue;
+                    }
+
+                    static::query()
+                        ->whereKey($url->getKey())
+                        ->toBase()
+                        ->update(['url_normalized' => $normalized]);
+
+                    $changed++;
+                }
+            });
+
+        return $changed;
     }
 
     public function scrape(): array
