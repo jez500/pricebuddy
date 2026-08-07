@@ -92,29 +92,64 @@ class UrlNormalizeForMatchTest extends TestCase
         $paramsKey = 'URL_MATCHING_TRACKING_PARAMS_EXTRA';
         $prefixesKey = 'URL_MATCHING_TRACKING_PARAM_PREFIXES_EXTRA';
 
-        putenv("{$paramsKey}=mycustomparam");
-        $_ENV[$paramsKey] = 'mycustomparam';
-        $_SERVER[$paramsKey] = 'mycustomparam';
+        // Snapshot rather than blindly unsetting on the way out: these are real
+        // configuration variables a developer may legitimately have set, and
+        // clobbering them would leak into every later test in the process.
+        $snapshot = [];
 
-        putenv("{$prefixesKey}=xyz_");
-        $_ENV[$prefixesKey] = 'xyz_';
-        $_SERVER[$prefixesKey] = 'xyz_';
+        foreach ([$paramsKey, $prefixesKey] as $key) {
+            $snapshot[$key] = [
+                'getenv' => getenv($key),
+                'env' => array_key_exists($key, $_ENV) ? $_ENV[$key] : null,
+                'envSet' => array_key_exists($key, $_ENV),
+                'server' => array_key_exists($key, $_SERVER) ? $_SERVER[$key] : null,
+                'serverSet' => array_key_exists($key, $_SERVER),
+            ];
+        }
+
+        // Deliberately spaced and with a trailing empty element, so this also pins
+        // that each value is trimmed and blanks are dropped.
+        putenv("{$paramsKey}=mycustomparam, spacedparam ,");
+        $_ENV[$paramsKey] = 'mycustomparam, spacedparam ,';
+        $_SERVER[$paramsKey] = 'mycustomparam, spacedparam ,';
+
+        putenv("{$prefixesKey}= xyz_ ");
+        $_ENV[$prefixesKey] = ' xyz_ ';
+        $_SERVER[$prefixesKey] = ' xyz_ ';
 
         try {
             $config = require config_path('url_matching.php');
 
             $this->assertContains('mycustomparam', $config['tracking_params']);
+            $this->assertContains('spacedparam', $config['tracking_params']);
             $this->assertContains('gclid', $config['tracking_params']);
+            $this->assertNotContains(' spacedparam ', $config['tracking_params']);
+            $this->assertNotContains('', $config['tracking_params']);
             $this->assertGreaterThanOrEqual(27, count(array_filter($config['tracking_params'])));
 
             $this->assertContains('xyz_', $config['tracking_param_prefixes']);
             $this->assertContains('utm_', $config['tracking_param_prefixes']);
+            $this->assertNotContains(' xyz_ ', $config['tracking_param_prefixes']);
         } finally {
-            putenv($paramsKey);
-            unset($_ENV[$paramsKey], $_SERVER[$paramsKey]);
+            foreach ($snapshot as $key => $previous) {
+                if ($previous['getenv'] === false) {
+                    putenv($key);
+                } else {
+                    putenv("{$key}={$previous['getenv']}");
+                }
 
-            putenv($prefixesKey);
-            unset($_ENV[$prefixesKey], $_SERVER[$prefixesKey]);
+                if ($previous['envSet']) {
+                    $_ENV[$key] = $previous['env'];
+                } else {
+                    unset($_ENV[$key]);
+                }
+
+                if ($previous['serverSet']) {
+                    $_SERVER[$key] = $previous['server'];
+                } else {
+                    unset($_SERVER[$key]);
+                }
+            }
         }
     }
 }

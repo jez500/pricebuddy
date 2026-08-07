@@ -823,7 +823,7 @@ class ProductApiTest extends TestCase
 
     public function test_sparse_fieldset_without_price_cache_omits_the_price_cache_key(): void
     {
-        [$product] = $this->productWithTrackedUrl('https://shop.com/p/x');
+        $this->productWithTrackedUrl('https://shop.com/p/x');
 
         $response = $this->getJson('/api/products?fields[products]=id&current_url='.urlencode('https://shop.com/p/x'));
 

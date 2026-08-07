@@ -29,11 +29,7 @@ class ClientConfigApiTest extends TestCase
 
     public function test_readable_with_a_minimal_ability_token(): void
     {
-        $this->authenticateWith([
-            ApiAbility::UserDetail->value,
-            ApiAbility::MetaExtractionExtract->value,
-            ApiAbility::ClientConfigRead->value,
-        ]);
+        $this->authenticateWith([ApiAbility::ClientConfigRead->value]);
 
         $this->getJson('/api/client-config')->assertSuccessful();
     }

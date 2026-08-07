@@ -133,7 +133,7 @@ Example response (truncated):
 Returns every product tracking that page. Matching is normalised, so all of these find
 the same product:
 
-```
+```text
 https://www.target.com.au/p/xbox-controller/
 http://target.com.au/p/Xbox-Controller
 https://target.com.au/p/xbox-controller?utm_source=news&gclid=abc

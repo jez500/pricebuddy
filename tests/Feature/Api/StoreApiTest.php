@@ -456,7 +456,7 @@ class StoreApiTest extends TestCase
 
     public function test_partial_domains_filter_still_works(): void
     {
-        $store = Store::factory()->create([
+        Store::factory()->create([
             'user_id' => $this->user->id,
             'domains' => [['domain' => 'target.com.au']],
         ]);

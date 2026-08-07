@@ -22,7 +22,7 @@ return [
         'gclid', 'igshid', 'irclickid', 'keywords', 'mc_cid', 'mc_eid', 'msclkid',
         'psc', 'qid', 'ref', 'spm', 'sr', 'srsltid', 'tag', 'th', 'ttclid',
         'twclid', 'wbraid', 'yclid',
-    ], array_filter(explode(',', (string) env('URL_MATCHING_TRACKING_PARAMS_EXTRA', '')), fn ($value) => trim((string) $value) !== '')),
+    ], array_filter(array_map('trim', explode(',', (string) env('URL_MATCHING_TRACKING_PARAMS_EXTRA', ''))), fn (string $value): bool => $value !== '')),
 
     /*
     |--------------------------------------------------------------------------
@@ -36,6 +36,6 @@ return [
 
     'tracking_param_prefixes' => array_merge([
         '_bta', 'aff_', 'affiliate', 'pd_rd_', 'ref_', 'utm_',
-    ], array_filter(explode(',', (string) env('URL_MATCHING_TRACKING_PARAM_PREFIXES_EXTRA', '')), fn ($value) => trim((string) $value) !== '')),
+    ], array_filter(array_map('trim', explode(',', (string) env('URL_MATCHING_TRACKING_PARAM_PREFIXES_EXTRA', ''))), fn (string $value): bool => $value !== '')),
 
 ];
