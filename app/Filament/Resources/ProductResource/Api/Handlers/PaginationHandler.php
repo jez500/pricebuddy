@@ -93,6 +93,7 @@ class PaginationHandler extends Handlers
      * @return AnonymousResourceCollection
      */
     #[QueryParameter('filter[url]', description: 'Return products tracking this page URL. Matching is normalised: scheme, port, "www.", trailing slashes, casing and tracking parameters are ignored.', type: 'string')]
+    #[QueryParameter('current_url', description: 'Raw URL of the page being viewed. When supplied, each price_cache entry gains an `is_current` boolean.', type: 'string')]
     public function handler(Request $request)
     {
         $query = static::getEloquentQuery()->where('user_id', auth()->id());
@@ -113,6 +114,45 @@ class PaginationHandler extends Handlers
             ->paginate($perPage)
             ->appends(request()->query());
 
-        return ProductTransformer::collection($query);
+        $transformed = ProductTransformer::collection($query);
+
+        $currentUrl = $request->query('current_url');
+
+        if (is_string($currentUrl)) {
+            $matchingUrlIds = $this->resolveMatchingUrlIds($currentUrl, $query->getCollection()->pluck('id')->all());
+
+            $transformed->collection->each(
+                fn (ProductTransformer $transformer) => $transformer->withCurrentUrl($currentUrl, $matchingUrlIds)
+            );
+        }
+
+        return $transformed;
+    }
+
+    /**
+     * Resolve the url ids matching the current page across a whole page of products,
+     * in one query rather than one per product.
+     *
+     * @param  array<int, int>  $productIds
+     * @return array<int, int>
+     */
+    protected function resolveMatchingUrlIds(string $currentUrl, array $productIds): array
+    {
+        if ($productIds === [] || strlen($currentUrl) > ProductTransformer::MAX_CURRENT_URL_LENGTH) {
+            return [];
+        }
+
+        $normalized = Url::normalizeForMatch($currentUrl);
+
+        if ($normalized === '') {
+            return [];
+        }
+
+        return Url::query()
+            ->where('url_normalized', $normalized)
+            ->whereIn('product_id', $productIds)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
     }
 }

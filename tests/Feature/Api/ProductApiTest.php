@@ -745,4 +745,44 @@ class ProductApiTest extends TestCase
         $response->assertSuccessful();
         $this->assertFalse($response->json('data.price_cache.0.is_current'));
     }
+
+    public function test_list_endpoint_flags_the_current_url(): void
+    {
+        [$match] = $this->productWithTrackedUrl('https://shop.com/p/x');
+        [$other] = $this->productWithTrackedUrl('https://shop.com/p/y');
+
+        $response = $this->getJson('/api/products?current_url='.urlencode('https://www.shop.com/p/x/?utm_source=a'));
+
+        $response->assertSuccessful();
+
+        $byId = collect($response->json('data'))->keyBy('id');
+        $this->assertTrue($byId[$match->id]['price_cache'][0]['is_current']);
+        $this->assertFalse($byId[$other->id]['price_cache'][0]['is_current']);
+    }
+
+    public function test_list_endpoint_omits_is_current_without_the_param(): void
+    {
+        $this->productWithTrackedUrl('https://shop.com/p/x');
+
+        $response = $this->getJson('/api/products');
+
+        $response->assertSuccessful();
+        $this->assertArrayNotHasKey('is_current', $response->json('data.0.price_cache.0'));
+    }
+
+    public function test_list_endpoint_resolves_current_url_in_a_single_query(): void
+    {
+        foreach (range(1, 5) as $i) {
+            $this->productWithTrackedUrl("https://shop.com/p/{$i}");
+        }
+
+        \Illuminate\Support\Facades\DB::enableQueryLog();
+        $this->getJson('/api/products?current_url='.urlencode('https://shop.com/p/3'))->assertSuccessful();
+        $lookups = collect(\Illuminate\Support\Facades\DB::getQueryLog())
+            ->filter(fn (array $q): bool => str_contains($q['query'], 'url_normalized'))
+            ->count();
+        \Illuminate\Support\Facades\DB::disableQueryLog();
+
+        $this->assertSame(1, $lookups, 'current_url must resolve in one query for the whole page, not per product.');
+    }
 }
