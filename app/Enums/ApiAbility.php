@@ -8,11 +8,14 @@ enum ApiAbility: string
 
     case UserDetail = 'user:detail';
 
+    case ClientConfigRead = 'client-config:read';
+
     public function label(): string
     {
         return match ($this) {
             self::MetaExtractionExtract => 'Extract metadata from a URL',
             self::UserDetail => 'Read the authenticated account',
+            self::ClientConfigRead => 'Read client capability configuration',
         };
     }
 
@@ -21,6 +24,7 @@ enum ApiAbility: string
         return match ($this) {
             self::MetaExtractionExtract => 'Meta extraction',
             self::UserDetail => 'Account',
+            self::ClientConfigRead => 'Client config',
         };
     }
 }
