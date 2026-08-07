@@ -89,10 +89,32 @@ class UrlNormalizeForMatchTest extends TestCase
 
     public function test_env_extra_appends_rather_than_replaces(): void
     {
-        $defaults = require config_path('url_matching.php');
+        $paramsKey = 'URL_MATCHING_TRACKING_PARAMS_EXTRA';
+        $prefixesKey = 'URL_MATCHING_TRACKING_PARAM_PREFIXES_EXTRA';
 
-        $this->assertContains('gclid', $defaults['tracking_params']);
-        $this->assertContains('utm_', $defaults['tracking_param_prefixes']);
-        $this->assertGreaterThanOrEqual(27, count(array_filter($defaults['tracking_params'])));
+        putenv("{$paramsKey}=mycustomparam");
+        $_ENV[$paramsKey] = 'mycustomparam';
+        $_SERVER[$paramsKey] = 'mycustomparam';
+
+        putenv("{$prefixesKey}=xyz_");
+        $_ENV[$prefixesKey] = 'xyz_';
+        $_SERVER[$prefixesKey] = 'xyz_';
+
+        try {
+            $config = require config_path('url_matching.php');
+
+            $this->assertContains('mycustomparam', $config['tracking_params']);
+            $this->assertContains('gclid', $config['tracking_params']);
+            $this->assertGreaterThanOrEqual(27, count(array_filter($config['tracking_params'])));
+
+            $this->assertContains('xyz_', $config['tracking_param_prefixes']);
+            $this->assertContains('utm_', $config['tracking_param_prefixes']);
+        } finally {
+            putenv($paramsKey);
+            unset($_ENV[$paramsKey], $_SERVER[$paramsKey]);
+
+            putenv($prefixesKey);
+            unset($_ENV[$prefixesKey], $_SERVER[$prefixesKey]);
+        }
     }
 }
