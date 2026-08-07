@@ -69,9 +69,16 @@ class PaginationHandler extends Handlers
                 // compare exactly in PHP. The LIKE is a sound superset: normalizeHost
                 // only lowercases and strips a leading "www.", so the normalised host is
                 // always a substring of the lowercased stored value.
+                //
+                // Note: the tenancy boundary is the outer query scope already applied in
+                // handler() (->where('user_id', auth()->id())), which this filter's
+                // whereIn() composes onto with AND. The user_id clause below is NOT the
+                // tenancy boundary — it exists to bound how many rows are hydrated for the
+                // PHP comparison (without it, every user's matching stores would be loaded
+                // into memory here), plus defence in depth.
                 $ids = Store::query()
                     ->where('user_id', auth()->id())
-                    ->whereRaw('LOWER(domains) LIKE ?', ['%'.$host.'%'])
+                    ->whereRaw('LOWER(domains) LIKE ?', ['%'.addcslashes($host, '%_').'%'])
                     ->get(['id', 'domains'])
                     ->filter(fn (Store $store): bool => collect($store->domains)
                         ->contains(fn ($entry): bool => Url::normalizeHost((string) data_get($entry, 'domain')) === $host))
@@ -103,7 +110,7 @@ class PaginationHandler extends Handlers
      *
      * @return AnonymousResourceCollection
      */
-    #[QueryParameter('domain', description: 'Exact-match filter on a bare host such as "www.Target.com.au". Case and a leading "www." are ignored. Unlike filter[domains], this does not partial match.', type: 'string')]
+    #[QueryParameter('filter[domain]', description: 'Exact-match filter on a bare host such as "www.Target.com.au". Case and a leading "www." are ignored. Unlike filter[domains], this does not partial match.', type: 'string')]
     public function handler()
     {
         $query = static::getEloquentQuery()->where('user_id', auth()->id());
