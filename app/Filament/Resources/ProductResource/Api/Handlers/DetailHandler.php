@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ProductResource\Api\Handlers;
 use App\Filament\Resources\ProductResource;
 use App\Filament\Resources\ProductResource\Api\Transformers\ProductTransformer;
 use Dedoc\Scramble\Attributes\Group;
+use Dedoc\Scramble\Attributes\QueryParameter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Rupadana\ApiService\Http\Handlers;
@@ -22,6 +23,7 @@ class DetailHandler extends Handlers
      *
      * @return ProductTransformer|JsonResponse
      */
+    #[QueryParameter('current_url', description: 'Raw URL of the page being viewed. When supplied, each price_cache entry gains an `is_current` boolean, true for the listing matching this page.', type: 'string')]
     public function handler(Request $request)
     {
         $id = $request->route('id');
@@ -48,6 +50,10 @@ class DetailHandler extends Handlers
             return static::sendNotFoundResponse();
         }
 
-        return (new ProductTransformer($query))->withInsights($wantsInsights);
+        $currentUrl = $request->query('current_url');
+
+        return (new ProductTransformer($query))
+            ->withInsights($wantsInsights)
+            ->withCurrentUrl(is_string($currentUrl) ? $currentUrl : null);
     }
 }

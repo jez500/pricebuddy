@@ -600,4 +600,120 @@ class ProductApiTest extends TestCase
             ->assertSuccessful()
             ->assertJsonCount(1, 'data');
     }
+
+    /**
+     * Build a product with one URL and a materialised price cache.
+     *
+     * @return array{0: Product, 1: \App\Models\Url}
+     */
+    private function productWithTrackedUrl(string $url, ?User $owner = null): array
+    {
+        $product = Product::factory()->create(['user_id' => ($owner ?? $this->user)->id]);
+        $urlModel = \App\Models\Url::factory()->withPrices([10.00])->create([
+            'product_id' => $product->id,
+            'url' => $url,
+        ]);
+
+        return [$product->fresh(), $urlModel];
+    }
+
+    public function test_current_url_flags_the_matching_price_cache_entry(): void
+    {
+        [$product] = $this->productWithTrackedUrl('https://shop.com/p/x');
+
+        $response = $this->getJson("/api/products/{$product->id}?current_url=".urlencode('https://shop.com/p/x'));
+
+        $response->assertSuccessful();
+        $this->assertTrue($response->json('data.price_cache.0.is_current'));
+    }
+
+    public function test_current_url_matches_across_tracking_params_www_case_and_slash(): void
+    {
+        [$product] = $this->productWithTrackedUrl('https://shop.com/p/Widget');
+
+        $response = $this->getJson("/api/products/{$product->id}?current_url=".urlencode('https://WWW.shop.com/p/widget/?utm_source=fb&gclid=z'));
+
+        $response->assertSuccessful();
+        $this->assertTrue($response->json('data.price_cache.0.is_current'));
+    }
+
+    public function test_current_url_flags_nothing_for_garbage_input(): void
+    {
+        [$product] = $this->productWithTrackedUrl('https://shop.com/p/x');
+
+        $response = $this->getJson("/api/products/{$product->id}?current_url=not%20a%20url");
+
+        $response->assertSuccessful();
+        $this->assertFalse($response->json('data.price_cache.0.is_current'));
+    }
+
+    public function test_is_current_is_absent_when_the_param_is_not_supplied(): void
+    {
+        [$product] = $this->productWithTrackedUrl('https://shop.com/p/x');
+
+        $response = $this->getJson("/api/products/{$product->id}");
+
+        $response->assertSuccessful();
+        $this->assertArrayNotHasKey('is_current', $response->json('data.price_cache.0'));
+    }
+
+    public function test_current_url_flags_every_matching_entry(): void
+    {
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+        \App\Models\Url::factory()->withPrices([10.00])->create(['product_id' => $product->id, 'url' => 'https://shop.com/p/x']);
+        \App\Models\Url::factory()->withPrices([12.00])->create(['product_id' => $product->id, 'url' => 'https://www.shop.com/p/x/?ref=a']);
+
+        $response = $this->getJson("/api/products/{$product->id}?current_url=".urlencode('https://shop.com/p/x'));
+
+        $response->assertSuccessful();
+        $flags = array_column($response->json('data.price_cache'), 'is_current');
+        $this->assertSame([true, true], $flags);
+    }
+
+    public function test_is_current_is_never_persisted_into_price_cache(): void
+    {
+        [$product] = $this->productWithTrackedUrl('https://shop.com/p/x');
+
+        $this->getJson("/api/products/{$product->id}?current_url=".urlencode('https://shop.com/p/x'))
+            ->assertSuccessful();
+
+        $stored = \Illuminate\Support\Facades\DB::table('products')->where('id', $product->id)->value('price_cache');
+        $this->assertStringNotContainsString('is_current', (string) $stored);
+    }
+
+    public function test_current_url_does_not_expose_another_users_product(): void
+    {
+        $other = User::factory()->create();
+        [$product] = $this->productWithTrackedUrl('https://shop.com/p/x', $other);
+
+        $this->getJson("/api/products/{$product->id}?current_url=".urlencode('https://shop.com/p/x'))
+            ->assertNotFound();
+    }
+
+    public function test_current_url_flags_an_affiliate_tagged_ebay_listing(): void
+    {
+        config()->set('affiliates.enabled', true);
+
+        [$product] = $this->productWithTrackedUrl('https://www.ebay.com.au/itm/123456');
+
+        // price_cache[].url is buy_url, carrying six non-denylisted eBay affiliate
+        // params. Matching keys off url_id, so the tagging is irrelevant.
+        $response = $this->getJson("/api/products/{$product->id}?current_url=".urlencode('https://www.ebay.com.au/itm/123456'));
+
+        $response->assertSuccessful();
+        $this->assertStringContainsString('campid=', $response->json('data.price_cache.0.url'));
+        $this->assertTrue($response->json('data.price_cache.0.is_current'));
+    }
+
+    public function test_an_over_long_current_url_flags_nothing_without_erroring(): void
+    {
+        [$product] = $this->productWithTrackedUrl('https://shop.com/p/x');
+
+        $long = 'https://shop.com/p/x?pad='.str_repeat('a', 2100);
+
+        $response = $this->getJson("/api/products/{$product->id}?current_url=".urlencode($long));
+
+        $response->assertSuccessful();
+        $this->assertFalse($response->json('data.price_cache.0.is_current'));
+    }
 }
