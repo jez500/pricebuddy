@@ -22,6 +22,7 @@
 * Documentation files for this project are found in `ls docs/docs/*.md` (from project root)
 * You should consult these docs if you require more context about the project and its functionality
 * You should check if the documentation needs creating or updating after completing major tasks
+* All exposed API routes must be documented via scramble
 
 ## Environment preferences
 
