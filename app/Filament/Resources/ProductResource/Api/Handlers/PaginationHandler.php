@@ -62,7 +62,12 @@ class PaginationHandler extends Handlers
             'favourite',
             'only_official',
             AllowedFilter::callback('url', function (Builder $query, $value): void {
-                $normalized = Url::normalizeForMatch((string) $value);
+                // Spatie splits filter values on its array delimiter (default ','),
+                // so a value containing a comma (e.g. Amazon's sprefix=tv,aps,300)
+                // arrives here as an array. Rejoin with ',' to reconstruct the
+                // original string before normalising.
+                $raw = is_array($value) ? implode(',', $value) : (string) $value;
+                $normalized = Url::normalizeForMatch($raw);
 
                 // An unparseable URL must match nothing rather than error. Short-circuit
                 // without touching the join; stored rows hold NULL for unparseable URLs
@@ -74,7 +79,13 @@ class PaginationHandler extends Handlers
                 }
 
                 $query->whereHas('urls', fn (Builder $urlQuery) => $urlQuery->where('url_normalized', $normalized));
-            }),
+            })
+                // Laravel's ConvertEmptyStringsToNull middleware turns filter[url]=
+                // into a null value before Spatie sees it. AllowedFilter::filter() skips
+                // invoking the callback for null values unless the filter is nullable, so
+                // without this the empty-string case would silently fall through to an
+                // unfiltered query instead of reaching the "0 = 1" guard above.
+                ->nullable(),
         ];
     }
 
@@ -119,7 +130,7 @@ class PaginationHandler extends Handlers
         $currentUrl = $request->query('current_url');
 
         if (is_string($currentUrl)) {
-            $matchingUrlIds = $this->resolveMatchingUrlIds($currentUrl, $query->getCollection()->pluck('id')->all());
+            $matchingUrlIds = $this->resolveMatchingUrlIds($currentUrl, $query->getCollection()->pluck('id')->filter()->all());
 
             $transformed->collection->each(
                 fn (ProductTransformer $transformer) => $transformer->withCurrentUrl($currentUrl, $matchingUrlIds)

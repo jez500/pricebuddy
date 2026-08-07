@@ -442,6 +442,18 @@ class StoreApiTest extends TestCase
             ->assertJsonCount(0, 'data');
     }
 
+    public function test_domain_filter_handles_a_comma_without_erroring(): void
+    {
+        Store::factory()->create([
+            'user_id' => $this->user->id,
+            'domains' => [['domain' => 'target.com.au']],
+        ]);
+
+        $this->getJson('/api/stores?filter[domain]='.urlencode('target.com.au,other.com'))
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'data');
+    }
+
     public function test_partial_domains_filter_still_works(): void
     {
         $store = Store::factory()->create([

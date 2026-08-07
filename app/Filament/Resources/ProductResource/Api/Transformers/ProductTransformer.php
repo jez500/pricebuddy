@@ -74,8 +74,8 @@ class ProductTransformer extends JsonResource
             $data['user'] = new UserResource($this->resource->user);
         }
 
-        if ($this->currentUrl !== null) {
-            $data['price_cache'] = $this->decoratePriceCache(is_array($data['price_cache'] ?? null) ? $data['price_cache'] : []);
+        if ($this->currentUrl !== null && is_array($data['price_cache'] ?? null)) {
+            $data['price_cache'] = $this->decoratePriceCache($data['price_cache']);
         }
 
         if ($this->withInsights) {

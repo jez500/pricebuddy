@@ -786,6 +786,51 @@ class ProductApiTest extends TestCase
         $this->assertSame(1, $lookups, 'current_url must resolve in one query for the whole page, not per product.');
     }
 
+    public function test_url_filter_handles_a_comma_in_a_query_value_without_erroring(): void
+    {
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+        $url = 'https://shop.com/p/x?size=s,m';
+        \App\Models\Url::factory()->create(['product_id' => $product->id, 'url' => $url]);
+
+        $response = $this->getJson('/api/products?filter[url]='.urlencode($url));
+
+        $response->assertSuccessful()->assertJsonCount(1, 'data');
+        $this->assertSame($product->id, $response->json('data.0.id'));
+    }
+
+    public function test_url_filter_handles_a_realistic_amazon_style_comma_url_without_erroring(): void
+    {
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+        // location.href arrives with real commas here — the extension decodes
+        // sprefix=tv%2Caps%2C300 before Spatie ever sees the query string.
+        $url = 'https://www.amazon.com.au/dp/B0EXAMPLE?sprefix=tv,aps,300';
+        \App\Models\Url::factory()->create(['product_id' => $product->id, 'url' => $url]);
+
+        $response = $this->getJson('/api/products?filter[url]='.urlencode($url));
+
+        $response->assertSuccessful()->assertJsonCount(1, 'data');
+        $this->assertSame($product->id, $response->json('data.0.id'));
+    }
+
+    public function test_url_filter_returns_empty_for_an_empty_value(): void
+    {
+        Product::factory()->create(['user_id' => $this->user->id]);
+
+        $this->getJson('/api/products?filter[url]=')
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_sparse_fieldset_without_price_cache_omits_the_price_cache_key(): void
+    {
+        [$product] = $this->productWithTrackedUrl('https://shop.com/p/x');
+
+        $response = $this->getJson('/api/products?fields[products]=id&current_url='.urlencode('https://shop.com/p/x'));
+
+        $response->assertSuccessful();
+        $this->assertArrayNotHasKey('price_cache', $response->json('data.0'));
+    }
+
     public function test_sparse_fieldsets_do_not_break_the_urls_eager_load(): void
     {
         $product = Product::factory()->create(['user_id' => $this->user->id]);
