@@ -17,6 +17,13 @@ enum HealingReason: string
     /** The request budget was exhausted, or too little of it remained to start. */
     case Timeout = 'timeout';
 
+    /**
+     * The AI provider has failed repeatedly and its circuit breaker is open, so healing
+     * was not attempted. Unlike the others this is about the instance, not the page:
+     * the same URL is worth retrying once the provider recovers.
+     */
+    case ProviderUnavailable = 'provider_unavailable';
+
     /** Healing ran but errored or produced no usable config. */
     case Error = 'error';
 }

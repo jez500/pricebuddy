@@ -2,10 +2,13 @@
 
 namespace Tests\Feature\Api;
 
+use App\Enums\AiFeature;
 use App\Exceptions\AiProviderException;
 use App\Models\Store;
 use App\Models\User;
+use App\Services\Ai\AiProviderHealth;
 use App\Services\AiService;
+use App\Services\Helpers\IntegrationHelper;
 use App\Services\Helpers\SettingsHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -214,6 +217,92 @@ class MetaExtractionBudgetTest extends TestCase
 
         $this->assertEmpty($response->json('data.store'));
         $this->assertLessThan(self::BUDGET + 3, $elapsed, 'The request outlived its budget.');
+    }
+
+    public function test_a_provider_with_an_open_breaker_is_not_tried_at_all(): void
+    {
+        $this->configureProviders();
+        $this->fakeHtml($this->healHtml());
+        $this->storeWithMissingSelectors();
+        $this->openTheBreaker();
+
+        // The whole point: a provider already known to be failing must not cost this
+        // request its budget to discover that again.
+        $this->mockAgent([], 'never');
+
+        $startedAt = microtime(true);
+
+        $this->postJson('/api/meta-extraction', ['url' => $this->url, 'heal' => true])
+            ->assertOk()
+            ->assertJsonPath('data.healing.attempted', false)
+            ->assertJsonPath('data.healing.applied', false)
+            ->assertJsonPath('data.healing.reason', 'provider_unavailable');
+
+        $this->assertLessThan(
+            self::BUDGET,
+            microtime(true) - $startedAt,
+            'The request still paid for a provider already known to be failing.'
+        );
+    }
+
+    public function test_the_provider_is_tried_again_once_the_cooldown_lapses(): void
+    {
+        config()->set('price_buddy.ai_provider_breaker.cooldown_seconds', 60);
+
+        $this->configureProviders();
+        $this->fakeHtml($this->healHtml());
+        $this->storeWithMissingSelectors();
+        $this->openTheBreaker();
+
+        $this->mockAgent([
+            'is_product' => true,
+            'fields' => [
+                'title' => ['type' => 'selector', 'value' => '.t'],
+                'price' => ['type' => 'selector', 'value' => '#pr'],
+            ],
+        ]);
+
+        $this->travel(61)->seconds();
+
+        $this->postJson('/api/meta-extraction', ['url' => $this->url, 'heal' => true])
+            ->assertOk()
+            ->assertJsonPath('data.healing.applied', true)
+            ->assertJsonPath('data.price', 12.99);
+    }
+
+    public function test_the_breaker_does_not_affect_a_request_that_is_not_healing(): void
+    {
+        $this->configureProviders();
+        $this->mockScrape('$35.00', 'Example product', 'https://example.com/image.jpg');
+        $this->mockAgent([], 'never');
+        $this->openTheBreaker();
+
+        Store::factory()->create([
+            'user_id' => $this->user->id,
+            'domains' => [['domain' => parse_url($this->url, PHP_URL_HOST)]],
+            'settings' => ['scraper_service' => 'http'],
+        ]);
+
+        $this->postJson('/api/meta-extraction', ['url' => $this->url, 'heal' => true])
+            ->assertOk()
+            ->assertJsonPath('data.price', 35)
+            ->assertJsonPath('data.healing.reason', 'not_needed');
+    }
+
+    /**
+     * Drive the real health tracker to the failure threshold for the configured provider.
+     * Feature tests mock AiService wholesale, which is where failures are recorded, so
+     * the breaker is opened directly here; AiProviderHealthTest covers the counting and
+     * AiServiceHealthTest covers AiService feeding it.
+     */
+    private function openTheBreaker(): void
+    {
+        $provider = IntegrationHelper::resolveFeatureProvider(AiFeature::Healing);
+        $health = AiProviderHealth::new();
+
+        for ($i = 0; $i < $health->failureThreshold(); $i++) {
+            $health->recordFailure($provider);
+        }
     }
 
     public function test_healing_is_reported_on_a_plain_successful_extraction(): void

@@ -8,6 +8,7 @@ use App\Enums\HealingReason;
 use App\Enums\ScraperService;
 use App\Enums\StockStatus;
 use App\Models\Store;
+use App\Services\Ai\AiProviderHealth;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\IntegrationHelper;
 use Illuminate\Support\Uri;
@@ -131,8 +132,20 @@ class MetaExtractionService
      */
     private function healPreview(string $url, ?Store $store, ?string $html, bool $heal, ExtractionBudget $budget, HealingOutcomeDto $outcome): ?array
     {
-        if (! $heal || ! IntegrationHelper::isFeatureEnabled(AiFeature::Healing, $store)) {
+        $provider = $heal ? IntegrationHelper::resolveFeatureProvider(AiFeature::Healing, $store) : null;
+
+        if ($provider === null) {
             $outcome->skipped(HealingReason::Disabled);
+
+            return null;
+        }
+
+        // A provider that has failed repeatedly will almost certainly fail again, and
+        // finding out costs this request its whole budget. Callers that can afford to
+        // wait (the admin UI, queued jobs) skip this check, so they keep probing and any
+        // success closes the breaker.
+        if (AiProviderHealth::new()->isUnavailable($provider)) {
+            $outcome->skipped(HealingReason::ProviderUnavailable);
 
             return null;
         }

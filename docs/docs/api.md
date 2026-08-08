@@ -101,6 +101,19 @@ deterministic result, and `healing` says what became of it:
 | `not_needed` | the deterministic scrape already produced a usable result |
 | `timeout` | the budget ran out, or too little remained to start |
 | `error` | healing ran but errored or produced no usable config |
+| `provider_unavailable` | the AI provider's circuit breaker is open — see below |
+
+A provider that fails repeatedly stops being tried. After
+`price_buddy.ai_provider_breaker.failure_threshold` consecutive failures (default 3,
+`AI_PROVIDER_FAILURE_THRESHOLD`) it is treated as unavailable for
+`cooldown_seconds` (default 300, `AI_PROVIDER_COOLDOWN_SECONDS`), and this endpoint
+skips it with `reason: "provider_unavailable"` instead of spending the budget to
+rediscover the same failure. Any successful generation closes it immediately.
+
+Unlike the other reasons this is about the instance, not the page: the same URL is worth
+retrying once the provider recovers. Only callers on a deadline consult the breaker — the
+admin UI's heal button and queued healing keep exercising the provider, so a recovery is
+picked up promptly.
 
 ## Products
 
