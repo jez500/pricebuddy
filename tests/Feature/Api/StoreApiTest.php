@@ -127,11 +127,48 @@ class StoreApiTest extends TestCase
         ]);
 
         // `settings` is not requested, but the currency/locale accessors read from it.
+        // It is selected internally to resolve them, and must not leak into the response.
         $this->getJson('/api/stores?fields[stores]=id,name')
             ->assertSuccessful()
             ->assertJsonPath('data.0.id', $store->id)
             ->assertJsonPath('data.0.currency', 'GBP')
-            ->assertJsonPath('data.0.locale', 'en-GB');
+            ->assertJsonPath('data.0.locale', 'en-GB')
+            ->assertJsonMissingPath('data.0.settings');
+    }
+
+    public function test_sparse_fieldset_returns_settings_when_it_is_requested(): void
+    {
+        $store = Store::factory()->create([
+            'user_id' => $this->user->id,
+            'settings' => ['locale_settings' => ['currency' => 'GBP', 'locale' => 'en_GB']],
+        ]);
+
+        $this->getJson('/api/stores?fields[stores]=id,settings')
+            ->assertSuccessful()
+            ->assertJsonPath('data.0.id', $store->id)
+            ->assertJsonPath('data.0.settings.locale_settings.currency', 'GBP');
+    }
+
+    public function test_empty_locale_overrides_fall_back_to_the_app_defaults(): void
+    {
+        SettingsHelper::setSetting('default_locale_settings', ['locale' => 'en_AU', 'currency' => 'AUD']);
+
+        // An explicitly null override is not the same as an absent one: the accessors use
+        // data_get(), which only falls back when the key is missing.
+        $store = Store::factory()->create([
+            'user_id' => $this->user->id,
+            'settings' => ['locale_settings' => ['currency' => null, 'locale' => null]],
+        ]);
+
+        $this->getJson('/api/stores')
+            ->assertSuccessful()
+            ->assertJsonPath('data.0.currency', 'AUD')
+            ->assertJsonPath('data.0.locale', 'en-AU');
+
+        $this->getJson("/api/stores/{$store->id}")
+            ->assertSuccessful()
+            ->assertJsonPath('data.currency', 'AUD')
+            ->assertJsonPath('data.locale', 'en-AU');
     }
 
     public function test_cannot_show_other_users_store(): void
