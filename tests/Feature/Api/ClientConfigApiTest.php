@@ -62,7 +62,7 @@ class ClientConfigApiTest extends TestCase
         $this->assertSame(['data'], array_keys($payload));
         $this->assertSame(['capabilities', 'app_version'], array_keys($payload['data']));
         $this->assertSame(
-            ['products_filter_url', 'products_current_url', 'products_sparse_fieldsets'],
+            ['products_filter_url', 'products_current_url', 'products_sparse_fieldsets', 'stores_filter_domain'],
             array_keys($payload['data']['capabilities'])
         );
     }

@@ -178,7 +178,8 @@ matching endpoints without probing for a 4xx.
     "capabilities": {
       "products_filter_url": true,
       "products_current_url": true,
-      "products_sparse_fieldsets": true
+      "products_sparse_fieldsets": true,
+      "stores_filter_domain": true
     },
     "app_version": "1.4.2"
   }
@@ -200,6 +201,25 @@ The response carries an `ETag` and `Cache-Control: private, max-age=86400`. Send
 Exact match on a host such as `www.Target.com.au` or `location.host` with a port. A
 leading `www.`, letter case and any port are ignored. Unlike `filter[domains]`, which is
 a partial match, this will not match a substring.
+
+Advertised as the `stores_filter_domain` capability in `/api/client-config`.
+
+### Scrape strategy values
+
+Each `scrape_strategy` slot (`title`, `price`, `image`) has a `type` and, for most types, a
+`value` holding the extraction expression. `schema_org` reads the page's embedded metadata
+and takes no expression:
+
+| `type` | `value` |
+| --- | --- |
+| `schema_org` | Must be omitted or `null`. Sending one is a 422. |
+| `selector`, `xpath`, `regex`, `json` | Required, and must be a non-empty string. |
+
+`POST /api/stores`, `PUT /api/stores/{id}` and `POST /api/meta-extraction` all enforce this
+identically, so any strategy that meta-extraction accepts can be saved as-is.
+
+A stored `schema_org` strategy round-trips without a `value` key at all — the API returns
+`{"type": "schema_org"}`, which is valid input to all three endpoints.
 
 ### Currency & locale
 

@@ -33,6 +33,7 @@ class ClientConfigController extends Controller
                 'products_filter_url' => true,
                 'products_current_url' => true,
                 'products_sparse_fieldsets' => true,
+                'stores_filter_domain' => true,
             ],
             'app_version' => (string) config('app.version'),
         ];
