@@ -52,7 +52,7 @@ class AiService
      * @param  array<int, \Laravel\Ai\Contracts\Tool>  $tools
      * @return array<string, mixed>|null
      */
-    public function runAgent(string $instructions, Closure $schema, string $prompt, array $tools, ?AiProviderConfigDto $provider = null, int $maxSteps = 25): ?array
+    public function runAgent(string $instructions, Closure $schema, string $prompt, array $tools, ?AiProviderConfigDto $provider = null, int $maxSteps = 25, ?int $timeout = null): ?array
     {
         $provider ??= IntegrationHelper::getActiveAiProvider();
 
@@ -76,7 +76,10 @@ class AiService
                 $prompt,
                 provider: $provider->type->toLab(),
                 model: $provider->model,
-                timeout: $provider->timeoutSeconds,
+                // A caller working to a deadline (the synchronous meta-extraction endpoint)
+                // passes the time it has left; everything else uses the provider's own
+                // timeout, which is the right ceiling for queued, best-effort work.
+                timeout: $timeout ?? $provider->timeoutSeconds,
             );
 
             return $response instanceof StructuredAgentResponse ? $response->toArray() : null;

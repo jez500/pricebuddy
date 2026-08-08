@@ -19,6 +19,10 @@ class MetaExtractionRequest extends FormRequest
     {
         return [
             'url' => ['required', 'string', new PublicHttpUrl],
+            // Opt in to AI healing. Off by default: healing is slow and may propose a
+            // different strategy than the one being tested, so a caller has to ask for it
+            // and be prepared to wait (up to the published extraction budget).
+            'heal' => ['sometimes', 'boolean'],
             'store' => ['sometimes', 'array'],
             'store.name' => ['sometimes', 'string', 'max:255'],
             'store.domains' => ['sometimes', 'array'],

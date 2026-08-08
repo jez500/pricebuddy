@@ -25,6 +25,7 @@ class MetaExtractionController extends Controller
         return new MetaExtractionResource($this->metaExtractionService->extract(
             $validated['url'],
             $validated['store'] ?? [],
+            (bool) ($validated['heal'] ?? false),
         ));
     }
 }

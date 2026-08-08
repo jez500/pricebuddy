@@ -57,7 +57,8 @@ The response shape is:
     "price": 35.0,
     "currency": "AUD",
     "locale": "en-AU",
-    "image": "https://example.com/image.jpg"
+    "image": "https://example.com/image.jpg",
+    "healing": { "attempted": false, "applied": false, "reason": "disabled" }
   }
 }
 ```
@@ -68,6 +69,38 @@ The `price` field is normalized to a numeric value in both the store-backed and 
 the matched store's locale settings, falling back to the app-level defaults when no store could be
 resolved (in which case `store` is `{}`). Both are always present. The embedded `store` object
 carries the same two fields.
+
+### AI healing and the request budget
+
+When the deterministic scrape finds no price, this endpoint can ask the AI healing agent to work
+out a strategy. That is slow, so it is **opt-in**: send `"heal": true`. The default is `false`,
+which returns the deterministic result immediately.
+
+Prefer the default when testing selectors a user just entered — healing may propose a *different*
+strategy than the one under test. Use `heal: true` for an explicit "work it out for me" action,
+and tell the user it will take longer.
+
+The whole request is bounded by `price_buddy.meta_extraction.budget_seconds` (default 25,
+`META_EXTRACTION_BUDGET_SECONDS`), covering the scrape, any browser re-scrape, and the AI call —
+which is given the time remaining rather than the provider's own timeout. When less than
+`heal_floor_seconds` (default 5) remains, healing is skipped rather than started and cut off.
+Read the ceiling from `limits.meta_extraction_timeout_seconds` in `/api/client-config` instead of
+hardcoding a client-side abort.
+
+Healing never fails the request. Whatever happens, the response is a 200 carrying the
+deterministic result, and `healing` says what became of it:
+
+```json
+"healing": { "attempted": true, "applied": false, "reason": "timeout" }
+```
+
+| `reason` | meaning |
+| --- | --- |
+| `null` | healing ran and its config was applied (`applied: true`) |
+| `disabled` | not requested, the store opted out, or no healing provider is configured |
+| `not_needed` | the deterministic scrape already produced a usable result |
+| `timeout` | the budget ran out, or too little remained to start |
+| `error` | healing ran but errored or produced no usable config |
 
 ## Products
 
@@ -181,10 +214,16 @@ matching endpoints without probing for a 4xx.
       "products_sparse_fieldsets": true,
       "stores_filter_domain": true
     },
+    "limits": {
+      "meta_extraction_timeout_seconds": 25
+    },
     "app_version": "1.4.2"
   }
 }
 ```
+
+`limits` publishes this instance's own ceilings so a client can configure itself from them
+rather than hardcoding a guess that silently drifts.
 
 Requires a token with the `client-config:read` ability, or an all-access token. Tokens
 created before this endpoint existed will need re-minting to gain the ability.

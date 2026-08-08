@@ -5,11 +5,13 @@ namespace App\Services\Ai;
 use App\Dto\StandardStrategyDto;
 use App\Enums\ScraperService;
 use App\Models\Store;
+use App\Services\ExtractionBudget;
 use App\Services\StrategyExtractor;
 use Illuminate\Support\Str;
 use Jez500\WebScraperForLaravel\Facades\WebScraper;
 use Jez500\WebScraperForLaravel\WebScraperApi;
 use Jez500\WebScraperForLaravel\WebScraperInterface;
+use RuntimeException;
 use Throwable;
 
 class HealingContext
@@ -28,6 +30,7 @@ class HealingContext
         public readonly string $url,
         public readonly Store $store,
         ?string $initialHtml = null,
+        public readonly ?ExtractionBudget $budget = null,
     ) {
         $this->html = $initialHtml;
     }
@@ -50,12 +53,30 @@ class HealingContext
     /**
      * Fetch the page HTML (static or browser-rendered), retain the raw body for
      * validation, and return a model-friendly view for the agent.
+     *
+     * When the context carries a budget, every fetch draws from it — including the ones
+     * the agent makes through FetchPageHtmlTool, which happen in this process between
+     * model calls and so are not covered by the model call's own timeout. Once the
+     * budget is gone the fetch throws, which ends the agent loop rather than letting it
+     * keep spending on a request whose deadline has already passed.
+     *
+     * @throws RuntimeException when the budget is exhausted
      */
-    public function fetch(bool $rendered): string
+    public function fetch(bool $rendered, ?int $timeout = null): string
     {
+        if ($this->budget?->isExhausted()) {
+            throw new RuntimeException('Extraction budget exhausted before fetching '.$this->url);
+        }
+
+        $timeout ??= $this->budget?->remainingSecondsForTimeout();
+
         $service = $rendered ? ScraperService::Api->value : ScraperService::Http->value;
 
         $scraper = WebScraper::make($service)->setUrl($this->url);
+
+        if ($timeout !== null) {
+            $scraper->setConnectTimeout($timeout)->setRequestTimeout($timeout);
+        }
 
         if ($scraper instanceof WebScraperApi) {
             $scraper->setScraperApiBaseUrl(config('price_buddy.scraper_api_url', 'http://scraper:3000'));

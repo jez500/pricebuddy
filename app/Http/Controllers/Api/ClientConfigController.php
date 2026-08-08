@@ -35,6 +35,11 @@ class ClientConfigController extends Controller
                 'products_sparse_fieldsets' => true,
                 'stores_filter_domain' => true,
             ],
+            // Server-published ceilings, so clients set their own timeouts from the
+            // instance's actual configuration instead of hardcoding a guess that drifts.
+            'limits' => [
+                'meta_extraction_timeout_seconds' => (int) config('price_buddy.meta_extraction.budget_seconds', 25),
+            ],
             'app_version' => (string) config('app.version'),
         ];
 

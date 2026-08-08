@@ -236,9 +236,13 @@ class AiConfigHealer
      * persisting anything — for interactive preview-then-apply UIs. Returns null
      * when the Healing feature is unavailable or the agent produced no usable plan.
      *
+     * $budget bounds the whole resolution (browser re-scrape, agent tool fetches and the
+     * model calls) for synchronous callers. Omit it — as the admin UI does — to let the
+     * provider's own timeout apply, which is the right ceiling when a human chose to wait.
+     *
      * @return array{fields: array<string, array<string, mixed>>, extracted: array<string, mixed>, usedBrowser: bool}|null
      */
-    public function previewForUrl(string $url, ?Store $store, ?string $html = null): ?array
+    public function previewForUrl(string $url, ?Store $store, ?string $html = null, ?ExtractionBudget $budget = null): ?array
     {
         $provider = IntegrationHelper::resolveFeatureProvider(AiFeature::Healing, $store);
 
@@ -246,7 +250,7 @@ class AiConfigHealer
             return null;
         }
 
-        return $this->resolveConfigForUrl($url, $store, $html, $provider);
+        return $this->resolveConfigForUrl($url, $store, $html, $provider, $budget);
     }
 
     /**
@@ -256,9 +260,9 @@ class AiConfigHealer
      *
      * @return array{fields: array<string, array<string, mixed>>, extracted: array<string, mixed>, usedBrowser: bool}|null
      */
-    protected function resolveConfigForUrl(string $url, ?Store $store, ?string $html, AiProviderConfigDto $provider): ?array
+    protected function resolveConfigForUrl(string $url, ?Store $store, ?string $html, AiProviderConfigDto $provider, ?ExtractionBudget $budget = null): ?array
     {
-        $context = new HealingContext($url, $store ?? new Store(['settings' => []]), $html);
+        $context = new HealingContext($url, $store ?? new Store(['settings' => []]), $html, $budget);
 
         if (blank($context->getHtml())) {
             try {
@@ -293,7 +297,7 @@ class AiConfigHealer
             }
         }
 
-        $result = $this->attemptAgentRepair($context, $provider);
+        $result = $this->attemptAgentRepair($context, $provider, $budget);
 
         if ($result === null) {
             return null;
@@ -375,9 +379,15 @@ class AiConfigHealer
      *
      * @return array{validated: array<string, array<string, mixed>>, extracted: array<string, string>}|null
      */
-    protected function attemptAgentRepair(HealingContext $context, AiProviderConfigDto $provider): ?array
+    protected function attemptAgentRepair(HealingContext $context, AiProviderConfigDto $provider, ?ExtractionBudget $budget = null): ?array
     {
         $url = $context->url;
+
+        if ($budget?->isExhausted()) {
+            $this->log($url)->info('AI healing skipped; extraction budget exhausted before the agent started.');
+
+            return null;
+        }
 
         $tools = [
             new FetchPageHtmlTool($context),
@@ -397,6 +407,11 @@ class AiConfigHealer
                 $tools,
                 $provider,
                 self::MAX_STEPS,
+                // Caps each model call at the time the request has left. The agent loop can
+                // still make several calls, so this is not the whole bound on its own — the
+                // budget-aware tools are, since the prompt requires a fetch and a selector
+                // test before the agent can answer, and both throw once the budget is gone.
+                $budget?->remainingSecondsForTimeout(),
             );
         } catch (AiProviderException $e) {
             $this->log($url)->warning('AI healing provider error; config unchanged.', ['error' => $e->getMessage()]);

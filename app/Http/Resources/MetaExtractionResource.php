@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Dto\HealingOutcomeDto;
 use App\Models\Store;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\LocaleHelper;
@@ -22,6 +23,7 @@ class MetaExtractionResource extends JsonResource
     {
         $store = data_get($this->resource, 'store');
         $store = $store instanceof Store ? $store : null;
+        $healing = data_get($this->resource, 'healing');
 
         return [
             'title' => data_get($this->resource, 'title'),
@@ -39,6 +41,9 @@ class MetaExtractionResource extends JsonResource
             // Empty object (serialises to `{}`, not `null`) keeps the `store` field shape stable
             // for API clients even when no store could be resolved or detected.
             'store' => $store ? new StoreResource($store) : (object) [],
+            // Always present, so a client can explain a thin result ("AI detection timed out")
+            // rather than silently showing empty fields.
+            'healing' => ($healing instanceof HealingOutcomeDto ? $healing : new HealingOutcomeDto)->toArray(),
         ];
     }
 }

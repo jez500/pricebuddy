@@ -60,11 +60,22 @@ class ClientConfigApiTest extends TestCase
         $payload = $this->getJson('/api/client-config')->assertSuccessful()->json();
 
         $this->assertSame(['data'], array_keys($payload));
-        $this->assertSame(['capabilities', 'app_version'], array_keys($payload['data']));
+        $this->assertSame(['capabilities', 'limits', 'app_version'], array_keys($payload['data']));
         $this->assertSame(
             ['products_filter_url', 'products_current_url', 'products_sparse_fieldsets', 'stores_filter_domain'],
             array_keys($payload['data']['capabilities'])
         );
+        $this->assertSame(['meta_extraction_timeout_seconds'], array_keys($payload['data']['limits']));
+    }
+
+    public function test_meta_extraction_limit_comes_from_config(): void
+    {
+        config()->set('price_buddy.meta_extraction.budget_seconds', 40);
+        $this->authenticateWith(['*']);
+
+        $this->getJson('/api/client-config')
+            ->assertSuccessful()
+            ->assertJsonPath('data.limits.meta_extraction_timeout_seconds', 40);
     }
 
     public function test_app_version_comes_from_config(): void
