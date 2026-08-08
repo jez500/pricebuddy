@@ -6,12 +6,17 @@
     $insights = \App\Services\Insights\ProductInsights::for($record);
     $currency = $record->urls->first()?->store?->currency ?? 'USD';
     $money = fn ($value) => Number::currency((float) $value, in: $currency);
-    $verdictColors = [
-        'great' => 'text-primary-600 dark:text-primary-400',
-        'good' => 'text-primary-600 dark:text-primary-400',
-        'average' => 'text-gray-600 dark:text-gray-300',
-        'pricey' => 'text-amber-600 dark:text-amber-400',
-        'wait' => 'text-danger-600 dark:text-danger-400',
+    // Filament palette name behind each verdict, so the hero is tinted by the answer
+    // rather than always reading as a good one. Referenced through Filament's CSS
+    // variables (rgb(var(--danger-500))) because the palettes are injected at runtime by
+    // the panel and are not available as compiled utility classes here.
+    $verdictAccents = [
+        'great' => 'primary',
+        'good' => 'primary',
+        'average' => 'gray',
+        'pricey' => 'warning',
+        'wait' => 'danger',
+        'unknown' => 'gray',
     ];
     $cardClass = 'bg-white dark:bg-gray-900 rounded-xl p-5 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10';
 @endphp
@@ -22,6 +27,11 @@
             .pb-chart-scroll .fi-section-content { overflow-x: auto; }
             .pb-chart-scroll [wire\:ignore] { min-width: 700px; }
         }
+        /* The accent shades are set as local custom properties on the hero, which is what
+           lets these keep a dark-mode variant — Filament's palettes are only available as
+           CSS variables, and an inline style cannot carry a `.dark` rule. */
+        .pb-verdict-accent { color: var(--pb-accent-600); }
+        .dark .pb-verdict-accent { color: var(--pb-accent-400); }
     </style>
     @if (! $insights->hasEnoughData)
         <div class="{{ $cardClass }} text-center py-10">
@@ -30,19 +40,29 @@
         </div>
     @else
         {{-- HERO --}}
-        @php $score = $insights->dealScore; @endphp
+        @php
+            $score = $insights->dealScore;
+            $accent = $verdictAccents[$score->verdictKey] ?? 'gray';
+        @endphp
+        {{-- The ring colour is set inline so it overrides the ring-* utility in $cardClass
+             in both light and dark mode. --}}
         <div class="{{ $cardClass }} grid grid-cols-1 md:grid-cols-[1.6fr_1fr] gap-6 items-center"
-             style="background-image: linear-gradient(120deg, rgba(45,212,191,.08), transparent); border-color: rgba(45,212,191,.5)">
+             style="--pb-accent-400: rgb(var(--{{ $accent }}-400));
+                    --pb-accent-600: rgb(var(--{{ $accent }}-600));
+                    background-image: linear-gradient(120deg, rgba(var(--{{ $accent }}-500),.08), transparent);
+                    --tw-ring-color: rgba(var(--{{ $accent }}-500),.5)">
             <div>
-                <div class="text-base font-semibold text-primary-600 dark:text-primary-400">{{ __('Should I buy right now?') }}</div>
-                <div class="text-2xl md:text-3xl font-extrabold leading-tight {{ $verdictColors[$score->verdictKey] }}">{{ $score->verdict }}</div>
+                <div class="text-base font-semibold pb-verdict-accent">{{ __('Should I buy right now?') }}</div>
+                <div class="text-2xl md:text-3xl font-extrabold leading-tight pb-verdict-accent">{{ $score->verdict }}</div>
                 <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    @if ($score->isAllTimeLow)
+                    @if ($score->verdictKey === 'unknown')
+                        {{ __('The price has not moved yet, so there is nothing to compare it against.') }}
+                    @elseif ($score->isAllTimeLow)
                         {{ __('This is the cheapest it has ever been.') }}
                     @else
                         {{ __(':pct% cheaper than the rest of the year', ['pct' => $insights->percentile->percentCheaperThan]) }}
                     @endif
-                    @if ($score->lowConfidence)
+                    @if ($score->lowConfidence && $score->verdictKey !== 'unknown')
                         · <span class="text-amber-600 dark:text-amber-400">{{ __('limited history') }}</span>
                     @endif
                 </div>
@@ -50,9 +70,12 @@
             <div class="md:text-right">
                 <div class="text-2xl font-extrabold text-gray-900 dark:text-white">{{ $money($insights->bestPrice) }}</div>
                 <div class="text-sm text-gray-500 dark:text-gray-400">{{ __('best at :store', ['store' => $insights->bestStore ?? '—']) }}</div>
-                <span class="inline-block mt-2 bg-primary-500 text-primary-950 text-xs font-bold px-2.5 py-1 rounded-full">
-                    {{ __('cheaper than :pct% of the year', ['pct' => $insights->percentile->percentCheaperThan]) }}
-                </span>
+                @if ($score->verdictKey !== 'unknown')
+                    <span class="inline-block mt-2 text-xs font-bold px-2.5 py-1 rounded-full"
+                          style="background: rgb(var(--{{ $accent }}-500)); color: rgb(var(--{{ $accent }}-950))">
+                        {{ __('cheaper than :pct% of the year', ['pct' => $insights->percentile->percentCheaperThan]) }}
+                    </span>
+                @endif
             </div>
         </div>
 
