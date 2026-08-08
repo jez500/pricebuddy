@@ -415,6 +415,28 @@ class ProductTest extends TestCase
         $this->assertStringEndsWith('...', $product->title);
     }
 
+    public function test_title_mutator_strips_trailing_site_name_noise()
+    {
+        $product = Product::factory()->createOne([
+            'title' => 'DAREU A950GM Wireless Gaming Mouse (Black): Mice: Amazon.com.au',
+        ]);
+
+        $this->assertEquals('DAREU A950GM Wireless Gaming Mouse (Black): Mice', $product->title);
+        $this->assertDatabaseHas('products', [
+            'id' => $product->getKey(),
+            'title' => 'DAREU A950GM Wireless Gaming Mouse (Black): Mice',
+        ]);
+    }
+
+    public function test_title_mutator_keeps_titles_without_site_name_noise()
+    {
+        $product = Product::factory()->createOne([
+            'title' => 'Dyson V15 Detect | 2024 Model',
+        ]);
+
+        $this->assertEquals('Dyson V15 Detect | 2024 Model', $product->title);
+    }
+
     public function test_image_mutator_sets_null_for_long_strings()
     {
         $shortImage = 'https://example.com/image.jpg';

@@ -31,6 +31,27 @@ class ScrapeUrl
      */
     public const int MAX_STR_LENGTH = 1000;
 
+    /**
+     * Splits a title on its last separator, eg the ":" in "Wireless Mouse: Amazon.com.au".
+     * A dash only counts when surrounded by whitespace so hyphenated words survive.
+     */
+    protected const string TITLE_SEPARATOR_PATTERN = '/^(?P<head>.*\S)(?:\s*[|:»·]\s*|\s+[-–—]\s+)(?P<tail>[^|:»·]+?)\s*$/u';
+
+    /**
+     * A segment that is nothing but a hostname, eg "Amazon.com.au" or "www.kogan.com".
+     */
+    protected const string TITLE_DOMAIN_PATTERN = '/^(?:www\.)?[\p{L}\p{N}][\p{L}\p{N}-]*(?:\.\p{L}{2,})+$/u';
+
+    /**
+     * How many trailing noise segments to strip from a title before giving up.
+     */
+    protected const int TITLE_MAX_NOISE_SEGMENTS = 5;
+
+    /**
+     * Shortest title we are willing to leave behind after stripping noise.
+     */
+    protected const int TITLE_MIN_LENGTH = 3;
+
     protected WebScraperInterface $webScraper;
 
     protected LoggerInterface $logger;
@@ -398,5 +419,52 @@ class ScrapeUrl
     public static function preSaveTruncate(?string $value): ?string
     {
         return Str::limit($value, self::MAX_STR_LENGTH);
+    }
+
+    /**
+     * Strip the site name noise stores append to product titles, eg the ": Mice: Amazon.com.au"
+     * in "Wireless Gaming Mouse (Black): Mice: Amazon.com.au". Only trailing segments that are
+     * a bare hostname or the store's own name are removed, so product detail is never lost.
+     */
+    public static function preSaveCleanTitle(?string $value, ?string $storeName = null): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $title = trim((string) preg_replace('/\s+/u', ' ', $value));
+        $storeName = $storeName === null ? null : mb_strtolower(trim($storeName));
+
+        for ($i = 0; $i < self::TITLE_MAX_NOISE_SEGMENTS; $i++) {
+            if (! preg_match(self::TITLE_SEPARATOR_PATTERN, $title, $matches)) {
+                break;
+            }
+
+            if (! self::isTitleNoiseSegment($matches['tail'], $storeName)) {
+                break;
+            }
+
+            if (mb_strlen($matches['head']) < self::TITLE_MIN_LENGTH) {
+                break;
+            }
+
+            $title = $matches['head'];
+        }
+
+        return $title;
+    }
+
+    /**
+     * Is this trailing title segment site name noise rather than product detail?
+     */
+    protected static function isTitleNoiseSegment(string $segment, ?string $storeName): bool
+    {
+        $segment = trim($segment);
+
+        if ($storeName !== null && $storeName !== '' && mb_strtolower($segment) === $storeName) {
+            return true;
+        }
+
+        return (bool) preg_match(self::TITLE_DOMAIN_PATTERN, $segment);
     }
 }

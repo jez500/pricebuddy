@@ -77,6 +77,12 @@
             padding-left: 2rem;
         }
     }
+
+    // Product titles wrap over several lines, so keep the actions level with the first line
+    // instead of floating in the middle of the heading (Filament defaults to sm:items-center).
+    .product-view .fi-header {
+        align-items: flex-start;
+    }
 }
 
 @media screen and (max-width: 640px) {

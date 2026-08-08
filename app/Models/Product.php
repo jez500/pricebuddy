@@ -459,13 +459,13 @@ class Product extends Model
     }
 
     /**
-     * Truncate long titles.
+     * Truncate long titles and strip the site name noise stores append to them.
      */
     public function title(): Attribute
     {
         return Attribute::make(
             get: fn ($v) => ScrapeUrl::preSaveTruncate($v),
-            set: fn ($v) => ScrapeUrl::preSaveTruncate($v)
+            set: fn ($v) => ScrapeUrl::preSaveTruncate(ScrapeUrl::preSaveCleanTitle($v))
         );
     }
 
