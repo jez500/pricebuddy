@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Dto\AvailabilityStrategyDto;
 use App\Dto\StandardStrategyDto;
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
@@ -51,6 +52,26 @@ class ScrapeUrl
      * Shortest title we are willing to leave behind after stripping noise.
      */
     protected const int TITLE_MIN_LENGTH = 3;
+
+    /**
+     * Marks a scrape result as a soft 404. Read via self::resolveStockStatus() rather
+     * than the scraped `availability` value, which a store's match config can override.
+     */
+    public const string NOT_FOUND_KEY = 'not_found';
+
+    /**
+     * Titles that mean "this page does not exist". A bare "404" is deliberately NOT
+     * enough: plenty of real products carry it as a model number (eg "Roland SP-404",
+     * "Peugeot 404"), so it only counts alongside error wording or as the whole title.
+     */
+    protected const string NOT_FOUND_TITLE_PATTERN = '/\bnot\s+found\b|\bdoes\s+not\s+exist\b|\b(?:error|page)\s*[-–—:|]?\s*404\b|\b404\s*[-–—:|]?\s*(?:error|page|not)\b|^\s*404\s*$/i';
+
+    /**
+     * Body markers for a soft 404. Each is anchored to the attribute or key it belongs
+     * to so a stray "template-404" in bundled CSS or JSON cannot condemn a real product
+     * page.
+     */
+    protected const string NOT_FOUND_BODY_PATTERN = '/class=["\'][^"\']*\btemplate-404\b|data-page-type=["\']404["\']|"pageType"\s*:\s*"404"|rel=["\']canonical["\'][^>]*href=["\'][^"\']*\/404\/?["\']|href=["\'][^"\']*\/404\/?["\'][^>]*rel=["\']canonical["\']/i';
 
     protected WebScraperInterface $webScraper;
 
@@ -154,7 +175,7 @@ class ScrapeUrl
         }
 
         $availabilityStrategy = data_get($output, 'store.scrape_strategy.availability');
-        $isUnavailable = StockStatus::resolveAvailability($output['availability'] ?? null, $availabilityStrategy)->isUnavailable();
+        $isUnavailable = self::resolveStockStatus($output, $availabilityStrategy)->isUnavailable();
 
         foreach (['price', 'title'] as $required) {
             // Skip price requirement when product is unavailable.
@@ -256,13 +277,14 @@ class ScrapeUrl
 
         $output['price'] = null;
         $output['availability'] = 'https://schema.org/Discontinued';
+        $output[self::NOT_FOUND_KEY] = true;
 
         return $output;
     }
 
     protected function looksLikeNotFoundPage(string $title, string $body): bool
     {
-        if ($title !== '' && preg_match('/\b404\b|not\s+found|page\s+(?:you\s+(?:were|are)\s+looking\s+for\s+)?(?:does\s+not\s+exist|not\s+found)/i', $title) === 1) {
+        if ($title !== '' && preg_match(self::NOT_FOUND_TITLE_PATTERN, $title) === 1) {
             return true;
         }
 
@@ -270,10 +292,26 @@ class ScrapeUrl
             return false;
         }
 
-        return preg_match(
-            '/\btemplate-404\b|data-page-type=["\']404["\']|"pageType"\s*:\s*"404"|rel=["\']canonical["\'][^>]*href=["\'][^"\']*\/404["\']|href=["\'][^"\']*\/404["\'][^>]*rel=["\']canonical["\']/i',
-            $body
-        ) === 1;
+        return preg_match(self::NOT_FOUND_BODY_PATTERN, $body) === 1;
+    }
+
+    /**
+     * Resolve the stock status for a whole scrape result.
+     *
+     * A page flagged as a soft 404 is Discontinued whatever the store says. Reading the
+     * injected `availability` value alone is not enough: a store with a per-status match
+     * config re-interprets it, finds no rule for it and falls back to that config's
+     * default (usually InStock), silently undoing the guard.
+     *
+     * @param  array<string, mixed>|null  $scrapeResult
+     */
+    public static function resolveStockStatus(?array $scrapeResult, ?AvailabilityStrategyDto $availabilityStrategy): StockStatus
+    {
+        if (data_get($scrapeResult, self::NOT_FOUND_KEY)) {
+            return StockStatus::Discontinued;
+        }
+
+        return StockStatus::resolveAvailability(data_get($scrapeResult, 'availability'), $availabilityStrategy);
     }
 
     public function getStore(): ?Store

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\AiFeature;
-use App\Enums\StockStatus;
 use App\Exceptions\AiProviderException;
 use App\Models\Url;
 use App\Services\Helpers\IntegrationHelper;
@@ -58,7 +57,7 @@ class AiScrapeEnhancer
 
         // An out-of-stock item has no purchasable price; don't spend tokens.
         $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
-        $isUnavailable = StockStatus::resolveAvailability(data_get($scrapeResult, 'availability'), $availabilityStrategy)
+        $isUnavailable = ScrapeUrl::resolveStockStatus($scrapeResult, $availabilityStrategy)
             ->isUnavailable();
 
         if ($isUnavailable) {

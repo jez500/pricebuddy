@@ -407,8 +407,11 @@ class SearchService
                 'html', 'title', 'image', 'price', 'store_id', 'strategies', 'execution_time',
             ])->all();
 
-            if (! empty($payload['html'])) {
-                $payload['html'] = $this->sanitizeUtf8($payload['html']);
+            // Every scraped string can carry a legacy encoding, not just the body.
+            foreach (['html', 'title', 'image'] as $field) {
+                if (is_string($payload[$field] ?? null) && $payload[$field] !== '') {
+                    $payload[$field] = $this->sanitizeUtf8($payload[$field]);
+                }
             }
 
             UrlResearch::updateOrCreate(['url' => $result['url']], $payload);
@@ -439,8 +442,9 @@ class SearchService
         }
 
         if (! preg_match('/[\xC2-\xF4][\x80-\xBF]/', $value)) {
-            $converted = @mb_convert_encoding($value, 'UTF-8', 'Windows-1252');
-            if ($converted !== false && mb_check_encoding($converted, 'UTF-8')) {
+            $converted = mb_convert_encoding($value, 'UTF-8', 'Windows-1252');
+
+            if (mb_check_encoding($converted, 'UTF-8')) {
                 return $converted;
             }
         }

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\ProductResource\Widgets;
 
 use App\Enums\Icons;
+use App\Filament\Concerns\InteractsWithSearchProgress;
 use App\Jobs\CacheSearchResults;
 use App\Models\Product;
 use App\Services\Helpers\IntegrationHelper;
@@ -24,6 +25,7 @@ use Livewire\Attributes\Url;
 class CreateViaSearchForm extends Widget implements HasForms
 {
     use InteractsWithForms;
+    use InteractsWithSearchProgress;
 
     protected $listeners = [
         'refreshSearchForm' => '$refresh',
@@ -38,8 +40,6 @@ class CreateViaSearchForm extends Widget implements HasForms
 
     public array $filters = [];
 
-    public array $progressLog = [];
-
     public array $results = [];
 
     public ?Product $product = null;
@@ -48,15 +48,6 @@ class CreateViaSearchForm extends Widget implements HasForms
      * Url of the page this component is embedded on.
      */
     public string $pageUrl = '/admin/products/create';
-
-    public bool $showLog = false;
-
-    /**
-     * Timestamp of when the search job was started/completed.
-     */
-    public false|string $inProgress = false;
-
-    public false|string $isComplete = false;
 
     public static function canView(): bool
     {
@@ -177,35 +168,9 @@ class CreateViaSearchForm extends Widget implements HasForms
             ->send();
     }
 
-    /**
-     * Called on poll from the frontend.
-     */
-    public function refreshProgress(): void
+    protected function resolveProgressSearchQuery(): ?string
     {
-        if ($this->isComplete && ! $this->inProgress) {
-            return;
-        }
-
-        $this->syncProgressFromService();
-    }
-
-    protected function syncProgressFromService(): void
-    {
-        $searchQuery = $this->searchQuery ?? $this->getSearchKeywordFromForm();
-
-        if (! $searchQuery) {
-            return;
-        }
-
-        $service = SearchService::new($searchQuery);
-        $log = $service->getLog();
-
-        if (! empty($log)) {
-            $this->progressLog = $log;
-        }
-
-        $this->inProgress = $service->getInProgress() ?: false;
-        $this->isComplete = $service->getIsComplete() ?: false;
+        return $this->searchQuery ?: $this->getSearchKeywordFromForm();
     }
 
     protected function getSearchKeywordFromForm(): string

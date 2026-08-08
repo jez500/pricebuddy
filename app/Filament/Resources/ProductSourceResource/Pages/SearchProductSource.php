@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ProductSourceResource\Pages;
 
 use App\Enums\Icons;
 use App\Filament\Actions\BaseAction;
+use App\Filament\Concerns\InteractsWithSearchProgress;
 use App\Filament\Resources\ProductResource\Widgets\CreateViaSearchTable;
 use App\Filament\Resources\ProductSourceResource;
 use App\Filament\Resources\ProductSourceResource\Widgets\ProductSourceScrapeDebugWidget;
@@ -25,6 +26,8 @@ use Illuminate\Contracts\Support\Htmlable;
  */
 class SearchProductSource extends EditRecord
 {
+    use InteractsWithSearchProgress;
+
     protected static string $resource = ProductSourceResource::class;
 
     protected static ?string $title = 'Search Product Source';
@@ -32,14 +35,6 @@ class SearchProductSource extends EditRecord
     protected static string $view = 'filament.resources.product-source-resource.pages.search-product-source';
 
     public ?string $searchQuery = null;
-
-    public array $progressLog = [];
-
-    public bool $showLog = false;
-
-    public false|string $inProgress = false;
-
-    public false|string $isComplete = false;
 
     protected $listeners = [
         'refreshProgress' => 'refreshProgress',
@@ -153,30 +148,9 @@ class SearchProductSource extends EditRecord
             ->send();
     }
 
-    public function refreshProgress(): void
+    protected function makeProgressSearchService(string $searchQuery): SearchService
     {
-        if ($this->isComplete && ! $this->inProgress) {
-            return;
-        }
-
-        $this->syncProgressFromService();
-    }
-
-    protected function syncProgressFromService(): void
-    {
-        if (! $this->searchQuery) {
-            return;
-        }
-
-        $service = SearchService::new($this->searchQuery)->setProductSource($this->getRecord());
-        $log = $service->getLog();
-
-        if (! empty($log)) {
-            $this->progressLog = $log;
-        }
-
-        $this->inProgress = $service->getInProgress() ?: false;
-        $this->isComplete = $service->getIsComplete() ?: false;
+        return SearchService::new($searchQuery)->setProductSource($this->getRecord());
     }
 
     public function getFormActions(): array

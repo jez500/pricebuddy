@@ -16,6 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Once;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -169,6 +170,59 @@ class SearchResearchTest extends TestCase
         });
     }
 
+    public function test_progress_polling_mirrors_the_service_log_without_appending_to_it()
+    {
+        $component = $this->startSearchViaForm();
+
+        $service = SearchService::new($this->searchTerm);
+        $service->log('Analyzing "AirPods"');
+
+        $component->call('refreshProgress');
+
+        $log = $component->get('progressLog');
+        $this->assertCount(1, $log);
+        $this->assertSame('Analyzing "AirPods"', $log[0]['message']);
+
+        // Every poll used to append a "Refreshing progress for..." entry, so the log grew
+        // without bound while a search ran.
+        $component->call('refreshProgress');
+
+        $this->assertCount(1, $component->get('progressLog'));
+    }
+
+    public function test_progress_polling_keeps_staged_entries_until_the_job_logs()
+    {
+        $component = $this->startSearchViaForm();
+
+        $stagedCount = count($component->get('progressLog'));
+        $this->assertGreaterThan(0, $stagedCount);
+
+        // The job has not written anything yet; the panel must not flash empty.
+        $component->call('refreshProgress');
+
+        $this->assertCount($stagedCount, $component->get('progressLog'));
+    }
+
+    public function test_progress_polling_is_a_no_op_once_the_search_is_complete()
+    {
+        $component = $this->startSearchViaForm();
+
+        $service = SearchService::new($this->searchTerm);
+        $service->log('Completed research for: '.$this->searchTerm);
+        $this->markSearchComplete($service);
+
+        $component->call('refreshProgress');
+
+        $component->assertSet('inProgress', false);
+        $this->assertNotFalse($component->get('isComplete'));
+
+        // A poll already in flight when the view drops wire:poll must not do more work.
+        $service->log('Should not be picked up');
+        $component->call('refreshProgress');
+
+        $this->assertCount(1, $component->get('progressLog'));
+    }
+
     public function test_dispatch_search_job()
     {
         $this->assertSame(0, UrlResearch::count());
@@ -220,6 +274,28 @@ class SearchResearchTest extends TestCase
     protected function getSearchService(): SearchService
     {
         return SearchService::new($this->searchTerm)->flushRawResultsCache();
+    }
+
+    /**
+     * Mount the search widget and dispatch a (faked) search job, leaving the component in
+     * the state the frontend polls from.
+     */
+    protected function startSearchViaForm(): Testable
+    {
+        Queue::fake();
+
+        return Livewire::test(CreateViaSearchForm::class)
+            ->set('searchQuery', $this->searchTerm)
+            ->set('data.keyword', $this->searchTerm)
+            ->call('save');
+    }
+
+    /**
+     * Flag the search as finished the way the queued job does.
+     */
+    protected function markSearchComplete(SearchService $service): void
+    {
+        (new \ReflectionMethod(SearchService::class, 'setIsComplete'))->invoke($service, true);
     }
 
     protected function getFixture(string $path): string
