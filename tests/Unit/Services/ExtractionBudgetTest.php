@@ -30,16 +30,31 @@ class ExtractionBudgetTest extends TestCase
         $this->assertFalse($budget->hasAtLeast(1));
     }
 
-    public function test_the_timeout_value_never_reaches_zero(): void
+    public function test_an_exhausted_budget_has_no_safe_timeout(): void
     {
-        // Guzzle reads a timeout of 0 as "no timeout", which is the exact failure this
-        // class exists to prevent, so an exhausted budget still hands out 1 second.
-        $this->assertSame(1, (new ExtractionBudget(0))->remainingSecondsForTimeout());
+        // Not 0 (Guzzle reads that as "no timeout") and not a rounded-up 1 (that hands out
+        // time the budget does not have). Callers must read null as "do not start".
+        $this->assertNull((new ExtractionBudget(0))->remainingSecondsForTimeout());
+    }
+
+    public function test_a_budget_with_under_a_second_left_has_no_safe_timeout(): void
+    {
+        $budget = new ExtractionBudget(2);
+        usleep(1_200_000);
+
+        // Still has ~0.8s, so it is not exhausted — but there is no whole second left to
+        // hand out, and rounding up to 1 would overspend the deadline on every call.
+        $this->assertFalse($budget->isExhausted());
+        $this->assertGreaterThan(0.0, $budget->remainingSeconds());
+        $this->assertNull($budget->remainingSecondsForTimeout());
     }
 
     public function test_the_timeout_value_is_rounded_down_so_the_budget_is_not_overspent(): void
     {
-        $this->assertLessThanOrEqual(10, (new ExtractionBudget(10))->remainingSecondsForTimeout());
+        $timeout = (new ExtractionBudget(10))->remainingSecondsForTimeout();
+
+        $this->assertNotNull($timeout);
+        $this->assertLessThanOrEqual(10, $timeout);
     }
 
     public function test_it_defaults_to_the_configured_budget(): void

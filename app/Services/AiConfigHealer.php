@@ -383,10 +383,19 @@ class AiConfigHealer
     {
         $url = $context->url;
 
-        if ($budget?->isExhausted()) {
-            $this->log($url)->info('AI healing skipped; extraction budget exhausted before the agent started.');
+        // Null means two different things here: no budget at all (the admin UI, queued
+        // work) leaves the model call on the provider's own timeout, but a budget with
+        // nothing left must stop, never fall through to that timeout.
+        $timeout = null;
 
-            return null;
+        if ($budget !== null) {
+            $timeout = $budget->remainingSecondsForTimeout();
+
+            if ($timeout === null) {
+                $this->log($url)->info('AI healing skipped; extraction budget exhausted before the agent started.');
+
+                return null;
+            }
         }
 
         $tools = [
@@ -411,7 +420,7 @@ class AiConfigHealer
                 // still make several calls, so this is not the whole bound on its own — the
                 // budget-aware tools are, since the prompt requires a fetch and a selector
                 // test before the agent can answer, and both throw once the budget is gone.
-                $budget?->remainingSecondsForTimeout(),
+                $timeout,
             );
         } catch (AiProviderException $e) {
             $this->log($url)->warning('AI healing provider error; config unchanged.', ['error' => $e->getMessage()]);

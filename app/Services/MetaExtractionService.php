@@ -196,10 +196,15 @@ class MetaExtractionService
     /**
      * The scrape never gets more than the per-scrape timeout, and never more than the
      * request has left.
+     *
+     * The scrape is the first thing a request does, so the budget is always full here;
+     * the one-second floor only bites on a misconfigured near-zero budget, where the
+     * scrape still has to be attempted with something other than Guzzle's "0 means no
+     * timeout".
      */
     private function scrapeTimeout(ExtractionBudget $budget): int
     {
-        return min($this->timeout, $budget->remainingSecondsForTimeout());
+        return max(1, min($this->timeout, $budget->remainingSecondsForTimeout() ?? 0));
     }
 
     /**

@@ -37,13 +37,17 @@ class ExtractionBudget
 
     /**
      * Remaining budget as a whole number of seconds, for the timeout arguments of HTTP
-     * clients that only take integers. Rounded down so the budget is never overspent,
-     * with a floor of 1 — a 0 timeout means "no timeout" to Guzzle, which is the exact
-     * failure mode this class exists to prevent.
+     * clients that only take integers, or null when there is no longer enough left to
+     * start anything safely.
+     *
+     * Null rather than a one-second floor: rounding up would hand out time the budget no
+     * longer has, and a 0 timeout means "no timeout" to Guzzle — the exact failure mode
+     * this class exists to prevent. Callers must treat null as "do not start", not as
+     * "no limit".
      */
-    public function remainingSecondsForTimeout(): int
+    public function remainingSecondsForTimeout(): ?int
     {
-        return max(1, (int) floor($this->remainingSeconds()));
+        return $this->hasAtLeast(1) ? (int) floor($this->remainingSeconds()) : null;
     }
 
     /**

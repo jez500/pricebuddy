@@ -60,15 +60,20 @@ class HealingContext
      * budget is gone the fetch throws, which ends the agent loop rather than letting it
      * keep spending on a request whose deadline has already passed.
      *
-     * @throws RuntimeException when the budget is exhausted
+     * @throws RuntimeException when too little budget remains to start a fetch
      */
     public function fetch(bool $rendered, ?int $timeout = null): string
     {
-        if ($this->budget?->isExhausted()) {
-            throw new RuntimeException('Extraction budget exhausted before fetching '.$this->url);
-        }
+        if ($this->budget !== null) {
+            $remaining = $this->budget->remainingSecondsForTimeout();
 
-        $timeout ??= $this->budget?->remainingSecondsForTimeout();
+            if ($remaining === null) {
+                throw new RuntimeException('Extraction budget exhausted before fetching '.$this->url);
+            }
+
+            // An explicit timeout is an upper bound, never a way past the deadline.
+            $timeout = $timeout === null ? $remaining : min($timeout, $remaining);
+        }
 
         $service = $rendered ? ScraperService::Api->value : ScraperService::Http->value;
 
