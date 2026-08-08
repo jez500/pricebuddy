@@ -261,7 +261,7 @@ class MetaExtractionApiTest extends TestCase
             'settings' => ['scraper_service' => 'http'],
         ]);
 
-        $response = $this->postJson('/api/meta-extraction', ['url' => $this->url]);
+        $response = $this->postJson('/api/meta-extraction', ['url' => $this->url, 'heal' => true]);
 
         $response->assertOk()
             ->assertJsonPath('data.title', 'Widget')
@@ -284,7 +284,7 @@ class MetaExtractionApiTest extends TestCase
             'settings' => ['scraper_service' => 'http'],
         ]);
 
-        $response = $this->postJson('/api/meta-extraction', ['url' => $this->url]);
+        $response = $this->postJson('/api/meta-extraction', ['url' => $this->url, 'heal' => true]);
 
         $response->assertOk()
             ->assertJsonPath('data.price', 35)
@@ -364,6 +364,7 @@ class MetaExtractionApiTest extends TestCase
         // Override store with selectors that miss on the page -> no price -> heal.
         $response = $this->postJson('/api/meta-extraction', [
             'url' => $this->url,
+            'heal' => true,
             'store' => [
                 'settings' => ['scraper_service' => 'http', 'scraper_service_settings' => ''],
                 'scrape_strategy' => [
@@ -393,7 +394,7 @@ class MetaExtractionApiTest extends TestCase
         ]);
 
         // No store in the DB for this domain, no override -> auto-create path.
-        $response = $this->postJson('/api/meta-extraction', ['url' => $this->url]);
+        $response = $this->postJson('/api/meta-extraction', ['url' => $this->url, 'heal' => true]);
 
         $response->assertOk()
             ->assertJsonPath('data.title', 'Widget')

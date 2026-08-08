@@ -4,6 +4,7 @@ namespace App\Filament\Resources\StoreResource\Api\Requests;
 
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
+use App\Rules\ScrapeStrategyValue;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -50,7 +51,10 @@ class CreateStoreRequest extends FormRequest
         return collect(['image', 'price', 'title'])
             ->mapWithKeys(fn ($strategy) => [
                 "scrape_strategy.{$strategy}.type" => 'required|in:'.implode(',', ScraperStrategyType::values()),
-                "scrape_strategy.{$strategy}.value" => 'required|string',
+                // Conditional on the type: schema_org takes no value, everything else
+                // requires one. Shared with meta-extraction so a strategy that tests
+                // successfully can always be saved. See ScrapeStrategyValue.
+                "scrape_strategy.{$strategy}.value" => [new ScrapeStrategyValue],
                 "scrape_strategy.{$strategy}.prepend" => 'nullable|string',
                 "scrape_strategy.{$strategy}.append" => 'nullable|string',
             ])

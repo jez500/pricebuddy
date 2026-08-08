@@ -6,18 +6,23 @@
     $lowConfidence = (bool) data_get($product->insights_cache, 'dealScore.lowConfidence', false);
     $verdictColor = match ($verdictKey) {
         'great', 'good' => 'success',
-        'average' => 'gray',
+        'average', 'unknown' => 'gray',
         'pricey' => 'warning',
         'wait' => 'danger',
         default => 'gray',
     };
+    // "Not enough data yet" already says it has no history; the generic low-confidence
+    // hover would just repeat itself.
+    $verdictHover = $verdictKey === 'unknown'
+        ? __('The price has not moved yet, so there is nothing to compare it against')
+        : ($lowConfidence ? __('Not enough price history for a confident verdict') : $verdict);
 @endphp
 @if (! $product->is_last_scrape_successful || $product->is_notified_price || $latestPrice?->isUnavailable() || $product->paused || $verdict)
     <div {{ $attributes->merge(['class' => 'inline-flex gap-2 mt-1 flex-wrap']) }}>
         @if ($verdict && ! $product->is_notified_price)
             <div class="mt-1 whitespace-nowrap" data-verdict-color="{{ $lowConfidence ? 'gray' : $verdictColor }}">
                 @include('components.icon-badge', [
-                    'hoverText' => $lowConfidence ? __('Not enough price history for a confident verdict') : $verdict,
+                    'hoverText' => $verdictHover,
                     'label' => $verdict,
                     'color' => $lowConfidence ? 'gray' : $verdictColor,
                     'icon' => $lowConfidence ? 'heroicon-m-question-mark-circle' : 'heroicon-m-sparkles',

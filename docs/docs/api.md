@@ -57,7 +57,8 @@ The response shape is:
     "price": 35.0,
     "currency": "AUD",
     "locale": "en-AU",
-    "image": "https://example.com/image.jpg"
+    "image": "https://example.com/image.jpg",
+    "healing": { "attempted": false, "applied": false, "reason": "disabled" }
   }
 }
 ```
@@ -68,6 +69,51 @@ The `price` field is normalized to a numeric value in both the store-backed and 
 the matched store's locale settings, falling back to the app-level defaults when no store could be
 resolved (in which case `store` is `{}`). Both are always present. The embedded `store` object
 carries the same two fields.
+
+### AI healing and the request budget
+
+When the deterministic scrape finds no price, this endpoint can ask the AI healing agent to work
+out a strategy. That is slow, so it is **opt-in**: send `"heal": true`. The default is `false`,
+which returns the deterministic result immediately.
+
+Prefer the default when testing selectors a user just entered — healing may propose a *different*
+strategy than the one under test. Use `heal: true` for an explicit "work it out for me" action,
+and tell the user it will take longer.
+
+The whole request is bounded by `price_buddy.meta_extraction.budget_seconds` (default 25,
+`META_EXTRACTION_BUDGET_SECONDS`), covering the scrape, any browser re-scrape, and the AI call —
+which is given the time remaining rather than the provider's own timeout. When less than
+`heal_floor_seconds` (default 5) remains, healing is skipped rather than started and cut off.
+Read the ceiling from `limits.meta_extraction_timeout_seconds` in `/api/client-config` instead of
+hardcoding a client-side abort.
+
+Healing never fails the request. Whatever happens, the response is a 200 carrying the
+deterministic result, and `healing` says what became of it:
+
+```json
+"healing": { "attempted": true, "applied": false, "reason": "timeout" }
+```
+
+| `reason` | meaning |
+| --- | --- |
+| `null` | healing ran and its config was applied (`applied: true`) |
+| `disabled` | not requested, the store opted out, or no healing provider is configured |
+| `not_needed` | the deterministic scrape already produced a usable result |
+| `timeout` | the budget ran out, or too little remained to start |
+| `error` | healing ran but errored or produced no usable config |
+| `provider_unavailable` | the AI provider's circuit breaker is open — see below |
+
+A provider that fails repeatedly stops being tried. After
+`price_buddy.ai_provider_breaker.failure_threshold` consecutive failures (default 3,
+`AI_PROVIDER_FAILURE_THRESHOLD`) it is treated as unavailable for
+`cooldown_seconds` (default 300, `AI_PROVIDER_COOLDOWN_SECONDS`), and this endpoint
+skips it with `reason: "provider_unavailable"` instead of spending the budget to
+rediscover the same failure. Any successful generation closes it immediately.
+
+Unlike the other reasons this is about the instance, not the page: the same URL is worth
+retrying once the provider recovers. Only callers on a deadline consult the breaker — the
+admin UI's heal button and queued healing keep exercising the provider, so a recovery is
+picked up promptly.
 
 ## Products
 
@@ -178,12 +224,19 @@ matching endpoints without probing for a 4xx.
     "capabilities": {
       "products_filter_url": true,
       "products_current_url": true,
-      "products_sparse_fieldsets": true
+      "products_sparse_fieldsets": true,
+      "stores_filter_domain": true
+    },
+    "limits": {
+      "meta_extraction_timeout_seconds": 25
     },
     "app_version": "1.4.2"
   }
 }
 ```
+
+`limits` publishes this instance's own ceilings so a client can configure itself from them
+rather than hardcoding a guess that silently drifts.
 
 Requires a token with the `client-config:read` ability, or an all-access token. Tokens
 created before this endpoint existed will need re-minting to gain the ability.
@@ -200,6 +253,25 @@ The response carries an `ETag` and `Cache-Control: private, max-age=86400`. Send
 Exact match on a host such as `www.Target.com.au` or `location.host` with a port. A
 leading `www.`, letter case and any port are ignored. Unlike `filter[domains]`, which is
 a partial match, this will not match a substring.
+
+Advertised as the `stores_filter_domain` capability in `/api/client-config`.
+
+### Scrape strategy values
+
+Each `scrape_strategy` slot (`title`, `price`, `image`) has a `type` and, for most types, a
+`value` holding the extraction expression. `schema_org` reads the page's embedded metadata
+and takes no expression:
+
+| `type` | `value` |
+| --- | --- |
+| `schema_org` | Must be omitted or `null`. Sending one is a 422. |
+| `selector`, `xpath`, `regex`, `json` | Required, and must be a non-empty string. |
+
+`POST /api/stores`, `PUT /api/stores/{id}` and `POST /api/meta-extraction` all enforce this
+identically, so any strategy that meta-extraction accepts can be saved as-is.
+
+A stored `schema_org` strategy round-trips without a `value` key at all — the API returns
+`{"type": "schema_org"}`, which is valid input to all three endpoints.
 
 ### Currency & locale
 

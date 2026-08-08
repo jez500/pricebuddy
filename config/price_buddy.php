@@ -26,6 +26,42 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Meta extraction (POST /api/meta-extraction).
+    |--------------------------------------------------------------------------
+    |
+    | budget_seconds is the wall-clock ceiling for one request, covering the scrape,
+    | any browser re-scrape and the AI healing agent. It is published to clients as
+    | limits.meta_extraction_timeout_seconds in /api/client-config so they can set
+    | their own abort from it rather than hardcoding a guess.
+    |
+    | heal_floor_seconds is the least remaining budget worth starting healing with.
+    | Below it healing is skipped outright, since an agent run that gets cut off
+    | costs the user the wait without any chance of a better answer.
+    |
+    */
+    'meta_extraction' => [
+        'budget_seconds' => (int) env('META_EXTRACTION_BUDGET_SECONDS', 25),
+        'heal_floor_seconds' => (int) env('META_EXTRACTION_HEAL_FLOOR_SECONDS', 5),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | AI provider circuit breaker.
+    |--------------------------------------------------------------------------
+    |
+    | After this many consecutive failures a provider is treated as unavailable for
+    | the cooldown, and callers working to a deadline skip it instead of paying the
+    | timeout again. The cooldown doubles as the window: failures spread more thinly
+    | than this never accumulate. Any success closes the breaker immediately.
+    |
+    */
+    'ai_provider_breaker' => [
+        'failure_threshold' => (int) env('AI_PROVIDER_FAILURE_THRESHOLD', 3),
+        'cooldown_seconds' => (int) env('AI_PROVIDER_COOLDOWN_SECONDS', 300),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Strategies to attempt for auto store creation.
     |
     | For each strategy, you can specify a selector and/or regex to attempt to

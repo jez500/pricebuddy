@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Dto\AiProviderConfigDto;
 use App\Enums\AiProvider;
 use App\Exceptions\AiProviderException;
+use App\Services\Ai\AiProviderHealth;
 use App\Services\Ai\ConfiguredStructuredAgent;
 use App\Services\Ai\SecretRedactor;
 use App\Services\Helpers\IntegrationHelper;
@@ -17,6 +18,8 @@ use Throwable;
 
 class AiService
 {
+    public function __construct(protected AiProviderHealth $health) {}
+
     public static function new(): self
     {
         return resolve(static::class);
@@ -52,7 +55,7 @@ class AiService
      * @param  array<int, \Laravel\Ai\Contracts\Tool>  $tools
      * @return array<string, mixed>|null
      */
-    public function runAgent(string $instructions, Closure $schema, string $prompt, array $tools, ?AiProviderConfigDto $provider = null, int $maxSteps = 25): ?array
+    public function runAgent(string $instructions, Closure $schema, string $prompt, array $tools, ?AiProviderConfigDto $provider = null, int $maxSteps = 25, ?int $timeout = null): ?array
     {
         $provider ??= IntegrationHelper::getActiveAiProvider();
 
@@ -76,11 +79,18 @@ class AiService
                 $prompt,
                 provider: $provider->type->toLab(),
                 model: $provider->model,
-                timeout: $provider->timeoutSeconds,
+                // A caller working to a deadline (the synchronous meta-extraction endpoint)
+                // passes the time it has left; everything else uses the provider's own
+                // timeout, which is the right ceiling for queued, best-effort work.
+                timeout: $timeout ?? $provider->timeoutSeconds,
             );
+
+            $this->health->recordSuccess($provider);
 
             return $response instanceof StructuredAgentResponse ? $response->toArray() : null;
         } catch (Throwable $e) {
+            $this->health->recordFailure($provider);
+
             Log::error('AI agent run failed.', [
                 'provider' => $provider->type->driver(),
                 'model' => $provider->model,
@@ -115,8 +125,12 @@ class AiService
                 timeout: $provider->timeoutSeconds,
             );
 
+            $this->health->recordSuccess($provider);
+
             return $response instanceof StructuredAgentResponse ? $response->toArray() : null;
         } catch (Throwable $e) {
+            $this->health->recordFailure($provider);
+
             Log::error('AI structured prompt failed.', [
                 'provider' => $provider->type->driver(),
                 'model' => $provider->model,
@@ -174,6 +188,10 @@ class AiService
      */
     protected function testOllamaConnection(AiProviderConfigDto $provider): true|string
     {
+        // Deliberately does not close the circuit breaker on success: listing models only
+        // proves the HTTP front end is up. An Ollama host can serve /api/tags instantly
+        // while /api/chat never returns, which is precisely the state the breaker exists
+        // for. Only a completed generation counts as recovery.
         $baseUrl = $provider->baseUrl;
 
         if (blank($baseUrl)) {

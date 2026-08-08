@@ -47,6 +47,67 @@ class ProductInsightsTest extends TestCase
         $this->assertSame(115.0, ProductInsights::for($pricier)->bestPrice);
     }
 
+    public function test_a_newly_added_product_does_not_claim_to_be_a_great_buy(): void
+    {
+        $product = Product::factory()
+            ->addUrlWithPrices('https://example-a.com/p', [50])
+            ->create();
+
+        $insights = ProductInsights::for($product);
+
+        $this->assertSame('unknown', $insights->dealScore->verdictKey);
+        $this->assertSame('Not enough data yet', $insights->dealScore->verdict);
+        $this->assertSame(0.0, $insights->dealScore->score);
+        $this->assertFalse($insights->dealScore->isAllTimeLow);
+    }
+
+    public function test_a_price_that_has_never_changed_does_not_claim_to_be_a_great_buy(): void
+    {
+        $product = Product::factory()
+            ->addUrlWithPrices('https://example-a.com/p', [50, 50, 50, 50, 50])
+            ->create();
+
+        $insights = ProductInsights::for($product);
+
+        $this->assertSame('unknown', $insights->dealScore->verdictKey);
+        $this->assertFalse($insights->dealScore->isAllTimeLow);
+    }
+
+    public function test_a_flat_price_that_beats_the_other_listings_is_a_great_buy(): void
+    {
+        $product = Product::factory()
+            ->addUrlWithPrices('https://example-a.com/p', [50, 50, 50])
+            ->addUrlWithPrices('https://example-b.com/p', [60, 60, 60])
+            ->create();
+
+        $insights = ProductInsights::for($product);
+
+        $this->assertSame('great', $insights->dealScore->verdictKey);
+        $this->assertFalse($insights->dealScore->isAllTimeLow);
+    }
+
+    public function test_flat_listings_at_the_same_price_have_nothing_to_go_on(): void
+    {
+        $product = Product::factory()
+            ->addUrlWithPrices('https://example-a.com/p', [50, 50, 50])
+            ->addUrlWithPrices('https://example-b.com/p', [50, 50, 50])
+            ->create();
+
+        $this->assertSame('unknown', ProductInsights::for($product)->dealScore->verdictKey);
+    }
+
+    public function test_a_moving_price_is_still_scored_normally(): void
+    {
+        $product = Product::factory()
+            ->addUrlWithPrices('https://example-a.com/p', [60, 55, 50, 45, 42])
+            ->create();
+
+        $insights = ProductInsights::for($product);
+
+        $this->assertSame('great', $insights->dealScore->verdictKey);
+        $this->assertTrue($insights->dealScore->isAllTimeLow);
+    }
+
     public function test_product_without_prices_reports_no_data(): void
     {
         $product = Product::factory()->create();

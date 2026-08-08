@@ -4,6 +4,7 @@ namespace App\Filament\Resources\StoreResource\Api\Requests;
 
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
+use App\Rules\ScrapeStrategyValue;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -36,12 +37,15 @@ class UpdateStoreRequest extends FormRequest
             'settings.locale_settings.locale' => 'sometimes|string',
             'settings.locale_settings.currency' => 'sometimes|string',
             'scrape_strategy' => 'sometimes|array',
+            // The value rules are conditional on the type: schema_org takes no value,
+            // everything else requires one. Shared with meta-extraction so a strategy that
+            // tests successfully can always be saved. See ScrapeStrategyValue.
             'scrape_strategy.image.type' => 'sometimes|in:'.implode(',', ScraperStrategyType::values()),
-            'scrape_strategy.image.value' => 'required_with:scrape_strategy.image.type|string',
+            'scrape_strategy.image.value' => [new ScrapeStrategyValue],
             'scrape_strategy.price.type' => 'sometimes|in:'.implode(',', ScraperStrategyType::values()),
-            'scrape_strategy.price.value' => 'required_with:scrape_strategy.price.type|string',
+            'scrape_strategy.price.value' => [new ScrapeStrategyValue],
             'scrape_strategy.title.type' => 'sometimes|in:'.implode(',', ScraperStrategyType::values()),
-            'scrape_strategy.title.value' => 'required_with:scrape_strategy.title.type|string',
+            'scrape_strategy.title.value' => [new ScrapeStrategyValue],
             'notes' => 'sometimes|string',
             'user_id' => 'sometimes|exists:users,id|in:'.auth()->id(),
         ];
