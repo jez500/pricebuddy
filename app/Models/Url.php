@@ -415,7 +415,7 @@ class Url extends Model
         $store = data_get($scrape, 'store');
 
         $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
-        $isUnavailable = StockStatus::resolveAvailability(data_get($scrape, 'availability'), $availabilityStrategy)->isUnavailable();
+        $isUnavailable = ScrapeUrl::resolveStockStatus($scrape, $availabilityStrategy)->isUnavailable();
 
         // AI fallback: when a normal create would fail, let the healing agent build or
         // repair the store config, then re-scrape once with the new config.
@@ -424,7 +424,7 @@ class Url extends Model
             $scrape = ScrapeUrl::new($url)->setSendUiNotifications(false)->scrape();
             $store = data_get($scrape, 'store');
             $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
-            $isUnavailable = StockStatus::resolveAvailability(data_get($scrape, 'availability'), $availabilityStrategy)->isUnavailable();
+            $isUnavailable = ScrapeUrl::resolveStockStatus($scrape, $availabilityStrategy)->isUnavailable();
         }
 
         return ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable];
@@ -448,9 +448,8 @@ class Url extends Model
 
         // Update out-of-stock status based on scrape result.
         if ($scrapeResult) {
-            $scrapedValue = data_get($scrapeResult, 'availability');
             $availabilityStrategy = data_get($this->store, 'scrape_strategy.availability');
-            $stockStatus = StockStatus::resolveAvailability($scrapedValue, $availabilityStrategy);
+            $stockStatus = ScrapeUrl::resolveStockStatus($scrapeResult, $availabilityStrategy);
             $availability = $stockStatus->isUnavailable() ? $stockStatus : null;
             $previousAvailability = $this->getAvailabilityStatus();
             $availabilityChanged = $previousAvailability !== $availability;

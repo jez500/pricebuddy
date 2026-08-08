@@ -3,7 +3,6 @@
 namespace App\Rules;
 
 use App\Enums\AiFeature;
-use App\Enums\StockStatus;
 use App\Services\AutoCreateStore;
 use App\Services\Helpers\IntegrationHelper;
 use App\Services\ScrapeUrl;
@@ -42,7 +41,7 @@ class StoreUrl implements DataAwareRule, ValidationRule
             $scrape = ScrapeUrl::new($value)->scrape();
 
             $availabilityStrategy = data_get($scrape, 'store.scrape_strategy.availability');
-            $isUnavailable = StockStatus::resolveAvailability($scrape['availability'] ?? null, $availabilityStrategy)->isUnavailable();
+            $isUnavailable = ScrapeUrl::resolveStockStatus($scrape, $availabilityStrategy)->isUnavailable();
 
             if (empty($scrape['title']) || (empty($scrape['price']) && ! $isUnavailable)) {
                 $fail('The url does not contain a valid title or price');

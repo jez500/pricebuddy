@@ -7,7 +7,6 @@ use App\Dto\AiProviderConfigDto;
 use App\Dto\StoreScraperStrategySetDto;
 use App\Enums\AiFeature;
 use App\Enums\ScraperService;
-use App\Enums\StockStatus;
 use App\Exceptions\AiProviderException;
 use App\Models\Store;
 use App\Models\Url;
@@ -129,7 +128,7 @@ class AiConfigHealer
         }
 
         $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
-        $isUnavailable = StockStatus::resolveAvailability(data_get($scrapeResult, 'availability'), $availabilityStrategy)
+        $isUnavailable = ScrapeUrl::resolveStockStatus($scrapeResult, $availabilityStrategy)
             ->isUnavailable();
 
         if ($isUnavailable) {

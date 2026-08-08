@@ -21,8 +21,8 @@
     <div class="min-h-96">
 
         @if ($showLog)
-            <div wire:poll.visible="refreshProgress" x-init="window.document.getElementById('searchHeading')?.scrollIntoView({behavior: 'smooth'})">
-                <livewire:search-log :messages="$progressLog" :complete="$isComplete" wire:key="{{ $searchLogKey }}" />
+            <div @unless($isComplete) wire:poll.visible.2s="refreshProgress" @endunless x-init="window.document.getElementById('searchHeading')?.scrollIntoView({behavior: 'smooth'})">
+                <livewire:search-log :messages="$progressLog" :complete="(bool) $isComplete" wire:key="{{ $searchLogKey }}" />
             </div>
         @endif
 

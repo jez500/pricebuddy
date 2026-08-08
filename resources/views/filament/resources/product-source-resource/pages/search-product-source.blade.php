@@ -18,8 +18,8 @@
 
         {{-- Progress Log --}}
         @if ($showLog)
-            <div wire:poll.visible="refreshProgress">
-                <livewire:search-log :messages="$progressLog" :complete="$isComplete" wire:key="{{ $searchLogKey }}" />
+            <div @unless($isComplete) wire:poll.visible.2s="refreshProgress" @endunless>
+                <livewire:search-log :messages="$progressLog" :complete="(bool) $isComplete" wire:key="{{ $searchLogKey }}" />
             </div>
         @endif
     </div>

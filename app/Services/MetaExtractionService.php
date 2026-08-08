@@ -6,7 +6,6 @@ use App\Dto\HealingOutcomeDto;
 use App\Enums\AiFeature;
 use App\Enums\HealingReason;
 use App\Enums\ScraperService;
-use App\Enums\StockStatus;
 use App\Models\Store;
 use App\Services\Ai\AiProviderHealth;
 use App\Services\Helpers\CurrencyHelper;
@@ -114,8 +113,8 @@ class MetaExtractionService
             return HealingReason::NotNeeded;
         }
 
-        $isUnavailable = StockStatus::resolveAvailability(
-            data_get($rawScrapeResult, 'availability'),
+        $isUnavailable = ScrapeUrl::resolveStockStatus(
+            $rawScrapeResult,
             $store->scrape_strategy->availability,
         )->isUnavailable();
 

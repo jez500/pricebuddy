@@ -2,10 +2,12 @@
 
 namespace Tests\Unit\Services;
 
+use App\Enums\StockStatus;
 use App\Models\Store;
 use App\Models\User;
 use App\Services\ScrapeUrl;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 use Tests\Traits\ScraperTrait;
@@ -240,5 +242,146 @@ class ScrapeUrlTest extends TestCase
         $this->assertEquals('Schema Title', $result['title']);
         $this->assertEquals('49.99', $result['price']);
         $this->assertEquals('https://example.com/schema.jpg', $result['image']);
+    }
+
+    public function test_soft_404_pages_drop_banner_prices_and_mark_discontinued()
+    {
+        $this->store->update([
+            'settings' => ['scraper_service' => 'http'],
+            'scrape_strategy' => [
+                'title' => ['type' => 'selector', 'value' => 'title'],
+                'price' => ['type' => 'regex', 'value' => '\$([0-9]+(?:\.[0-9]{2})?)'],
+                'image' => ['type' => 'selector', 'value' => 'img|src'],
+            ],
+        ]);
+
+        // Soft 404: real title/body markers, but a shipping-threshold dollar amount
+        // that a naive price regex would happily scrape.
+        Http::fake([
+            '*' => Http::response(<<<'HTML'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>404 Not Found</title>
+    <link rel="canonical" href="https://example.com/404">
+</head>
+<body class="template-404">
+    <p>Orders Over $899!</p>
+    <p>Sorry, the page you were looking for does not exist.</p>
+</body>
+</html>
+HTML),
+        ]);
+
+        $result = ScrapeUrl::new(self::TEST_URL)->scrape();
+
+        $this->assertNull($result['price'] ?? null);
+        $this->assertSame('https://schema.org/Discontinued', $result['availability'] ?? null);
+    }
+
+    public function test_looks_like_not_found_page_detects_common_markers()
+    {
+        $scrapeUrl = ScrapeUrl::new(self::TEST_URL);
+        $method = new \ReflectionMethod(ScrapeUrl::class, 'looksLikeNotFoundPage');
+        $method->setAccessible(true);
+
+        $this->assertTrue($method->invoke($scrapeUrl, '404 Not Found', ''));
+        $this->assertTrue($method->invoke($scrapeUrl, 'Page not found', ''));
+        $this->assertTrue($method->invoke($scrapeUrl, 'Widget', '<body class="template-404"></body>'));
+        $this->assertTrue($method->invoke($scrapeUrl, 'Widget', '<html data-page-type="404"></html>'));
+        $this->assertTrue($method->invoke(
+            $scrapeUrl,
+            'Widget',
+            '<link rel="canonical" href="https://example.com/404">'
+        ));
+        $this->assertTrue($method->invoke(
+            $scrapeUrl,
+            'Widget',
+            '<link href="https://example.com/404" rel="canonical">'
+        ));
+        $this->assertFalse($method->invoke($scrapeUrl, 'Pellet Grill', '<body><p>$899 product</p></body>'));
+    }
+
+    /**
+     * "404" is a real model number on plenty of products, so it must not condemn a page
+     * on its own — only alongside error wording, or as the entire title.
+     */
+    public function test_looks_like_not_found_page_ignores_404_used_as_a_model_number()
+    {
+        $scrapeUrl = ScrapeUrl::new(self::TEST_URL);
+        $method = new \ReflectionMethod(ScrapeUrl::class, 'looksLikeNotFoundPage');
+
+        foreach (['Roland SP-404', 'Roland SP-404MKII Sampler', 'Peugeot 404 Wing Mirror', 'AR-404 Amplifier'] as $title) {
+            $this->assertFalse(
+                $method->invoke($scrapeUrl, $title, '<body><p>$899</p></body>'),
+                $title.' should not be treated as a 404 page'
+            );
+        }
+
+        foreach (['404', '404 Error', 'Error 404 | Store', '404 - Page Not Found'] as $title) {
+            $this->assertTrue(
+                $method->invoke($scrapeUrl, $title, ''),
+                $title.' should be treated as a 404 page'
+            );
+        }
+    }
+
+    /**
+     * The 404 body markers must be anchored to the attribute they belong to, so a theme's
+     * bundled CSS or JSON mentioning a 404 template cannot condemn a real product page.
+     */
+    public function test_looks_like_not_found_page_ignores_incidental_404_mentions_in_body()
+    {
+        $scrapeUrl = ScrapeUrl::new(self::TEST_URL);
+        $method = new \ReflectionMethod(ScrapeUrl::class, 'looksLikeNotFoundPage');
+
+        $this->assertFalse($method->invoke(
+            $scrapeUrl,
+            'Pellet Grill',
+            '<style>.template-404 .banner { display: none; }</style><body class="template-product"><p>$899</p></body>'
+        ));
+
+        $this->assertFalse($method->invoke(
+            $scrapeUrl,
+            'Pellet Grill',
+            '<a href="https://example.com/404">Report a broken link</a>'
+        ));
+    }
+
+    /**
+     * The store's availability match config must not be able to re-interpret a soft 404
+     * back into "in stock" — the page simply has no product on it.
+     */
+    public function test_soft_404_resolves_to_discontinued_despite_a_store_availability_match_config()
+    {
+        $this->store->update([
+            'scrape_strategy' => [
+                'title' => ['type' => 'selector', 'value' => 'title'],
+                'availability' => [
+                    'type' => 'selector',
+                    'value' => '.stock',
+                    'match' => [
+                        'out_of_stock' => ['type' => 'match', 'value' => 'Sold out'],
+                        'default' => 'in_stock',
+                    ],
+                ],
+            ],
+        ]);
+
+        $strategy = $this->store->fresh()->scrape_strategy->availability;
+
+        $this->assertSame(
+            StockStatus::InStock,
+            ScrapeUrl::resolveStockStatus(['availability' => 'https://schema.org/Discontinued'], $strategy),
+            'sanity check: the raw availability value alone is overridden by the match config default'
+        );
+
+        $this->assertSame(
+            StockStatus::Discontinued,
+            ScrapeUrl::resolveStockStatus([
+                'availability' => 'https://schema.org/Discontinued',
+                ScrapeUrl::NOT_FOUND_KEY => true,
+            ], $strategy)
+        );
     }
 }

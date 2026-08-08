@@ -597,7 +597,9 @@ class UrlTest extends TestCase
             'store_id' => $this->store->getKey(),
         ]);
 
-        $historyPriceIds = $url->prices()->pluck('id')->all();
+        // reorder() drops the relation's created_at ordering: both rows share a timestamp,
+        // so only an explicit id order matches the id-ordered assertion below.
+        $historyPriceIds = $url->prices()->reorder('id')->pluck('id')->all();
         $this->assertCount(2, $historyPriceIds);
 
         $newStore = Store::factory()->createOne([

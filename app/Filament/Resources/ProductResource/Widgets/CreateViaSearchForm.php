@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\ProductResource\Widgets;
 
 use App\Enums\Icons;
+use App\Filament\Concerns\InteractsWithSearchProgress;
 use App\Jobs\CacheSearchResults;
 use App\Models\Product;
 use App\Services\Helpers\IntegrationHelper;
@@ -24,6 +25,7 @@ use Livewire\Attributes\Url;
 class CreateViaSearchForm extends Widget implements HasForms
 {
     use InteractsWithForms;
+    use InteractsWithSearchProgress;
 
     protected $listeners = [
         'refreshSearchForm' => '$refresh',
@@ -38,8 +40,6 @@ class CreateViaSearchForm extends Widget implements HasForms
 
     public array $filters = [];
 
-    public array $progressLog = [];
-
     public array $results = [];
 
     public ?Product $product = null;
@@ -48,15 +48,6 @@ class CreateViaSearchForm extends Widget implements HasForms
      * Url of the page this component is embedded on.
      */
     public string $pageUrl = '/admin/products/create';
-
-    public bool $showLog = false;
-
-    /**
-     * Timestamp of when the search job was started/completed.
-     */
-    public false|string $inProgress = false;
-
-    public false|string $isComplete = false;
 
     public static function canView(): bool
     {
@@ -140,9 +131,6 @@ class CreateViaSearchForm extends Widget implements HasForms
             return;
         }
 
-        // Avoid empty log.
-        $this->progressLog[] = ['message' => __('Preparing to search'), 'timestamp' => now()];
-
         $service = SearchService::new($this->searchQuery);
 
         if ($inProgress = $service->getInProgress()) {
@@ -160,10 +148,13 @@ class CreateViaSearchForm extends Widget implements HasForms
         }
 
         if ($this->isComplete || $this->inProgress) {
-            $this->refreshProgress();
+            $this->syncProgressFromService();
 
             return;
         }
+
+        // Avoid empty log.
+        $this->progressLog[] = ['message' => __('Preparing to search'), 'timestamp' => now()];
 
         $this->inProgress = now()->toDateTimeString();
         $this->progressLog[] = ['message' => __('Dispatching search job for ":query"', ['query' => $this->searchQuery]), 'timestamp' => now()];
@@ -177,21 +168,9 @@ class CreateViaSearchForm extends Widget implements HasForms
             ->send();
     }
 
-    /**
-     * Called on poll from the frontend.
-     */
-    public function refreshProgress(): void
+    protected function resolveProgressSearchQuery(): ?string
     {
-        $searchQuery = $this->searchQuery ?? $this->getSearchKeywordFromForm();
-
-        if ($searchQuery && ! $this->isComplete) {
-            $this->progressLog[] = ['message' => __('Refreshing progress for ":query"', ['query' => $searchQuery]), 'timestamp' => now()];
-
-            $service = SearchService::new($searchQuery);
-            $this->progressLog = $service->getLog();
-            $this->inProgress = $service->getInProgress();
-            $this->isComplete = $service->getIsComplete();
-        }
+        return $this->searchQuery ?: $this->getSearchKeywordFromForm();
     }
 
     protected function getSearchKeywordFromForm(): string
