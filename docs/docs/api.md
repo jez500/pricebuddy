@@ -55,12 +55,19 @@ The response shape is:
   "data": {
     "title": "Example product",
     "price": 35.0,
+    "currency": "AUD",
+    "locale": "en-AU",
     "image": "https://example.com/image.jpg"
   }
 }
 ```
 
 The `price` field is normalized to a numeric value in both the store-backed and auto-create paths.
+
+`currency` (ISO 4217) and `locale` (BCP-47) tell a client how to format `price`. They come from
+the matched store's locale settings, falling back to the app-level defaults when no store could be
+resolved (in which case `store` is `{}`). Both are always present. The embedded `store` object
+carries the same two fields.
 
 ## Products
 
@@ -193,3 +200,13 @@ The response carries an `ETag` and `Cache-Control: private, max-age=86400`. Send
 Exact match on a host such as `www.Target.com.au` or `location.host` with a port. A
 leading `www.`, letter case and any port are ignored. Unlike `filter[domains]`, which is
 a partial match, this will not match a substring.
+
+### Currency & locale
+
+Every store in `GET /api/stores` and `GET /api/stores/{id}` carries a `currency` (ISO 4217, e.g.
+`"AUD"`) and a `locale` (BCP-47, e.g. `"en-AU"`). These are resolved values: a store's own
+`settings.locale_settings` if set, otherwise the app-level defaults from Settings. Reading the raw
+`settings` blob is not equivalent — most stores have no `locale_settings` key at all.
+
+Both are computed, not columns, so they cannot be named in `fields[stores]`. They are still
+returned correctly when other sparse fieldsets are used.

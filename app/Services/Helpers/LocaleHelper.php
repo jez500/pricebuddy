@@ -22,6 +22,16 @@ class LocaleHelper
         ];
     }
 
+    /**
+     * Convert an ICU locale ID (`en_AU`, as stored in settings) to a BCP-47 language
+     * tag (`en-AU`). API clients feed this straight into `Intl.NumberFormat`, which
+     * rejects the underscore form.
+     */
+    public static function toBcp47(?string $locale): string
+    {
+        return str_replace('_', '-', (string) $locale);
+    }
+
     public static function getAllLocalesAsOptions(): array
     {
         return collect(Locales::getNames())

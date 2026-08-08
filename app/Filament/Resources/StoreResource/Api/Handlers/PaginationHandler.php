@@ -10,7 +10,9 @@ use App\Models\Url;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\QueryParameter;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Arr;
 use Rupadana\ApiService\Http\Handlers;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
@@ -109,6 +111,23 @@ class PaginationHandler extends Handlers
     }
 
     /**
+     * The sparse fieldset requested for stores, if any. Spatie accepts the comma-separated
+     * form (fields[stores]=id,name) and clients sometimes send the array form, so both are
+     * flattened to a plain list. An empty list means no sparse fieldset was requested.
+     *
+     * @return array<int, string>
+     */
+    protected function requestedStoreFields(): array
+    {
+        return collect(Arr::wrap(request()->input('fields.stores')))
+            ->flatMap(fn ($value): array => explode(',', (string) $value))
+            ->map(fn (string $field): string => trim($field))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
      * List of Stores
      *
      * @return AnonymousResourceCollection
@@ -128,9 +147,32 @@ class PaginationHandler extends Handlers
             ->allowedFields($this->getAllowedFields())
             ->allowedSorts($this->getAllowedSorts())
             ->allowedFilters($this->getAllowedFilters())
-            ->allowedIncludes($this->getAllowedIncludes())
+            ->allowedIncludes($this->getAllowedIncludes());
+
+        // StoreTransformer exposes `currency` and `locale`, which are accessors reading from
+        // `settings`. They are deliberately absent from getAllowedFields() (selecting a
+        // non-existent column would blow up), but a sparse fieldset that omits `settings`
+        // would leave the accessors reading a missing attribute and silently reporting the
+        // app-level fallback instead of the store's override. Force the column into the
+        // select in that case. Only when fields were requested: addSelect() on a query with
+        // no select clause would narrow `select *` down to this one column.
+        $requestedFields = $this->requestedStoreFields();
+
+        if ($requestedFields !== []) {
+            $query->addSelect('stores.settings');
+        }
+
+        $query = $query
             ->paginate($this->getPerPage())
             ->appends(request()->query());
+
+        // `settings` was selected to resolve those accessors, not because the client asked
+        // for it. Hide it again so a sparse fieldset returns only the requested fields —
+        // it carries per-store scraper configuration and has no business leaking into a
+        // response that asked for `id,name`.
+        if ($requestedFields !== [] && ! in_array('settings', $requestedFields, true)) {
+            $query->getCollection()->each(fn (Model $store) => $store->makeHidden('settings'));
+        }
 
         return StoreTransformer::collection($query);
     }
