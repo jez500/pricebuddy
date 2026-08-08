@@ -128,7 +128,20 @@ class PaginationHandler extends Handlers
             ->allowedFields($this->getAllowedFields())
             ->allowedSorts($this->getAllowedSorts())
             ->allowedFilters($this->getAllowedFilters())
-            ->allowedIncludes($this->getAllowedIncludes())
+            ->allowedIncludes($this->getAllowedIncludes());
+
+        // StoreTransformer exposes `currency` and `locale`, which are accessors reading from
+        // `settings`. They are deliberately absent from getAllowedFields() (selecting a
+        // non-existent column would blow up), but a sparse fieldset that omits `settings`
+        // would leave the accessors reading a missing attribute and silently reporting the
+        // app-level fallback instead of the store's override. Force the column into the
+        // select in that case. Only when fields were requested: addSelect() on a query with
+        // no select clause would narrow `select *` down to this one column.
+        if (filled(request()->input('fields.stores'))) {
+            $query->addSelect('stores.settings');
+        }
+
+        $query = $query
             ->paginate($this->getPerPage())
             ->appends(request()->query());
 

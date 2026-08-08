@@ -75,6 +75,49 @@ class MetaExtractionApiTest extends TestCase
             ->assertJsonPath('data.image', 'https://example.com/image.jpg');
     }
 
+    public function test_extraction_exposes_currency_and_locale_from_the_resolved_store(): void
+    {
+        SettingsHelper::setSetting('default_locale_settings', ['locale' => 'en_AU', 'currency' => 'AUD']);
+
+        Store::factory()->create([
+            'user_id' => $this->user->id,
+            'domains' => [
+                ['domain' => parse_url($this->url, PHP_URL_HOST)],
+            ],
+            'settings' => [
+                'scraper_service' => 'http',
+                'scraper_service_settings' => '',
+                'locale_settings' => ['currency' => 'GBP', 'locale' => 'en_GB'],
+            ],
+        ]);
+
+        $this->mockScrape('$35.00', 'Example product', 'https://example.com/image.jpg');
+
+        $this->postJson('/api/meta-extraction', ['url' => $this->url])
+            ->assertOk()
+            ->assertJsonPath('data.currency', 'GBP')
+            ->assertJsonPath('data.locale', 'en-GB')
+            ->assertJsonPath('data.store.currency', 'GBP')
+            ->assertJsonPath('data.store.locale', 'en-GB');
+    }
+
+    public function test_extraction_falls_back_to_the_app_currency_and_locale_without_a_store(): void
+    {
+        SettingsHelper::setSetting('default_locale_settings', ['locale' => 'en_AU', 'currency' => 'AUD']);
+
+        $this->configureProviders(['feature_providers' => ['healing' => '__disabled__']]);
+        $this->fakeHtml($this->healHtml());
+        $this->mockAgent([], 'never');
+
+        $response = $this->postJson('/api/meta-extraction', ['url' => $this->url]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.currency', 'AUD')
+            ->assertJsonPath('data.locale', 'en-AU');
+
+        $this->assertEmpty($response->json('data.store'));
+    }
+
     public function test_can_extract_meta_using_store_override(): void
     {
         $this->mockScrape('$19.99', 'Override product', 'https://example.com/override.jpg');

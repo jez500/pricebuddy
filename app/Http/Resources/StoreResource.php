@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Store;
+use App\Services\Helpers\LocaleHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -28,6 +29,10 @@ class StoreResource extends JsonResource
             // The name differs intentionally to keep the public contract stable.
             'scrape_settings' => $this->resource->scrape_strategy,
             'settings' => $this->resource->settings,
+            // Resolved accessor values, not the raw `settings.locale_settings` blob, which is
+            // absent on most stores. ISO 4217 code and BCP-47 tag, so clients can format prices.
+            'currency' => $this->resource->currency,
+            'locale' => LocaleHelper::toBcp47($this->resource->locale),
         ];
     }
 }

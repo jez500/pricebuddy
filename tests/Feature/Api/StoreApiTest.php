@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Enums\ScraperService;
 use App\Models\Store;
 use App\Models\User;
+use App\Services\Helpers\SettingsHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -76,6 +77,61 @@ class StoreApiTest extends TestCase
                     'name' => $store->name,
                 ],
             ]);
+    }
+
+    public function test_list_includes_resolved_currency_and_locale(): void
+    {
+        SettingsHelper::setSetting('default_locale_settings', ['locale' => 'en_AU', 'currency' => 'AUD']);
+
+        $withOverride = Store::factory()->create([
+            'user_id' => $this->user->id,
+            'settings' => ['locale_settings' => ['currency' => 'GBP', 'locale' => 'en_GB']],
+        ]);
+        $withoutOverride = Store::factory()->create(['user_id' => $this->user->id]);
+
+        $response = $this->getJson('/api/stores?sort=id');
+
+        $response->assertSuccessful()
+            ->assertJsonStructure(['data' => ['*' => ['currency', 'locale']]]);
+
+        $byId = collect($response->json('data'))->keyBy('id');
+
+        $this->assertSame('GBP', $byId[$withOverride->id]['currency']);
+        $this->assertSame('en-GB', $byId[$withOverride->id]['locale']);
+        $this->assertSame('AUD', $byId[$withoutOverride->id]['currency']);
+        $this->assertSame('en-AU', $byId[$withoutOverride->id]['locale']);
+    }
+
+    public function test_show_includes_resolved_currency_and_locale(): void
+    {
+        SettingsHelper::setSetting('default_locale_settings', ['locale' => 'en_AU', 'currency' => 'AUD']);
+
+        $store = Store::factory()->create([
+            'user_id' => $this->user->id,
+            'settings' => ['locale_settings' => ['currency' => 'GBP', 'locale' => 'en_GB']],
+        ]);
+
+        $this->getJson("/api/stores/{$store->id}")
+            ->assertSuccessful()
+            ->assertJsonPath('data.currency', 'GBP')
+            ->assertJsonPath('data.locale', 'en-GB');
+    }
+
+    public function test_sparse_fieldset_still_reports_the_stores_own_currency(): void
+    {
+        SettingsHelper::setSetting('default_locale_settings', ['locale' => 'en_AU', 'currency' => 'AUD']);
+
+        $store = Store::factory()->create([
+            'user_id' => $this->user->id,
+            'settings' => ['locale_settings' => ['currency' => 'GBP', 'locale' => 'en_GB']],
+        ]);
+
+        // `settings` is not requested, but the currency/locale accessors read from it.
+        $this->getJson('/api/stores?fields[stores]=id,name')
+            ->assertSuccessful()
+            ->assertJsonPath('data.0.id', $store->id)
+            ->assertJsonPath('data.0.currency', 'GBP')
+            ->assertJsonPath('data.0.locale', 'en-GB');
     }
 
     public function test_cannot_show_other_users_store(): void
