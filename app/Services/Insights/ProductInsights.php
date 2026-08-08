@@ -14,6 +14,12 @@ class ProductInsights
      */
     private const MIN_DATA_POINTS = 2;
 
+    /**
+     * Tolerance for treating two prices as equal, to absorb float rounding when deciding
+     * whether a price has moved at all.
+     */
+    private const PRICE_EPSILON = 0.005;
+
     public static function for(Product $product): ProductInsightsData
     {
         return is_array($product->insights_cache) && $product->insights_cache !== []
@@ -38,7 +44,14 @@ class ProductInsights
 
         $stats = (new PriceStatsCalculator)->calculate($series, $listings);
         $percentile = (new PercentileCalculator)->calculate($series, $current);
-        $dealScore = (new DealScoreCalculator)->calculate($percentile->beatFraction, $current, $stats->lowest, $series->count());
+        $dealScore = (new DealScoreCalculator)->calculate(
+            $percentile->beatFraction,
+            $current,
+            $stats->lowest,
+            $series->count(),
+            $this->hasPriceVariation($series),
+            $this->beatsOtherListings($listings),
+        );
         $distribution = (new DistributionCalculator)->calculate($series, $current);
         $dropEvents = (new DropEventCalculator)->calculate($listings);
         $storeShowdown = (new StoreShowdownCalculator)->calculate($listings);
@@ -65,6 +78,38 @@ class ProductInsights
             targetTracker: $targetTracker,
             hasEnoughData: $series->count() >= self::MIN_DATA_POINTS,
         );
+    }
+
+    /**
+     * Whether the daily-best price has ever actually moved. A single reading, or a run of
+     * identical ones, gives the deal score nothing to compare today against.
+     *
+     * @param  Collection<string, float>  $series
+     */
+    protected function hasPriceVariation(Collection $series): bool
+    {
+        return $series->count() >= 2
+            && ((float) $series->max() - (float) $series->min()) > self::PRICE_EPSILON;
+    }
+
+    /**
+     * Whether the cheapest listing is strictly cheaper than every other listing on the
+     * product right now. Not history, but real evidence: it is the best place to buy this
+     * today. Mirrors the daily-best series in ignoring availability, so the comparison is
+     * against the same prices the rest of the insights are built from.
+     *
+     * @param  Collection<int, ListingHistory>  $listings
+     */
+    protected function beatsOtherListings(Collection $listings): bool
+    {
+        $currents = $listings
+            ->map(fn (ListingHistory $l): float => $l->history->isEmpty() ? 0.0 : (float) $l->history->last())
+            ->filter(fn (float $price): bool => $price > 0)
+            ->sort()
+            ->values();
+
+        return $currents->count() >= 2
+            && ($currents->get(1) - $currents->get(0)) > self::PRICE_EPSILON;
     }
 
     /**
