@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\View;
 
+use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\SettingsHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -16,6 +17,13 @@ class StatBarTest extends TestCase
 
         SettingsHelper::$settings = null;
         SettingsHelper::setSetting('default_locale_settings', ['locale' => 'en', 'currency' => 'USD']);
+    }
+
+    protected function tearDown(): void
+    {
+        SettingsHelper::$settings = null;
+
+        parent::tearDown();
     }
 
     private function renderStatBar(array $overrides = []): string
@@ -37,11 +45,12 @@ class StatBarTest extends TestCase
 
         $html = $this->renderStatBar();
 
+        $this->assertStringContainsString(CurrencyHelper::toString(123.45), $html);
         $this->assertStringContainsString('€', $html);
         $this->assertStringNotContainsString('$123.45', $html);
     }
 
-    public function test_potential_savings_usd_default_renders_dollar_value(): void
+    public function test_potential_savings_configured_usd_renders_dollar_value(): void
     {
         $html = $this->renderStatBar(['potentialSavings' => 123.45]);
 
