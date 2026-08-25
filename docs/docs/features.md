@@ -120,6 +120,19 @@ Support for light and dark mode. Fully mobile friendly and easy to use.
 Use your instance of [SearXNG](https://github.com/searxng/searxng) to make it 
 easier to search for products and add urls within the app.
 
+## Browser extension
+
+The [PriceBuddy Companion](/browser-extension.html) extension for Chrome and Edge puts PriceBuddy
+on the product page you are already looking at. Track the product in one click, see how the price
+compares to the other stores you track, and tune a store's scrape strategy without leaving the
+site.
+
+## Command line and agents
+
+The [PriceBuddy CLI](/cli.html) gives humans and AI agents scriptable access to your instance:
+sync a local mirror, search products, inspect price history, run deal and drop reports, and expose
+PriceBuddy to an AI assistant through MCP.
+
 ## Open source and self-hostable
 
 PriceBuddy is open source and self-hostable. You can run it on your own server

@@ -4,6 +4,9 @@ You can access PriceBuddy via its built-in REST API that can be used to create, 
 (CRUD) products, stores and tags programmatically. This is useful if any other external applications or 
 extensions want to interact with PriceBuddy.
 
+The [browser extension](/browser-extension.html) and the [CLI](/cli.html) are both built on this API,
+so anything they do is available to your own scripts too.
+
 ## Authentication / API Tokens
 
 To use any of the API endpoints, you must be authenticated. This is done via an API token. You can generate
