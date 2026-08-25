@@ -32,6 +32,7 @@ export default defineUserConfig({
             '/users',
             '/api',
             '/cli',
+            '/browser-extension',
             '/log-messages',
             '/faqs',
         ],

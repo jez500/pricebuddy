@@ -4,9 +4,9 @@
 
 PriceBuddy is an open source, self-hostable price tracker for people who would rather watch products than browser tabs. Paste in a product URL, let PriceBuddy check it on a schedule, and get notified when the price or availability moves in your favour.
 
-It works across different stores, keeps price history, compares listings, handles stock status, and can use your own AI provider when a page is awkward to scrape. The web app is the main control room; the API and CLI make it scriptable.
+It works across different stores, keeps price history, compares listings, handles stock status, and can use your own AI provider when a page is awkward to scrape. The web app is the main control room; the browser extension brings it to the product page you are already on, and the API and CLI make it scriptable.
 
-[Read the docs](https://pricebuddy.jez.me?ref=pb-gh) · [Install with Docker](#installation) · [Explore features](#features) · [CLI](https://github.com/jez500/pricebuddy-cli)
+[Read the docs](https://pricebuddy.jez.me?ref=pb-gh) · [Install with Docker](#installation) · [Explore features](#features) · [CLI](https://github.com/jez500/pricebuddy-cli) · [Browser extension](https://chromewebstore.google.com/detail/pricebuddy-companion/khmeibbaaegidkjlkbckgnhfgpgfgnoe)
 
 ![Dashboard](docs/docs/.vuepress/public/screenshots/dashboard.png)
 
@@ -50,6 +50,10 @@ Bring your own OpenAI, Anthropic, Gemini or local Ollama provider. PriceBuddy ca
 
 Connect a [SearXNG](https://github.com/searxng/searxng) instance and search for products from inside PriceBuddy.
 
+### Track from the page you are on
+
+The [PriceBuddy Companion](https://chromewebstore.google.com/detail/pricebuddy-companion/khmeibbaaegidkjlkbckgnhfgpgfgnoe) browser extension adds a panel to any product page so you can start tracking it, see how the price compares to the other stores you track, and fix a store's scrape strategy in place.
+
 ### Organise a shared watchlist
 
 Use tags, filters and multi-user accounts so each person can track their own products, targets and notification preferences.
@@ -65,8 +69,7 @@ PriceBuddy is designed to be useful from more than the web UI. The tool ecosyste
 | Tool | What it is for |
 | --- | --- |
 | [PriceBuddy CLI](https://github.com/jez500/pricebuddy-cli) | Command-line access for humans and agents. Sync a local mirror, search products, inspect price history, run deal/drop reports, call the REST API, and expose PriceBuddy through MCP. |
-
-A browser extension is planned.
+| [PriceBuddy Companion](https://chromewebstore.google.com/detail/pricebuddy-companion/khmeibbaaegidkjlkbckgnhfgpgfgnoe) | Chrome/Edge extension. Track a product from the page you are on, see its price insights against other stores, and tune a store's scrape strategy without leaving the site. [Source](https://github.com/jez500/pricebuddy-browser-extensions) · [Docs](https://pricebuddy.jez.me/browser-extension.html) |
 
 ## Screenshots
 
