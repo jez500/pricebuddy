@@ -1,9 +1,6 @@
 services:
 
     app:
-        build:
-            context: .
-            dockerfile: docker/php.dockerfile
         image: jez500/pricebuddy:latest
         ports:
             - 8080:80

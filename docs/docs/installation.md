@@ -4,6 +4,9 @@ The recommended way to install PriceBuddy is via Docker. This will ensure that a
 dependencies are installed and configured correctly. A `docker-compose.yml` file is
 provided to make this easy.
 
+Pre-built docker images can be found on Docker Hub for [PriceBuddy](https://hub.docker.com/r/jez500/pricebuddy)
+and [Seleniumbase Scrapper](https://hub.docker.com/r/jez500/seleniumbase-scrapper).
+
 ## Quick start
 
 ```shell
