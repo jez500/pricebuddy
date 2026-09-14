@@ -94,9 +94,12 @@ return [
             ],
             ScraperStrategyType::xPath->value => [],
             ScraperStrategyType::Regex->value => [
-                '~\"price\"\:\s?\"(.*?)\"~',        // Something that looks like a price, in a json object, eg "price": "99.99"
-                '~>\$(\d+(\.\d{2})?)<~',            // Something that looks like a price, in a tag, eg >$99.99<
-                '~\$(\d+(\.\d{2})?)~',              // Something that looks like a price, not in a tag
+                '~\"price\"\:\s?(\d+(?:\.\d{2})?)~',  // JSON "price": 99.99 or "price": "99.99"
+                '~₹\s*([\d,]+(?:\.\d{2})?)~',        // Indian Rupee: ₹99.00 or ₹1,999
+                '~Rs\.?\s*([\d,]+(?:\.\d{2})?)~',    // Indian Rupee: Rs.99.00 or Rs 1,999
+                '~INR\s*([\d,]+(?:\.\d{2})?)~',      // Indian Rupee: INR 99.00
+                '~>\$(\d+(\.\d{2})?)<~',             // USD in a tag: >$99.99<
+                '~\$(\d+(\.\d{2})?)~',               // USD: $99.99
             ],
         ],
         'image' => [
