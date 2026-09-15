@@ -17,9 +17,17 @@ class SchemaOrgService
      */
     public static function parseSchemaOrg(Collection $collection, string $field): ?string
     {
+        // Flatten nested arrays (e.g. Flipkart returns [[{...}]]) so each
+        // candidate is a single schema.org object.
+        $flat = $collection->flatten(1);
+
         // Match the Product node case-insensitively, and tolerate an array @type
         // (e.g. ["Product", "Thing"]). Some sites use a lowercase "product" type.
-        $schema = $collection->first(function ($item): bool {
+        $schema = $flat->first(function ($item): bool {
+            if (! is_array($item)) {
+                return false;
+            }
+
             $types = array_map(
                 static fn ($type): string => strtolower((string) $type),
                 (array) data_get($item, '@type'),
