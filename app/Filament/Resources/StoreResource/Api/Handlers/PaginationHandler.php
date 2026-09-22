@@ -81,9 +81,14 @@ class PaginationHandler extends Handlers
                 // tenancy boundary — it exists to bound how many rows are hydrated for the
                 // PHP comparison (without it, every user's matching stores would be loaded
                 // into memory here), plus defence in depth.
+                // Postgres has no LOWER(json), so cast to text there first.
+                $domainsExpr = Store::query()->getConnection()->getDriverName() === 'pgsql'
+                    ? 'LOWER(domains::text)'
+                    : 'LOWER(domains)';
+
                 $ids = Store::query()
                     ->where('user_id', auth()->id())
-                    ->whereRaw('LOWER(domains) LIKE ?', ['%'.addcslashes($host, '%_').'%'])
+                    ->whereRaw($domainsExpr.' LIKE ?', ['%'.addcslashes($host, '%_').'%'])
                     ->get(['id', 'domains'])
                     ->filter(fn (Store $store): bool => collect($store->domains)
                         ->contains(fn ($entry): bool => Url::normalizeHost((string) data_get($entry, 'domain')) === $host))
