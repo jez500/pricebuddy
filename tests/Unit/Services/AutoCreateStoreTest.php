@@ -127,7 +127,7 @@ class AutoCreateStoreTest extends TestCase
             ],
             'price' => [
                 'type' => 'regex',
-                'value' => '~>\$(\d+(\.\d{2})?)<~',
+                'value' => '~>\$([\d,]+(\.\d{2})?)<~',
                 'data' => '35.00',
             ],
             'image' => [
@@ -151,7 +151,7 @@ class AutoCreateStoreTest extends TestCase
             ],
             'price' => [
                 'type' => 'regex',
-                'value' => '~\$(\d+(\.\d{2})?)~',
+                'value' => '~\$([\d,]+(\.\d{2})?)~',
                 'data' => '35.00',
             ],
             'image' => [
@@ -175,8 +175,32 @@ class AutoCreateStoreTest extends TestCase
             ],
             'price' => [
                 'type' => 'regex',
-                'value' => '~\$(\d+(\.\d{2})?)~',
+                'value' => '~\$([\d,]+(\.\d{2})?)~',
                 'data' => '35.00',
+            ],
+            'image' => [
+                'type' => 'selector',
+                'value' => 'meta[property="og:image"]|content',
+                'data' => 'http://localhost/my-image.jpg',
+            ],
+        ], $autoCreateStore->strategyParse());
+    }
+
+    public function test_rule_parse_unstructured_regex_thousands_separator()
+    {
+        $this->fakeResponse('unstructured-regex-thousands');
+        $autoCreateStore = new AutoCreateStore($this->testUrl, $this->html);
+
+        $this->assertEquals([
+            'title' => [
+                'type' => 'selector',
+                'value' => 'h1',
+                'data' => 'My product',
+            ],
+            'price' => [
+                'type' => 'regex',
+                'value' => '~>\$([\d,]+(\.\d{2})?)<~',
+                'data' => 3924.80,
             ],
             'image' => [
                 'type' => 'selector',
