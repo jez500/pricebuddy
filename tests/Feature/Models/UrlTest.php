@@ -211,6 +211,57 @@ class UrlTest extends TestCase
         $this->assertCount(1, $urlModel->product->fresh()->getPriceCache());
     }
 
+    public function test_create_from_url_with_missing_price_when_store_treats_it_as_out_of_stock()
+    {
+        $this->actingAs($this->user);
+        $this->store->update(['settings' => array_merge($this->store->settings ?? [], ['missing_price_out_of_stock' => true])]);
+
+        $this->mockScrape('', 'Out of Stock Product');
+
+        $urlModel = Url::createFromUrl(self::TEST_URL);
+
+        $this->assertInstanceOf(Url::class, $urlModel);
+        $this->assertSame(StockStatus::OutOfStock, $urlModel->availability);
+        $this->assertCount(0, $urlModel->prices);
+    }
+
+    public function test_create_from_url_with_missing_price_fails_when_store_setting_is_off()
+    {
+        $this->actingAs($this->user);
+
+        $this->mockScrape('', 'Out of Stock Product');
+
+        $this->assertFalse(Url::createFromUrl(self::TEST_URL));
+    }
+
+    public function test_missing_price_and_title_is_not_treated_as_out_of_stock()
+    {
+        $this->actingAs($this->user);
+        $this->store->update(['settings' => array_merge($this->store->settings ?? [], ['missing_price_out_of_stock' => true])]);
+
+        $this->mockScrape('', '');
+
+        $this->assertFalse(Url::createFromUrl(self::TEST_URL));
+    }
+
+    public function test_update_price_missing_price_marks_out_of_stock_when_store_setting_enabled()
+    {
+        $product = Product::factory()->create();
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+        ]);
+        $this->store->update(['settings' => array_merge($this->store->settings ?? [], ['missing_price_out_of_stock' => true])]);
+
+        $this->mockScrape('', 'foo');
+
+        $url->updatePrice();
+
+        $this->assertCount(0, $url->prices);
+        $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
+    }
+
     public function test_update_price_unavailable_no_price_does_not_create_price()
     {
         $product = Product::factory()->create();

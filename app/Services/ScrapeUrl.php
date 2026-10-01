@@ -303,6 +303,11 @@ class ScrapeUrl
      * config re-interprets it, finds no rule for it and falls back to that config's
      * default (usually InStock), silently undoing the guard.
      *
+     * Some stores (e.g. Amazon) drop the price element entirely when a product is out of
+     * stock. A store can opt in to reading a page that has a title but no price as
+     * OutOfStock, so the product can still be created and healing does not "repair" the
+     * price selector onto an unrelated price on the page.
+     *
      * @param  array<string, mixed>|null  $scrapeResult
      */
     public static function resolveStockStatus(?array $scrapeResult, ?AvailabilityStrategyDto $availabilityStrategy): StockStatus
@@ -311,7 +316,19 @@ class ScrapeUrl
             return StockStatus::Discontinued;
         }
 
-        return StockStatus::resolveAvailability(data_get($scrapeResult, 'availability'), $availabilityStrategy);
+        $status = StockStatus::resolveAvailability(data_get($scrapeResult, 'availability'), $availabilityStrategy);
+
+        $store = data_get($scrapeResult, 'store');
+
+        if ($status === StockStatus::InStock
+            && $store instanceof Store
+            && $store->missing_price_out_of_stock
+            && filled(data_get($scrapeResult, 'title'))
+            && blank(data_get($scrapeResult, 'price'))) {
+            return StockStatus::OutOfStock;
+        }
+
+        return $status;
     }
 
     public function getStore(): ?Store

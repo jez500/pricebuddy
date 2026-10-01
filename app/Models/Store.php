@@ -34,6 +34,7 @@ use Spatie\Sluggable\SlugOptions;
  * @property bool $ai_extraction_enabled
  * @property string|null $ai_provider_id
  * @property bool $ai_self_healing_disabled
+ * @property bool $missing_price_out_of_stock
  * @property string $locale
  * @property string $currency
  * @property Collection $urls
@@ -208,6 +209,13 @@ class Store extends Model
     {
         return Attribute::make(
             get: fn (): bool => (bool) data_get($this->settings, 'ai_self_healing_disabled', false),
+        );
+    }
+
+    public function missingPriceOutOfStock(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): bool => (bool) data_get($this->settings, 'missing_price_out_of_stock', false),
         );
     }
 

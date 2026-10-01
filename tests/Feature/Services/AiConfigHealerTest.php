@@ -186,6 +186,20 @@ class AiConfigHealerTest extends TestCase
         $this->assertNull($result['price']);
     }
 
+    public function test_skips_when_store_treats_missing_price_as_out_of_stock(): void
+    {
+        $this->configureProviders();
+        $this->mockAgent([], 'never');
+        $url = $this->url(['missing_price_out_of_stock' => true]);
+
+        $result = AiConfigHealer::new()->heal(
+            $url,
+            ['store' => $url->store, 'title' => 'Widget', 'price' => null, 'body' => $this->html()],
+        );
+
+        $this->assertNull($result['price']);
+    }
+
     public function test_marks_failure_and_keeps_config_when_required_fields_do_not_validate(): void
     {
         $this->configureProviders();

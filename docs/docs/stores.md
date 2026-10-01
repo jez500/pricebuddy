@@ -104,6 +104,21 @@ When the availability strategy type is **Schema.org**, PriceBuddy infers the
 status directly from the page's schema.org availability value, so you don't need
 to configure match values for it.
 
+### Missing price means out of stock
+
+Some stores, such as Amazon, remove the price from the page when a product is out
+of stock. Normally a missing price is a scrape error, so the product cannot be added.
+If AI self-healing is enabled, it can also change the price selector to a different
+price on the page, such as the price of a related product.
+
+To prevent this, enable **Treat a missing price as out of stock** in the store's
+scraper service settings. A page that has a title but no price is then marked as
+out of stock. You can still add the product, and AI self-healing does not run.
+
+A page without a title is still an error. A broken price selector on this store also
+looks like out of stock, so check the store with **Test** (see [Testing a store](#testing-a-store)) if many of its products
+show as out of stock.
+
 ### Regex
 
 Regular expressions are a powerful way to extract data from a page. It is more 
