@@ -82,7 +82,7 @@ class PaginationHandler extends Handlers
                 // PHP comparison (without it, every user's matching stores would be loaded
                 // into memory here), plus defence in depth.
                 // Postgres has no LOWER(json), so cast to text there first.
-                $domainsExpr = Store::query()->getConnection()->getDriverName() === 'pgsql'
+                $domainsExpr = (new Store)->getConnection()->getDriverName() === 'pgsql'
                     ? 'LOWER(domains::text)'
                     : 'LOWER(domains)';
 
