@@ -139,11 +139,14 @@ class Store extends Model
 
         $first = array_shift($domains);
 
+        // `domains` is an array of objects, so the needle must be an array too: MySQL's
+        // JSON_CONTAINS matches a bare object against array elements, but Postgres' @>
+        // does not. Wrapping it matches on both.
         return $query->where(function (Builder $subQuery) use ($first, $domains) {
-            $subQuery->whereJsonContains('domains', ['domain' => $first]);
+            $subQuery->whereJsonContains('domains', [['domain' => $first]]);
 
             foreach ($domains as $domain) {
-                $subQuery->orWhereJsonContains('domains', ['domain' => $domain]);
+                $subQuery->orWhereJsonContains('domains', [['domain' => $domain]]);
             }
         });
     }
