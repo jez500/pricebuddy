@@ -36,7 +36,7 @@ class StatBarTest extends TestCase
             'potentialSavings' => 123.45,
         ], $overrides);
 
-        return $this->view('filament.widgets.dashboard.stat-bar', ['stats' => $stats])->render();
+        return (string) $this->view('filament.widgets.dashboard.stat-bar', ['stats' => $stats]);
     }
 
     public function test_potential_savings_uses_configured_currency(): void
