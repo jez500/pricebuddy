@@ -73,6 +73,11 @@ trait HasScraperTrait
                 ->rows(4)
                 ->placeholder("device=Desktop Firefox\nsleep=1000"),
 
+            Toggle::make('settings.missing_price_out_of_stock')
+                ->label('Treat a missing price as out of stock')
+                ->helperText('For stores that remove the price when a product is out of stock (e.g. Amazon). A page with a title but no price is marked out of stock instead of failing. A broken price selector will also look like out of stock.')
+                ->columnSpanFull(),
+
             Toggle::make('settings.ai_extraction_enabled')
                 ->label('Enable AI price extraction')
                 ->helperText('Use AI to recover a price when the normal scrape finds none.')
