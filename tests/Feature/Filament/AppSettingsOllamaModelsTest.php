@@ -53,6 +53,37 @@ class AppSettingsOllamaModelsTest extends TestCase
             ->assertNotified();
     }
 
+    public function test_refresh_action_populates_the_row_it_was_clicked_on(): void
+    {
+        $this->setAiSettings([
+            'enabled' => true,
+            'default_provider_id' => 'p1',
+            'providers' => [
+                ['id' => 'p1', 'name' => 'First', 'type' => 'ollama', 'base_url' => 'http://first:11434', 'model' => 'gemma4:e4b'],
+                ['id' => 'p2', 'name' => 'Second', 'type' => 'ollama', 'base_url' => 'http://second:11434', 'model' => null],
+            ],
+        ]);
+        Http::fake([
+            'first:11434/api/tags' => Http::response(['models' => [['name' => 'gemma4:e4b']]]),
+            'second:11434/api/tags' => Http::response(['models' => [['name' => 'gpt-oss:20b']]]),
+        ]);
+
+        $livewire = Livewire::test(AppSettingsPage::class);
+
+        // Locate the second row's model Select by state path, then click its refresh action.
+        $rowKeys = array_keys($livewire->get('data.integrated_services.ai.providers'));
+        $secondRowSelect = $livewire->instance()->form->getComponent(
+            fn ($component): bool => $component instanceof \Filament\Forms\Components\Select
+                && $component->getStatePath() === "data.integrated_services.ai.providers.{$rowKeys[1]}.model",
+            withHidden: true,
+        );
+
+        // Mount by the component's own key, as the browser does. callFormComponentAction()
+        // prefixes the form state path, which would hide a key collision between rows.
+        $livewire->call('mountFormComponentAction', $secondRowSelect->getKey(), 'refreshOllamaModels')
+            ->assertSet('ollamaModels', ['p2' => ['gpt-oss:20b']]);
+    }
+
     public function test_refresh_warns_when_base_url_blank(): void
     {
         Livewire::test(AppSettingsPage::class)
