@@ -137,16 +137,13 @@ class Store extends Model
             return $query->whereRaw('1 = 0');
         }
 
-        $first = array_shift($domains);
-
-        // `domains` is an array of objects, so the needle must be an array too: MySQL's
-        // JSON_CONTAINS matches a bare object against array elements, but Postgres' @>
-        // does not. Wrapping it matches on both.
-        return $query->where(function (Builder $subQuery) use ($first, $domains) {
-            $subQuery->whereJsonContains('domains', [['domain' => $first]]);
-
+        // `domains` is normally an array of objects, but the store API and StoreFactory::forUrl()
+        // can also store a single bare object. MySQL's JSON_CONTAINS matches a bare-object needle against
+        // both shapes, but Postgres' @> only matches like with like, so check both needles.
+        return $query->where(function (Builder $subQuery) use ($domains) {
             foreach ($domains as $domain) {
-                $subQuery->orWhereJsonContains('domains', [['domain' => $domain]]);
+                $subQuery->orWhereJsonContains('domains', ['domain' => $domain])
+                    ->orWhereJsonContains('domains', [['domain' => $domain]]);
             }
         });
     }
