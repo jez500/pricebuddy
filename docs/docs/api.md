@@ -151,6 +151,27 @@ PUT /api/products/42
 
 (`title` and `image` are required by the update endpoint.)
 
+### Product tags
+
+Use these endpoints to tag a product without resending `title` and `image`. Both
+require the `product:update` ability.
+
+| Endpoint | Result |
+| --- | --- |
+| `PUT /api/products/{id}/tags` | Replaces the product's tags with `{"tags": [<tag ids>]}`. Returns `200` and the new tag list. |
+| `DELETE /api/products/{id}/tags/{tagId}` | Removes one tag from the product. Returns `204`. The tag record is not deleted. |
+
+Send `{"tags": []}` to remove all tags. Each id must be one of your own tags, otherwise the
+request returns `422`. Create tags first with `POST /api/tags`. To read a product's tags,
+use `GET /api/products/{id}?include=tags`.
+
+```json
+PUT /api/products/42/tags
+{
+  "tags": [3, 7]
+}
+```
+
 ### Insights (`GET /api/products/{id}?include=insights`)
 
 The product detail endpoint can embed the full insights data set — price statistics,
@@ -228,6 +249,7 @@ matching endpoints without probing for a 4xx.
       "products_filter_url": true,
       "products_current_url": true,
       "products_sparse_fieldsets": true,
+      "products_tags": true,
       "stores_filter_domain": true
     },
     "limits": {

@@ -33,6 +33,7 @@ class ClientConfigController extends Controller
                 'products_filter_url' => true,
                 'products_current_url' => true,
                 'products_sparse_fieldsets' => true,
+                'products_tags' => true,
                 'stores_filter_domain' => true,
             ],
             // Server-published ceilings, so clients set their own timeouts from the
