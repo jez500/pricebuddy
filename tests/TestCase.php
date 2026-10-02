@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Services\Helpers\SettingsHelper;
 use App\Settings\AppSettings;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Artisan;
@@ -23,6 +24,11 @@ abstract class TestCase extends BaseTestCase
         // rows exist marks them as "default-loaded", which makes a later
         // AppSettings::save() throw MissingSettings.
         app()->forgetInstance(AppSettings::class);
+
+        // SettingsHelper keeps settings in a static property, which survives
+        // between tests in the same process. Clear it so one test's settings
+        // (for example an AI provider) do not leak into the next test.
+        SettingsHelper::$settings = null;
     }
 
     /**
