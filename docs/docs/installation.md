@@ -35,6 +35,34 @@ for supported databases.
 The docker image includes `mysql` and `pgsql` drivers. Note `sqllite` is not supported 
 due to the use of `json` columns.
 
+### MySQL binary logs
+
+MySQL 8 writes binary logs (`binlog.000001`, `binlog.000002` and so on) by default
+and keeps them for 30 days. PriceBuddy does not need them, and they can use many GB
+of disk. The `docker-compose.yml` turns them off with `command: --skip-log-bin`
+on the `database` service.
+
+If your `docker-compose.yml` is older and does not have this line:
+
+1. Add `command: --skip-log-bin` to the `database` service.
+2. Run `docker compose up -d` to recreate the database container.
+3. Remove the old log files. MySQL does not remove them when logging is off:
+
+```shell
+docker compose exec database sh -c 'rm -f /var/lib/mysql/binlog.*'
+```
+
+Do not delete these files while binary logging is still on. In that case, remove
+them through MySQL instead. This command removes the logs that are older than now.
+It keeps the log that MySQL is writing to:
+
+```shell
+docker compose exec database mysql -uroot -proot -e "PURGE BINARY LOGS BEFORE NOW();"
+```
+
+These commands use the root password from the default `docker-compose.yml`.
+Change `-proot` if you use a different password.
+
 ## Persistent storage / volumes
 
 The docker compose file includes volumes for the database and the app. Not much is 
