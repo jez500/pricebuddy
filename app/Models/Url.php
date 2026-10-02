@@ -479,6 +479,12 @@ class Url extends Model
         }
 
         $priceFloat = CurrencyHelper::toFloat($price, locale: $this->store?->locale, iso: $this->store?->currency);
+
+        // An unreadable price is a failed scrape, not a price of zero.
+        if ($priceFloat === null) {
+            return null;
+        }
+
         $priceFactor = $this->price_factor ?: 1;
 
         return $this->prices()->create([
