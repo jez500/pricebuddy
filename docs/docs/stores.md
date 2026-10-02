@@ -254,6 +254,11 @@ config — and can even bootstrap a new store from just a product URL. PriceBudd
 tries deterministic heuristics first and only escalates to the AI provider when
 needed.
 
+Before it changes a store, self-healing checks the current config against
+another in-stock product of the same store that has a price. If the config
+still finds a title and price there, the store is not broken. The failing page
+is probably unavailable or removed, so self-healing leaves the config unchanged.
+
 From the store [test](#testing-a-store) view you can run **Heal with AI** to
 preview a proposed fix and apply or discard it; nothing is saved until you choose
 to. Self-healing can be turned off per store with **Disable AI self-healing for

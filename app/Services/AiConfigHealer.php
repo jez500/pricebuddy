@@ -8,6 +8,7 @@ use App\Dto\StoreScraperStrategySetDto;
 use App\Enums\AiFeature;
 use App\Enums\ScraperService;
 use App\Exceptions\AiProviderException;
+use App\Models\Price;
 use App\Models\Store;
 use App\Models\Url;
 use App\Services\Ai\HealingContext;
@@ -17,6 +18,7 @@ use App\Services\Ai\Tools\TestRegexTool;
 use App\Services\Helpers\IntegrationHelper;
 use Closure;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\JsonSchema\Types\ObjectType;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -141,6 +143,10 @@ class AiConfigHealer
             return $scrapeResult;
         }
 
+        if ($this->configWorksOnAnotherUrl($store, $url->url)) {
+            return $scrapeResult;
+        }
+
         $lock = Cache::lock('ai-heal:store:'.$store->getKey(), self::LOCK_SECONDS);
 
         if (! $lock->get()) {
@@ -152,6 +158,47 @@ class AiConfigHealer
         } finally {
             $lock->release();
         }
+    }
+
+    /**
+     * Check the store's current config against another of its products before a heal.
+     * A product that goes unavailable or is removed loses its price, and a heal on that
+     * page can save a selector that matches something else, such as a related product's
+     * price. That breaks every product of the store. When the current config still finds
+     * a title and price on another in-stock product, the page is the problem, not the
+     * config, so no heal is needed.
+     */
+    protected function configWorksOnAnotherUrl(Store $store, string $url): bool
+    {
+        $otherUrl = Price::query()
+            ->where('store_id', $store->getKey())
+            ->whereHas('url', fn (Builder $query) => $query
+                ->where('url', '!=', $url)
+                ->whereNull('availability'))
+            ->latest('id')
+            ->first()
+            ?->url;
+
+        if ($otherUrl === null) {
+            return false;
+        }
+
+        $result = ScrapeUrl::new($otherUrl->url)
+            ->setMaxAttempts(1)
+            ->setLogErrors(false)
+            ->setSendUiNotifications(false)
+            ->scrape(['store' => $store]);
+
+        if (blank(data_get($result, 'title')) || blank(data_get($result, 'price'))) {
+            return false;
+        }
+
+        $this->log($url)->info('AI self-healing skipped; the store config still works on another product.', [
+            'store_id' => $store->getKey(),
+            'checked_url' => $otherUrl->url,
+        ]);
+
+        return true;
     }
 
     /**
@@ -175,6 +222,10 @@ class AiConfigHealer
             $failedAt = $store->getAiHealFailedAt();
 
             if ($failedAt !== null && $failedAt->addHours(self::COOLDOWN_HOURS)->isFuture()) {
+                return null;
+            }
+
+            if ($this->configWorksOnAnotherUrl($store, $url)) {
                 return null;
             }
         }
