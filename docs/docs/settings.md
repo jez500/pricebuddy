@@ -37,6 +37,10 @@ Eg. `USD` for US Dollars or `EUR` for Euros.
 NOTE: You can also override this per store, but mixing currencies on the same
 product results in incorrect price comparisons and aggregates.
 
+Each store saves its own locale and currency when it is created. If you change
+the default later, existing stores keep their old values. To update them, go to
+**Stores**, select the stores, and use the bulk action **Set locale and currency**.
+
 ## Logging
 
 **Log retention days** - The amount of days to keep logs for. The default is `30` days.

@@ -28,6 +28,7 @@ use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Support\Enums\FontWeight;
+use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Tables\Actions\EditAction;
@@ -36,6 +37,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\HtmlString;
 
 class StoreResource extends Resource
@@ -280,6 +282,12 @@ class StoreResource extends Resource
                         ->formatStateUsing(fn (string $state) => $state.' products')
                         ->extraAttributes(['class' => 'min-w-36 md:flex md:justify-end pr-4'])
                         ->grow(false),
+                    TextColumn::make('currency')
+                        ->label('Currency')
+                        ->badge()
+                        ->color('gray')
+                        ->extraAttributes(['class' => 'min-w-16'])
+                        ->grow(false),
                     TextColumn::make('settings.scraper_service')
                         ->label('Scraper')
                         ->badge()
@@ -303,12 +311,40 @@ class StoreResource extends Resource
             ])
             ->bulkActions([
                 BulkActionGroup::make([
+                    self::makeSetLocaleBulkAction(),
                     DeleteBulkAction::make(),
                 ]),
             ])
             ->modifyQueryUsing(function (Builder $query) {
                 $query->withCount('products');
             });
+    }
+
+    /**
+     * A store saves its own locale and currency when it is created, so a later change
+     * to the app default does not reach existing stores. This applies a locale and
+     * currency to many stores at once. Existing prices keep their values.
+     */
+    protected static function makeSetLocaleBulkAction(): BulkAction
+    {
+        return BulkAction::make('setLocale')
+            ->label('Set locale and currency')
+            ->icon('heroicon-o-currency-dollar')
+            ->modalDescription('The locale controls how prices are read from the page. The currency is used to display prices. Prices that are already saved do not change.')
+            ->form(AppSettingsPage::getLocaleFormFields('locale_settings'))
+            ->action(function (Collection $records, array $data): void {
+                foreach ($records as $store) {
+                    /** @var Store $store */
+                    $settings = $store->settings ?? [];
+                    $settings['locale_settings'] = [
+                        'locale' => data_get($data, 'locale_settings.locale'),
+                        'currency' => data_get($data, 'locale_settings.currency'),
+                    ];
+                    $store->update(['settings' => $settings]);
+                }
+            })
+            ->successNotificationTitle('Locale and currency updated')
+            ->deselectRecordsAfterCompletion();
     }
 
     public static function getRelations(): array
