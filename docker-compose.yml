@@ -24,6 +24,9 @@ services:
 
     database:
         image: mysql:8.2
+        # PriceBuddy does not use replication. Binary logs are on by default in MySQL 8
+        # and are kept for 30 days, which can use many GB of disk.
+        command: --skip-log-bin
         environment:
             MYSQL_DATABASE: pricebuddy
             MYSQL_USER: pricebuddy
