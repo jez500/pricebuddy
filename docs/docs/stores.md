@@ -175,7 +175,12 @@ comparisons and aggregates.
 
 To change the locale and currency of many stores at once, select them in the
 store list and use the bulk action **Set locale and currency**. The store list
-shows the currency of each store. Prices that are already saved do not change.
+shows the currency of each store.
+
+Saved prices do not store a currency. PriceBuddy shows them in the store's current
+currency. If you change the currency, saved prices keep their numbers and are not
+converted. Use this to correct a store that has the wrong currency. Do not use it
+when a store changes the currency it sells in, because old and new prices then mix.
 
 ## Cookies
 
