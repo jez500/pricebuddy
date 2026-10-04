@@ -164,6 +164,10 @@ class CurrencyHelperTest extends TestCase
             ['val' => '1234.5', 'expected' => 1234.5, 'locale' => 'de_DE'],
             ['val' => '€1,234.56', 'expected' => 1234.56, 'locale' => 'de_DE'],
             ['val' => '1,234.56 €', 'expected' => 1234.56, 'locale' => 'fr_FR'],
+            // Three digits after a zero or empty integer part are decimals, not a thousands group.
+            ['val' => '0.125', 'expected' => 0.125, 'locale' => 'fr_FR'],
+            ['val' => '.125', 'expected' => 0.125, 'locale' => 'fr_FR'],
+            ['val' => '00.125', 'expected' => 0.125, 'locale' => 'fr_FR'],
         ];
 
         $this->assertCurrencyToFloat($assertions, 'EUR');

@@ -323,14 +323,14 @@ class StoreResource extends Resource
     /**
      * A store saves its own locale and currency when it is created, so a later change
      * to the app default does not reach existing stores. This applies a locale and
-     * currency to many stores at once. Existing prices keep their values.
+     * currency to many stores at once. Saved prices are not converted. They are shown in the new currency.
      */
     protected static function makeSetLocaleBulkAction(): BulkAction
     {
         return BulkAction::make('setLocale')
             ->label('Set locale and currency')
             ->icon('heroicon-o-currency-dollar')
-            ->modalDescription('The locale controls how prices are read from the page. The currency is used to display prices. Prices that are already saved do not change.')
+            ->modalDescription('The locale controls how prices are read from the page. The currency is used to display prices, including prices that are already saved. Saved prices keep their numbers and are not converted.')
             ->form(AppSettingsPage::getLocaleFormFields('locale_settings'))
             ->action(function (Collection $records, array $data): void {
                 foreach ($records as $store) {

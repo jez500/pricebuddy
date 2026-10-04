@@ -82,6 +82,12 @@ class CurrencyHelper
             return self::parseBySeparators($value);
         }
 
+        // A zero or empty integer part is never a thousands group. The locale parser
+        // does not fail on it: fr_FR reads "0.125" as 125.
+        if (preg_match('/^0*[.,]\d+$/', $value)) {
+            return self::parseBySeparators($value);
+        }
+
         return self::parseWithLocale($value, $locale, $iso) ?? self::parseBySeparators($value);
     }
 
@@ -105,6 +111,7 @@ class CurrencyHelper
      * Fallback for a price that does not use the store locale's format, for example
      * "319.00" on a fr_FR store. The last separator is the decimal point, except that
      * a single kind of separator followed by exactly three digits is a thousands group.
+     * That exception does not apply when the integer part is empty or zero ("0.125").
      */
     protected static function parseBySeparators(string $value): ?float
     {
@@ -118,7 +125,7 @@ class CurrencyHelper
         $fraction = (string) preg_replace('/\D/', '', substr($value, $lastSeparator + 1));
         $mixedSeparators = str_contains($value, '.') && str_contains($value, ',');
 
-        if (! $mixedSeparators && strlen($fraction) === 3) {
+        if (! $mixedSeparators && strlen($fraction) === 3 && ltrim($integer, '0') !== '') {
             return (float) ($integer.$fraction);
         }
 
