@@ -4,7 +4,7 @@
     "type": "project",
     "description": "The skeleton application for the Laravel framework.",
     "keywords": ["laravel", "framework"],
-    "license": "MIT",
+    "license": "GPL-3.0-only",
     "require": {
         "php": "^8.4",
         "ext-intl": "*",
