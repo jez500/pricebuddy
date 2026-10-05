@@ -135,8 +135,13 @@ Contributions are welcome. Open an issue or pull request if you have a bug fix, 
 PriceBuddy is built with [Laravel](https://laravel.com) and [Filament](https://filamentphp.com). Local development uses [Lando](https://lando.dev):
 
 ```shell
+cp .env.example-dev .env
 lando start
+lando artisan key:generate
+lando restart
 ```
+
+Use `.env.example-dev`, not `.env.example`. The plain example has no database settings, so Laravel connects to `127.0.0.1` instead of the Lando `database` service. Lando loads `.env` only when it starts, so restart after you change it.
 
 Coding standards, static analysis and tests are handled with Pint, PHPStan and Pest/PHPUnit. See the [development docs](https://pricebuddy.jez.me/advanced.html) for the full setup.
 

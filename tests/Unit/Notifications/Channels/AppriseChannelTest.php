@@ -115,6 +115,12 @@ class AppriseChannelTest extends TestCase
 
     public function test_disable_service()
     {
+        NotificationsHelper::setSetting(NotificationMethods::Apprise, value: [
+            'enabled' => true,
+            'url' => 'https://gotify.test',
+            'token' => 'test-token',
+        ]);
+
         $user = User::factory()->withNotificationSettings([
             'apprise' => [
                 'enabled' => true,

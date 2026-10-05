@@ -121,8 +121,8 @@ class AiExtractionService
 
         $parsed = CurrencyHelper::toFloat((string) $price);
 
-        // CurrencyHelper::toFloat returns 0.0 on an unparseable string; treat that as "no price".
-        return $parsed > 0 ? (float) $parsed : null;
+        // Treat an unparseable string (null) and a zero price as "no price".
+        return $parsed > 0 ? $parsed : null;
     }
 
     protected function mapStockStatus(?string $availability): ?StockStatus

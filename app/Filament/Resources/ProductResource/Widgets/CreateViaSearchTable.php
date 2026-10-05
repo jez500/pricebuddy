@@ -49,7 +49,7 @@ class CreateViaSearchTable extends BaseWidget
 
         $query = UrlResearch::query()
             ->searchQuery($this->searchQuery, $this->productSource)
-            ->orderByRaw('ISNULL(price), price ASC')
+            ->orderByRaw('price IS NULL, price ASC')
             ->orderByDesc('store_id')
             ->orderByDesc('id');
 

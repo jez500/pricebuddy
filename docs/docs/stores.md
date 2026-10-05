@@ -104,6 +104,21 @@ When the availability strategy type is **Schema.org**, PriceBuddy infers the
 status directly from the page's schema.org availability value, so you don't need
 to configure match values for it.
 
+### Missing price means out of stock
+
+Some stores, such as Amazon, remove the price from the page when a product is out
+of stock. Normally a missing price is a scrape error, so the product cannot be added.
+If AI self-healing is enabled, it can also change the price selector to a different
+price on the page, such as the price of a related product.
+
+To prevent this, enable **Treat a missing price as out of stock** in the store's
+scraper service settings. A page that has a title but no price is then marked as
+out of stock. You can still add the product, and AI self-healing does not run.
+
+A page without a title is still an error. A broken price selector on this store also
+looks like out of stock, so check the store with **Test** (see [Testing a store](#testing-a-store)) if many of its products
+show as out of stock.
+
 ### Regex
 
 Regular expressions are a powerful way to extract data from a page. It is more 
@@ -157,6 +172,15 @@ Eg. `USD` for US Dollars or `EUR` for Euros.
 
 NOTE: Mixing currencies on the same product results in incorrect price 
 comparisons and aggregates.
+
+To change the locale and currency of many stores at once, select them in the
+store list and use the bulk action **Set locale and currency**. The store list
+shows the currency of each store.
+
+Saved prices do not store a currency. PriceBuddy shows them in the store's current
+currency. If you change the currency, saved prices keep their numbers and are not
+converted. Use this to correct a store that has the wrong currency. Do not use it
+when a store changes the currency it sells in, because old and new prices then mix.
 
 ## Cookies
 
@@ -238,6 +262,11 @@ markup), **AI self-healing** can propose fresh selectors to repair the store
 config — and can even bootstrap a new store from just a product URL. PriceBuddy
 tries deterministic heuristics first and only escalates to the AI provider when
 needed.
+
+Before it changes a store, self-healing checks the current config against
+another in-stock product of the same store that has a price. If the config
+still finds a title and price there, the store is not broken. The failing page
+is probably unavailable or removed, so self-healing leaves the config unchanged.
 
 From the store [test](#testing-a-store) view you can run **Heal with AI** to
 preview a proposed fix and apply or discard it; nothing is saved until you choose

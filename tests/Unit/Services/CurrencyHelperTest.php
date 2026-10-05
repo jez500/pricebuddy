@@ -86,7 +86,7 @@ class CurrencyHelperTest extends TestCase
             ['val' => '$1.95 ', 'expected' => 1.95, 'locale' => 'en'],
             ['val' => 195.43, 'expected' => 195.43, 'locale' => 'en_US'],
             ['val' => 198, 'expected' => 198.00, 'locale' => 'en_US'],
-            ['val' => 'invalid', 'expected' => 0.0, 'locale' => 'en_US'],
+            ['val' => 'invalid', 'expected' => null, 'locale' => 'en_US'],
         ];
 
         $this->assertCurrencyToFloat($assertions, 'USD');
@@ -102,8 +102,8 @@ class CurrencyHelperTest extends TestCase
             ['val' => '45.319,€90', 'expected' => 45319.90, 'locale' => 'fr_FR'],
             ['val' => '€45.319,91', 'expected' => 45319.91, 'locale' => 'it_VA'],
             ['val' => '45.519,90', 'expected' => 45519.90, 'locale' => 'de_AT'],
-            ['val' => 'invalid', 'expected' => 0.0, 'locale' => 'de_DE'],
-            ['val' => 45.319, 'expected' => 45319.00, 'locale' => 'fr_FR'],
+            ['val' => 'invalid', 'expected' => null, 'locale' => 'de_DE'],
+            ['val' => 45.319, 'expected' => 45.319, 'locale' => 'fr_FR'],
         ];
 
         $this->assertCurrencyToFloat($assertions, 'EUR');
@@ -120,7 +120,7 @@ class CurrencyHelperTest extends TestCase
             ['val' => '£1.95 ', 'expected' => 1.95, 'locale' => 'en'],
             ['val' => 195.43, 'expected' => 195.43, 'locale' => 'en_GB'],
             ['val' => 198, 'expected' => 198.00, 'locale' => 'en_GB'],
-            ['val' => 'invalid', 'expected' => 0.0, 'locale' => 'en'],
+            ['val' => 'invalid', 'expected' => null, 'locale' => 'en'],
         ];
 
         $this->assertCurrencyToFloat($assertions, 'GBP');
@@ -131,9 +131,59 @@ class CurrencyHelperTest extends TestCase
         $this->assertEquals(10.5, CurrencyHelper::toFloat('10.5'));
     }
 
-    public function test_to_float_handles_non_numeric_string()
+    public function test_to_float_returns_null_for_non_numeric_string()
     {
-        $this->assertEquals(0.0, CurrencyHelper::toFloat('abc'));
+        $this->assertNull(CurrencyHelper::toFloat('abc'));
+        $this->assertNull(CurrencyHelper::toFloat(''));
+        $this->assertNull(CurrencyHelper::toFloat('€'));
+    }
+
+    public function test_to_float_keeps_a_real_zero()
+    {
+        $this->assertSame(0.0, CurrencyHelper::toFloat('0'));
+        $this->assertSame(0.0, CurrencyHelper::toFloat('0,00 €', 'fr_FR', 'EUR'));
+    }
+
+    public function test_to_float_does_not_reparse_php_numbers_with_the_locale()
+    {
+        $this->assertSame(16.4, CurrencyHelper::toFloat(16.4, 'fr_FR', 'EUR'));
+        $this->assertSame(1234.5, CurrencyHelper::toFloat(1234.5, 'de_DE', 'EUR'));
+        $this->assertSame(319.0, CurrencyHelper::toFloat(319, 'de_DE', 'EUR'));
+    }
+
+    /**
+     * A store can return a dot decimal even when its locale uses a comma decimal,
+     * for example Amazon.fr with "€319.00" (issue #219).
+     */
+    public function test_to_float_falls_back_when_the_format_does_not_match_the_locale()
+    {
+        $assertions = [
+            ['val' => '16.4', 'expected' => 16.4, 'locale' => 'fr_FR'],
+            ['val' => '€319.00', 'expected' => 319.0, 'locale' => 'fr_FR'],
+            ['val' => '319.00', 'expected' => 319.0, 'locale' => 'fr_FR'],
+            ['val' => '1234.5', 'expected' => 1234.5, 'locale' => 'de_DE'],
+            ['val' => '€1,234.56', 'expected' => 1234.56, 'locale' => 'de_DE'],
+            ['val' => '1,234.56 €', 'expected' => 1234.56, 'locale' => 'fr_FR'],
+            // Three digits after a zero or empty integer part are decimals, not a thousands group.
+            ['val' => '0.125', 'expected' => 0.125, 'locale' => 'fr_FR'],
+            ['val' => '.125', 'expected' => 0.125, 'locale' => 'fr_FR'],
+            ['val' => '00.125', 'expected' => 0.125, 'locale' => 'fr_FR'],
+        ];
+
+        $this->assertCurrencyToFloat($assertions, 'EUR');
+    }
+
+    public function test_to_float_still_reads_locale_formats()
+    {
+        $assertions = [
+            ['val' => '16,40 €', 'expected' => 16.4, 'locale' => 'fr_FR'],
+            ['val' => '1 234,56 €', 'expected' => 1234.56, 'locale' => 'fr_FR'],
+            ['val' => '1.234,56', 'expected' => 1234.56, 'locale' => 'de_DE'],
+            // Three digits after a single separator are a thousands group, not decimals.
+            ['val' => '1.234', 'expected' => 1234.0, 'locale' => 'de_DE'],
+        ];
+
+        $this->assertCurrencyToFloat($assertions, 'EUR');
     }
 
     public function test_to_string_formats_float_value()
@@ -226,8 +276,17 @@ class CurrencyHelperTest extends TestCase
                 'currency' => $iso,
             ]);
 
-            $this->assertEquals($assertion['expected'], CurrencyHelper::toFloat($assertion['val']));
-            $this->assertEquals($assertion['expected'], CurrencyHelper::toFloat($assertion['val'], $assertion['locale'], $iso));
+            $message = var_export($assertion['val'], true).' in '.$assertion['locale'];
+
+            if ($assertion['expected'] === null) {
+                $this->assertNull(CurrencyHelper::toFloat($assertion['val']), $message);
+                $this->assertNull(CurrencyHelper::toFloat($assertion['val'], $assertion['locale'], $iso), $message);
+
+                continue;
+            }
+
+            $this->assertEquals($assertion['expected'], CurrencyHelper::toFloat($assertion['val']), $message);
+            $this->assertEquals($assertion['expected'], CurrencyHelper::toFloat($assertion['val'], $assertion['locale'], $iso), $message);
         }
     }
 }

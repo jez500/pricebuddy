@@ -34,6 +34,7 @@ use Spatie\Sluggable\SlugOptions;
  * @property bool $ai_extraction_enabled
  * @property string|null $ai_provider_id
  * @property bool $ai_self_healing_disabled
+ * @property bool $missing_price_out_of_stock
  * @property string $locale
  * @property string $currency
  * @property Collection $urls
@@ -137,13 +138,13 @@ class Store extends Model
             return $query->whereRaw('1 = 0');
         }
 
-        $first = array_shift($domains);
-
-        return $query->where(function (Builder $subQuery) use ($first, $domains) {
-            $subQuery->whereJsonContains('domains', ['domain' => $first]);
-
+        // `domains` is normally an array of objects, but the store API and StoreFactory::forUrl()
+        // can also store a single bare object. MySQL's JSON_CONTAINS matches a bare-object needle against
+        // both shapes, but Postgres' @> only matches like with like, so check both needles.
+        return $query->where(function (Builder $subQuery) use ($domains) {
             foreach ($domains as $domain) {
-                $subQuery->orWhereJsonContains('domains', ['domain' => $domain]);
+                $subQuery->orWhereJsonContains('domains', ['domain' => $domain])
+                    ->orWhereJsonContains('domains', [['domain' => $domain]]);
             }
         });
     }
@@ -208,6 +209,13 @@ class Store extends Model
     {
         return Attribute::make(
             get: fn (): bool => (bool) data_get($this->settings, 'ai_self_healing_disabled', false),
+        );
+    }
+
+    public function missingPriceOutOfStock(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): bool => (bool) data_get($this->settings, 'missing_price_out_of_stock', false),
         );
     }
 

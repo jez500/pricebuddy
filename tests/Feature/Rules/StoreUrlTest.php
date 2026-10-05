@@ -2,16 +2,19 @@
 
 namespace Tests\Feature\Rules;
 
+use App\Models\Store;
 use App\Rules\StoreUrl;
 use App\Services\Helpers\SettingsHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Once;
 use Tests\TestCase;
+use Tests\Traits\ScraperTrait;
 
 class StoreUrlTest extends TestCase
 {
     use RefreshDatabase;
+    use ScraperTrait;
 
     protected function setUp(): void
     {
@@ -49,6 +52,28 @@ class StoreUrlTest extends TestCase
         (new StoreUrl)->setData(['data' => ['create_store' => $createStore]])->validate('url', $url, $fail);
 
         return $failures;
+    }
+
+    public function test_accepts_missing_price_when_store_treats_it_as_out_of_stock(): void
+    {
+        Store::factory()->create([
+            'domains' => [['domain' => 'shop.test']],
+            'settings' => ['scraper_service' => 'http', 'missing_price_out_of_stock' => true],
+        ]);
+        $this->mockScrape('', 'Out of Stock Product');
+
+        $this->assertSame([], $this->runRule('https://shop.test/p', createStore: false));
+    }
+
+    public function test_rejects_missing_price_when_store_setting_is_off(): void
+    {
+        Store::factory()->create([
+            'domains' => [['domain' => 'shop.test']],
+            'settings' => ['scraper_service' => 'http'],
+        ]);
+        $this->mockScrape('', 'Out of Stock Product');
+
+        $this->assertContains('The url does not contain a valid title or price', $this->runRule('https://shop.test/p', createStore: false));
     }
 
     public function test_rejects_unknown_domain_when_healing_disabled(): void

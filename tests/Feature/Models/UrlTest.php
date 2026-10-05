@@ -183,6 +183,36 @@ class UrlTest extends TestCase
         $this->assertNull($priceModel);
     }
 
+    public function test_update_price_does_not_save_an_unreadable_price_as_zero()
+    {
+        $product = Product::factory()->create();
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+        ]);
+
+        $this->assertNull($url->updatePrice('Price on request'));
+        $this->assertSame(0, $url->prices()->count());
+    }
+
+    public function test_update_price_reads_a_dot_decimal_on_a_comma_decimal_store()
+    {
+        $this->store->update(['settings' => array_merge($this->store->settings ?? [], [
+            'locale_settings' => ['locale' => 'fr_FR', 'currency' => 'EUR'],
+        ])]);
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => Product::factory()->create()->id,
+            'store_id' => $this->store->id,
+        ]);
+
+        $priceModel = $url->updatePrice('€319.00');
+
+        $this->assertInstanceOf(Price::class, $priceModel);
+        $this->assertEquals(319.0, $priceModel->price);
+    }
+
     public function test_create_from_url_with_unavailable_product_and_no_price()
     {
         $this->actingAs($this->user);
@@ -209,6 +239,57 @@ class UrlTest extends TestCase
         $this->assertEquals('Out of Stock Product', $urlModel->product->title);
         $this->assertCount(0, $urlModel->prices);
         $this->assertCount(1, $urlModel->product->fresh()->getPriceCache());
+    }
+
+    public function test_create_from_url_with_missing_price_when_store_treats_it_as_out_of_stock()
+    {
+        $this->actingAs($this->user);
+        $this->store->update(['settings' => array_merge($this->store->settings ?? [], ['missing_price_out_of_stock' => true])]);
+
+        $this->mockScrape('', 'Out of Stock Product');
+
+        $urlModel = Url::createFromUrl(self::TEST_URL);
+
+        $this->assertInstanceOf(Url::class, $urlModel);
+        $this->assertSame(StockStatus::OutOfStock, $urlModel->availability);
+        $this->assertCount(0, $urlModel->prices);
+    }
+
+    public function test_create_from_url_with_missing_price_fails_when_store_setting_is_off()
+    {
+        $this->actingAs($this->user);
+
+        $this->mockScrape('', 'Out of Stock Product');
+
+        $this->assertFalse(Url::createFromUrl(self::TEST_URL));
+    }
+
+    public function test_missing_price_and_title_is_not_treated_as_out_of_stock()
+    {
+        $this->actingAs($this->user);
+        $this->store->update(['settings' => array_merge($this->store->settings ?? [], ['missing_price_out_of_stock' => true])]);
+
+        $this->mockScrape('', '');
+
+        $this->assertFalse(Url::createFromUrl(self::TEST_URL));
+    }
+
+    public function test_update_price_missing_price_marks_out_of_stock_when_store_setting_enabled()
+    {
+        $product = Product::factory()->create();
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+        ]);
+        $this->store->update(['settings' => array_merge($this->store->settings ?? [], ['missing_price_out_of_stock' => true])]);
+
+        $this->mockScrape('', 'foo');
+
+        $url->updatePrice();
+
+        $this->assertCount(0, $url->prices);
+        $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
     }
 
     public function test_update_price_unavailable_no_price_does_not_create_price()

@@ -586,13 +586,16 @@ class AppSettingsPage extends SettingsPage
                         // toggled by ->visible() on the provider type: a free-text input for cloud
                         // providers and a searchable dropdown (with refresh) for Ollama. Keep their
                         // visible() closures mutually exclusive so exactly one writes 'model'.
+                        // Build each key from the state path so it is unique per repeater row:
+                        // Filament finds an action's component by key, and a fixed key would run
+                        // every row's refresh action against the first row.
                         TextInput::make('model')
-                            ->key('model_text')
+                            ->key(fn (TextInput $component): string => $component->getStatePath().'_text')
                             ->label('Model')
                             ->placeholder('gpt-4.1-mini')
                             ->visible(fn (Get $get): bool => $get('type') !== AiProvider::Ollama->value),
                         Select::make('model')
-                            ->key('model_select')
+                            ->key(fn (Select $component): string => $component->getStatePath().'_select')
                             ->label('Model')
                             ->native(false)
                             ->searchable()

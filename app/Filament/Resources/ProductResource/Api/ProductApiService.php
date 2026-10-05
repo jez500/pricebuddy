@@ -17,6 +17,8 @@ class ProductApiService extends ApiService
             Handlers\DeleteHandler::class,
             Handlers\PaginationHandler::class,
             Handlers\DetailHandler::class,
+            Handlers\SyncTagsHandler::class,
+            Handlers\DetachTagHandler::class,
         ];
     }
 }
