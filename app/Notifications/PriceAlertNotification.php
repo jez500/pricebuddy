@@ -2,10 +2,12 @@
 
 namespace App\Notifications;
 
+use App\Models\Price;
 use App\Models\Product;
 use App\Models\Url;
 use App\Models\User;
 use App\Notifications\Messages\GenericNotificationMessage;
+use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\NotificationsHelper;
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification as DatabaseNotification;
@@ -24,8 +26,10 @@ class PriceAlertNotification extends Notification
 
     /**
      * Create a new notification instance.
+     *
+     * @param  ?float  $previousPrice  set for a price change alert, so the message can say "increase" or "drop"
      */
-    public function __construct(protected Url $url)
+    public function __construct(protected Url $url, protected ?float $previousPrice = null)
     {
         $this->product = $url->product;
     }
@@ -139,13 +143,34 @@ class PriceAlertNotification extends Notification
 
     protected function getTitle(): string
     {
-        return 'Price drop: '.$this->url->product_name_short.' ('.$this->url->latest_price_formatted.')';
+        return 'Price '.$this->getChangeType().': '.$this->url->product_name_short.' ('.$this->url->latest_price_formatted.')';
     }
 
     protected function getSummary(): string
     {
-        return $this->url->store_name.' has had a price drop for '.
+        $summary = $this->url->store_name.' has had a price '.$this->getChangeType().' for '.
             $this->url->product_name_short.' - '.$this->url->latest_price_formatted;
+
+        if (! is_null($this->previousPrice)) {
+            $summary .= ' (was '.CurrencyHelper::toString(
+                $this->previousPrice,
+                locale: $this->url->store?->locale,
+                iso: $this->url->store?->currency
+            ).')';
+        }
+
+        return $summary;
+    }
+
+    protected function getChangeType(): string
+    {
+        /** @var ?Price $latest */
+        $latest = $this->url->prices()->reorder('id', 'desc')->first();
+        $latestPrice = $latest?->price;
+
+        return ! is_null($this->previousPrice) && ! is_null($latestPrice) && (float) $latestPrice > $this->previousPrice
+            ? 'increase'
+            : 'drop';
     }
 
     protected function getUrl(): string
