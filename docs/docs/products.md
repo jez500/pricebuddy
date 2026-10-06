@@ -18,6 +18,12 @@ URL to get the product details and price. You can then add more URLs to the prod
 
 You can also add a URL to an existing product.
 
+To add many URLs at once, use **Add multiple URLs** on the product page. Paste up to
+50 URLs, one URL per line. PriceBuddy skips URLs that are not valid, that repeat in
+the list, or that the product already has. It adds the other URLs in the background,
+so the queue worker must be running. When a URL cannot be added, for example because
+the page has no price, you get a "URL not added" notification.
+
 ## Unit pricing
 
 When a product comes in different pack sizes, you can add a **Price Factor**

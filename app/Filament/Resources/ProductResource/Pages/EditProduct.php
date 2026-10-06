@@ -18,6 +18,7 @@ class EditProduct extends EditRecord
     {
         return [
             ProductResource\Actions\AddUrlAction::make(),
+            ProductResource\Actions\AddUrlsAction::make(),
             BaseAction::make('view')->icon(Icons::View->value)
                 ->label(__('View'))
                 ->resourceName('product')
