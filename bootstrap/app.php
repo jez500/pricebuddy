@@ -27,6 +27,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(
             at: $trustedProxies === '*' ? '*' : explode(',', (string) $trustedProxies),
         );
+
+        // Laravel sends guests to a route named "login", which this app does not have.
+        // AuthenticateSession logs the user out after a password change, and the next
+        // request then failed with "Route [login] not defined" (#236).
+        $middleware->redirectGuestsTo(fn () => route('filament.admin.auth.login'));
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
