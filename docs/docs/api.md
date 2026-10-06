@@ -173,6 +173,39 @@ PUT /api/products/42/tags
 }
 ```
 
+### Add URLs to a product (`POST /api/products/{id}/urls`)
+
+Adds up to 50 URLs to a product in one request. The endpoint requires the
+`product:update` ability. Each URL is scraped by a queued job, so the response is
+`202` and does not wait for the scrapes.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `urls` | array of strings | Required. 1 to 50 URLs. |
+| `price_factor` | number | Optional. Applied to every URL. Defaults to `1`. |
+
+The response lists the queued URLs and the skipped URLs. A skipped URL has a reason:
+`invalid` (not an `http` or `https` URL), `duplicate` (it repeats an earlier URL in the
+list) or `existing` (the product already has it). A queued URL can still fail, for
+example when the page has no price. The user then gets a "URL not added" notification.
+
+```json
+POST /api/products/42/urls
+{
+  "urls": ["https://example.com/a", "https://example.com/b", "not a url"]
+}
+```
+
+```json
+{
+  "data": {
+    "queued": ["https://example.com/a", "https://example.com/b"],
+    "skipped": [{ "url": "not a url", "reason": "invalid" }]
+  },
+  "message": "2 URLs queued"
+}
+```
+
 ### Insights (`GET /api/products/{id}?include=insights`)
 
 The product detail endpoint can embed the full insights data set — price statistics,
