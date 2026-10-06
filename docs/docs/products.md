@@ -107,6 +107,9 @@ Notifications require the following settings:
 * **Notify when back in stock** - Get notified when a tracked URL for this product
   becomes available again after being out of stock. This is independent of the
   price thresholds above.
+* **Notify on any price change** - Get notified every time the price of a tracked
+  URL goes up or down from its previous price. This is independent of the price
+  thresholds above. It is useful when you monitor the prices of competitors.
 
 #### Global settings
 

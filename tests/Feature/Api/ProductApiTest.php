@@ -452,6 +452,19 @@ class ProductApiTest extends TestCase
         $this->assertDatabaseHas('products', ['id' => $product->id, 'notify_in_stock' => true]);
     }
 
+    public function test_can_toggle_notify_on_change_via_api(): void
+    {
+        $product = Product::factory()->create(['user_id' => $this->user->id, 'notify_on_change' => false]);
+
+        $this->putJson("/api/products/{$product->id}", [
+            'title' => $product->title,
+            'image' => $product->image,
+            'notify_on_change' => true,
+        ])->assertSuccessful()->assertJsonPath('data.notify_on_change', true);
+
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'notify_on_change' => true]);
+    }
+
     private function productWithInsights(): Product
     {
         return Product::factory()

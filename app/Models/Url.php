@@ -522,6 +522,18 @@ class Url extends Model
     }
 
     /**
+     * The price recorded for this URL before the given price.
+     */
+    public function previousPrice(Price $price): ?Price
+    {
+        /** @var ?Price */
+        return $this->prices()
+            ->reorder('id', 'desc')
+            ->where('id', '<', $price->getKey())
+            ->first();
+    }
+
+    /**
      * Only notify if the price has changed.
      */
     public function shouldNotifyOnPrice(Price $price): bool

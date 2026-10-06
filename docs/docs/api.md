@@ -130,6 +130,7 @@ interactive docs at `/docs/api`. A few fields have behaviour worth calling out.
 | --- | --- | --- |
 | `paused` | boolean | When `true`, the product is skipped by both the global schedule and any custom cadence. |
 | `notify_in_stock` | boolean | Notify when a tracked URL becomes available again after being out of stock. |
+| `notify_on_change` | boolean | Notify every time the price of a tracked URL goes up or down from its previous price. |
 | `refresh_interval` | integer (seconds) or `null` | Custom check cadence. `null` follows the global fetch schedule. Setting or changing it makes the product due on the next run. |
 
 Allowed `refresh_interval` values (seconds): `300` (5m), `600` (10m), `900` (15m),

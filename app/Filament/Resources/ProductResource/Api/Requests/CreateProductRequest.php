@@ -38,6 +38,7 @@ class CreateProductRequest extends FormRequest
             'only_official' => 'nullable|boolean',
             'create_store' => 'sometimes|boolean',
             'notify_in_stock' => 'sometimes|boolean',
+            'notify_on_change' => 'sometimes|boolean',
             'paused' => 'sometimes|boolean',
             'refresh_interval' => ['sometimes', 'nullable', 'integer', Rule::in(array_keys(ProductResource::REFRESH_INTERVALS))],
         ];
