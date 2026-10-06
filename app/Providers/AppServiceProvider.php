@@ -12,6 +12,7 @@ use App\Policies\UserPolicy;
 use App\Services\Helpers\NotificationsHelper;
 use App\Services\Helpers\QueueHelper;
 use App\Services\Helpers\SettingsHelper;
+use App\Services\Scrapers\Utf8WebScraperHttp;
 use Filament\Facades\Filament;
 use Filament\Navigation\MenuItem;
 use Filament\Support\Facades\FilamentView;
@@ -20,12 +21,14 @@ use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Jez500\WebScraperForLaravel\WebScraperHttp;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        // Convert scraped pages to UTF-8 before they are cached (#203).
+        $this->app->bind(WebScraperHttp::class, Utf8WebScraperHttp::class);
     }
 
     public function boot(): void
