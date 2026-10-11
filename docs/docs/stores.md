@@ -5,7 +5,9 @@ from a website. A number of stores are pre-configured, but you can also
 add your own.
 
 Stores are shared between all users in PriceBuddy, so if you add a store
-it will be available to all users.
+it will be available to all users. Any user can edit a store. Only an admin
+can delete a store, because deleting it also deletes every user's URLs and
+prices for that store.
 
 Below will go into more detail on how to add or configure your own stores.
 

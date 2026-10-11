@@ -3,10 +3,13 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\ScraperService;
+use App\Models\Product;
 use App\Models\Store;
+use App\Models\Url;
 use App\Models\User;
 use App\Services\Helpers\SettingsHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class StoreApiTest extends TestCase
@@ -25,13 +28,16 @@ class StoreApiTest extends TestCase
 
     public function test_can_list_stores(): void
     {
-        $stores = Store::factory()->count(3)->create(['user_id' => $this->user->id]);
-        Store::factory()->count(2)->create(); // Other users' stores
+        // Stores are shared: the list includes stores that other users created and
+        // stores with no creator.
+        Store::factory()->count(3)->create(['user_id' => $this->user->id]);
+        Store::factory()->count(2)->create(['user_id' => User::factory()->create()->id]);
+        $this->createOwnerlessStore();
 
         $response = $this->getJson('/api/stores');
 
         $response->assertSuccessful()
-            ->assertJsonCount(3, 'data')
+            ->assertJsonCount(6, 'data')
             ->assertJsonStructure([
                 'data' => [
                     '*' => [
@@ -171,14 +177,52 @@ class StoreApiTest extends TestCase
             ->assertJsonPath('data.locale', 'en-AU');
     }
 
-    public function test_cannot_show_other_users_store(): void
+    public function test_can_show_a_store_that_another_user_created(): void
     {
-        $otherUser = User::factory()->create();
-        $store = Store::factory()->create(['user_id' => $otherUser->id]);
+        $theirs = Store::factory()->create(['user_id' => User::factory()->create()->id]);
+        $ownerless = $this->createOwnerlessStore();
 
-        $response = $this->getJson("/api/stores/{$store->id}");
+        $this->getJson("/api/stores/{$theirs->id}")->assertSuccessful()->assertJsonPath('data.id', $theirs->id);
+        $this->getJson("/api/stores/{$ownerless->id}")->assertSuccessful()->assertJsonPath('data.id', $ownerless->id);
+    }
 
-        $response->assertNotFound();
+    public function test_show_returns_404_for_a_missing_store(): void
+    {
+        $this->getJson('/api/stores/999999')->assertNotFound();
+    }
+
+    /**
+     * A shared store must not expose another user's URLs, products or email address.
+     */
+    public function test_includes_only_contain_the_callers_own_data(): void
+    {
+        $other = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $other->id]);
+
+        $mine = Product::factory()->create(['user_id' => $this->user->id]);
+        $theirs = Product::factory()->create(['user_id' => $other->id]);
+        $myUrl = Url::factory()->create(['store_id' => $store->id, 'product_id' => $mine->id]);
+        Url::factory()->create(['store_id' => $store->id, 'product_id' => $theirs->id]);
+
+        $responses = [
+            'detail' => $this->getJson("/api/stores/{$store->id}?include=user,urls,products")->assertSuccessful()->json('data'),
+            'list' => $this->getJson('/api/stores?include=user,urls,products')->assertSuccessful()->json('data.0'),
+        ];
+
+        foreach ($responses as $uri => $data) {
+            $this->assertSame([$myUrl->id], array_column($data['urls'], 'id'), $uri);
+            $this->assertSame([$mine->id], array_column($data['products'], 'id'), $uri);
+            $this->assertArrayNotHasKey('email', (array) ($data['user'] ?? []), $uri);
+        }
+    }
+
+    public function test_include_user_shows_the_creator_to_the_creator(): void
+    {
+        $store = Store::factory()->create(['user_id' => $this->user->id]);
+
+        $this->getJson("/api/stores/{$store->id}?include=user")
+            ->assertSuccessful()
+            ->assertJsonPath('data.user.id', $this->user->id);
     }
 
     public function test_can_create_store(): void
@@ -275,26 +319,45 @@ class StoreApiTest extends TestCase
         ]);
     }
 
-    public function test_cannot_update_other_users_store(): void
+    public function test_any_user_can_update_a_store_they_did_not_create(): void
     {
-        $otherUser = User::factory()->create();
-        $store = Store::factory()->create(['user_id' => $otherUser->id]);
+        $other = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $other->id]);
 
-        $updateData = [
-            'name' => 'Hacked Store Name',
-            'domains' => $store->domains ?: [['domain' => 'hacked.com']],
+        $this->putJson("/api/stores/{$store->id}", [
+            'name' => 'Renamed by another user',
+            'domains' => $store->domains ?: [['domain' => 'renamed.com']],
             'scrape_strategy' => $store->scrape_strategy,
             'settings' => $store->settings,
-        ];
+            'user_id' => $this->user->id,
+        ])
+            ->assertSuccessful()
+            ->assertJsonPath('data.name', 'Renamed by another user');
 
-        $response = $this->putJson("/api/stores/{$store->id}", $updateData);
-
-        $response->assertNotFound();
+        // user_id records who created the store. An edit does not change it.
+        $this->assertSame($other->id, $store->fresh()->user_id);
     }
 
-    public function test_can_delete_store(): void
+    public function test_can_update_a_store_with_no_creator(): void
     {
-        $store = Store::factory()->create(['user_id' => $this->user->id]);
+        $store = $this->createOwnerlessStore();
+
+        $this->putJson("/api/stores/{$store->id}", ['name' => 'Named', 'domains' => [['domain' => 'named.com']]])
+            ->assertSuccessful();
+
+        $this->assertSame('Named', $store->fresh()->name);
+    }
+
+    public function test_update_returns_404_for_a_missing_store(): void
+    {
+        $this->putJson('/api/stores/999999', ['name' => 'Missing', 'domains' => [['domain' => 'missing.com']]])
+            ->assertNotFound();
+    }
+
+    public function test_admin_can_delete_any_store(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create(), ['*']);
+        $store = Store::factory()->create(['user_id' => User::factory()->create()->id]);
 
         $response = $this->deleteJson("/api/stores/{$store->id}");
 
@@ -302,15 +365,26 @@ class StoreApiTest extends TestCase
         $this->assertDatabaseMissing('stores', ['id' => $store->id]);
     }
 
-    public function test_cannot_delete_other_users_store(): void
+    /**
+     * Deleting a shared store deletes every user's URLs and prices for it, so only an
+     * admin can do it. The refusal is a 403, so a client can explain it.
+     */
+    public function test_non_admin_cannot_delete_a_store_even_one_they_created(): void
     {
-        $otherUser = User::factory()->create();
-        $store = Store::factory()->create(['user_id' => $otherUser->id]);
+        $mine = Store::factory()->create(['user_id' => $this->user->id]);
+        $theirs = Store::factory()->create(['user_id' => User::factory()->create()->id]);
 
-        $response = $this->deleteJson("/api/stores/{$store->id}");
+        foreach ([$mine, $theirs] as $store) {
+            $this->deleteJson("/api/stores/{$store->id}")->assertForbidden();
+            $this->assertDatabaseHas('stores', ['id' => $store->id]);
+        }
+    }
 
-        $response->assertNotFound();
-        $this->assertDatabaseHas('stores', ['id' => $store->id]);
+    public function test_delete_returns_404_for_a_missing_store(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create(), ['*']);
+
+        $this->deleteJson('/api/stores/999999')->assertNotFound();
     }
 
     public function test_can_filter_stores_by_domain(): void
@@ -522,17 +596,53 @@ class StoreApiTest extends TestCase
             ->assertJsonCount(0, 'data');
     }
 
-    public function test_domain_filter_does_not_leak_another_users_store(): void
+    public function test_domain_filters_return_stores_whatever_the_creator(): void
     {
-        $other = User::factory()->create();
-        Store::factory()->create([
-            'user_id' => $other->id,
-            'domains' => [['domain' => 'target.com.au']],
+        $ownerless = $this->createOwnerlessStore(['domains' => [['domain' => 'amazon.com.au'], ['domain' => 'www.amazon.com.au']]]);
+        $theirs = Store::factory()->create([
+            'user_id' => User::factory()->create()->id,
+            'domains' => [['domain' => 'www.amazon.com.au']],
         ]);
 
-        $this->getJson('/api/stores?filter[domain]='.urlencode('target.com.au'))
-            ->assertSuccessful()
-            ->assertJsonCount(0, 'data');
+        foreach (['filter[domain]=www.amazon.com.au', 'filter[domains]=amazon.com.au'] as $filter) {
+            $ids = collect($this->getJson('/api/stores?'.$filter)->assertSuccessful()->json('data'))->pluck('id')->sort()->values()->all();
+
+            $this->assertSame([$ownerless->id, $theirs->id], $ids, $filter);
+        }
+    }
+
+    public function test_create_ignores_a_client_supplied_user_id(): void
+    {
+        $other = User::factory()->create();
+
+        $this->postJson('/api/stores', [
+            'name' => 'Attributed Store',
+            'domains' => [['domain' => 'attributed.com']],
+            'scrape_strategy' => [
+                'title' => ['value' => 'h1', 'type' => 'selector'],
+                'price' => ['value' => '.price', 'type' => 'selector'],
+                'image' => ['value' => 'img', 'type' => 'selector'],
+            ],
+            'settings' => ['scraper_service' => ScraperService::Http->value],
+            'user_id' => $other->id,
+        ])->assertCreated();
+
+        $this->assertSame($this->user->id, Store::where('name', 'Attributed Store')->value('user_id'));
+    }
+
+    /**
+     * Make a store with no creator, the way older installs and the seeder made them.
+     * A query update skips model events, so nothing fills in user_id.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function createOwnerlessStore(array $attributes = []): Store
+    {
+        $store = Store::factory()->create($attributes);
+
+        Store::query()->whereKey($store->id)->update(['user_id' => null]);
+
+        return $store->fresh();
     }
 
     public function test_domain_filter_handles_a_comma_without_erroring(): void

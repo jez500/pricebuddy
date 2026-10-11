@@ -321,6 +321,16 @@ The response carries an `ETag` and `Cache-Control: private, max-age=86400`. Send
 
 ## Stores
 
+Stores are shared by all users, so `GET /api/stores` and `GET /api/stores/{id}` return
+every store, whoever created it. A store's `user_id` records who created it. The server
+sets it, and an edit does not change it.
+
+- Any user can create a store and edit any store.
+- Only an admin can delete a store, because a delete removes every user's URLs and prices
+  for that store. A non-admin gets `403`.
+- `include=urls` and `include=products` only return your own URLs and products.
+  `include=user` returns the creator only to the creator. Everyone else gets `null`.
+
 ### Finding a store by domain
 
 `GET /api/stores?filter[domain]=<bare host>`
