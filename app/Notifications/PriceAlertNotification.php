@@ -90,7 +90,7 @@ class PriceAlertNotification extends Notification
             'productUrl' => $this->getUrl(),
             'productName' => Str::limit(($this->product->title ?? 'Unknown product'), 100),
             'imgUrl' => $this->product?->image,
-            'newPrice' => $this->url->latest_price_formatted,
+            'newPrice' => $this->getPriceFormatted(),
             'averagePrice' => data_get($this->product?->price_aggregates, 'avg', '$0.00'),
         ];
     }
@@ -144,13 +144,13 @@ class PriceAlertNotification extends Notification
 
     protected function getTitle(): string
     {
-        return 'Price '.$this->getChangeType().': '.$this->url->product_name_short.' ('.$this->url->latest_price_formatted.')';
+        return 'Price '.$this->getChangeType().': '.$this->url->product_name_short.' ('.$this->getPriceFormatted().')';
     }
 
     protected function getSummary(): string
     {
         $summary = $this->url->store_name.' has had a price '.$this->getChangeType().' for '.
-            $this->url->product_name_short.' - '.$this->url->latest_price_formatted;
+            $this->url->product_name_short.' - '.$this->getPriceFormatted();
 
         if (! is_null($this->previousPrice)) {
             $summary .= ' (was '.CurrencyHelper::toString(
@@ -161,6 +161,22 @@ class PriceAlertNotification extends Notification
         }
 
         return $summary;
+    }
+
+    /**
+     * The price that triggered the alert. A threshold alert has none, so it shows the latest price.
+     */
+    protected function getPriceFormatted(): string
+    {
+        if (is_null($this->price)) {
+            return $this->url->latest_price_formatted;
+        }
+
+        return CurrencyHelper::toString(
+            $this->price->price,
+            locale: $this->url->store?->locale,
+            iso: $this->url->store?->currency
+        );
     }
 
     protected function getChangeType(): string
