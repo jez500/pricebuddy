@@ -258,6 +258,21 @@ page remain distinct products.
 
 An unmatched or unparseable URL returns `200` with an empty `data` array, never an error.
 
+### Searching products by title
+
+`GET /api/products?filter[search]=<terms>`
+
+Returns your products whose title contains every term, in any order. Terms are separated
+by whitespace. Matching is case-insensitive and partial, so `sony headphones` finds
+"Sony WH-1000XM5 Wireless Headphones". The characters `%` and `_` match only themselves.
+An empty or whitespace-only value returns every product.
+
+The filter works with `fields[products]`, `sort` and `per_page`, for example:
+
+```text
+GET /api/products?filter[search]=sony&fields[products]=id,title,image&sort=-updated_at&per_page=50
+```
+
 ### Marking the listing you are on
 
 `GET /api/products/{id}?include=insights&current_url=<raw page URL>`
@@ -281,6 +296,7 @@ matching endpoints without probing for a 4xx.
   "data": {
     "capabilities": {
       "products_filter_url": true,
+      "products_filter_search": true,
       "products_current_url": true,
       "products_sparse_fieldsets": true,
       "products_tags": true,

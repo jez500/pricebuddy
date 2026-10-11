@@ -84,7 +84,28 @@ class PaginationHandler extends Handlers
                 // without this the empty-string case would silently fall through to an
                 // unfiltered query instead of reaching the "0 = 1" guard above.
                 ->nullable(),
+            // Not nullable: an empty filter[search]= arrives as null and is skipped,
+            // so it returns every product (unlike filter[url]).
+            AllowedFilter::callback('search', function (Builder $query, $value): void {
+                $terms = preg_split('/\s+/', trim($this->filterValueToString($value)), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+                // Every term must match, in any order. The terms go inside one group,
+                // so they narrow the user_id scope and never widen it.
+                $query->where(function (Builder $search) use ($terms): void {
+                    foreach ($terms as $term) {
+                        $search->whereRaw("LOWER(title) LIKE ? ESCAPE '!'", ['%'.$this->escapeLike(mb_strtolower($term)).'%']);
+                    }
+                });
+            }),
         ];
+    }
+
+    /**
+     * Make %, _ and the escape character literal in a LIKE pattern.
+     */
+    protected function escapeLike(string $value): string
+    {
+        return str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $value);
     }
 
     public function getAllowedIncludes(): array
@@ -102,6 +123,7 @@ class PaginationHandler extends Handlers
      * @return AnonymousResourceCollection
      */
     #[QueryParameter('filter[url]', description: 'Return products tracking this page URL. Matching is normalised: scheme, port, "www.", trailing slashes, casing and tracking parameters are ignored.', type: 'string')]
+    #[QueryParameter('filter[search]', description: 'Return products whose title contains every whitespace-separated term, in any order. Matching is case-insensitive and partial. `%` and `_` are literal. An empty value returns every product.', type: 'string')]
     #[QueryParameter('current_url', description: 'Raw URL of the page being viewed. When supplied, each price_cache entry gains an `is_current` boolean.', type: 'string')]
     public function handler(Request $request)
     {

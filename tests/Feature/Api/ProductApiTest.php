@@ -573,6 +573,95 @@ class ProductApiTest extends TestCase
         $this->assertSame($product->id, $response->json('data.0.id'));
     }
 
+    /**
+     * @param  array<int, string>  $titles
+     * @return array<int, string>
+     */
+    private function searchTitles(string $query, array $titles): array
+    {
+        foreach ($titles as $title) {
+            Product::factory()->create(['user_id' => $this->user->id, 'title' => $title]);
+        }
+
+        return collect($this->getJson('/api/products?fields[products]=id,title&per_page=100&filter[search]='.urlencode($query))
+            ->assertSuccessful()
+            ->json('data'))
+            ->pluck('title')
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    public function test_search_filter_matches_all_terms_in_any_order(): void
+    {
+        $this->assertSame(
+            ['Sony WH-1000XM5 Wireless Headphones'],
+            $this->searchTitles('  HEADPHONES   sony ', [
+                'Sony WH-1000XM5 Wireless Headphones',
+                'Sony Bravia TV',
+                'Bose QuietComfort Headphones',
+            ])
+        );
+    }
+
+    public function test_search_filter_matches_a_partial_word(): void
+    {
+        $this->assertSame(['Sony Bravia TV'], $this->searchTitles('brav', ['Sony Bravia TV', 'LG OLED TV']));
+    }
+
+    public function test_search_filter_treats_wildcards_as_literal_characters(): void
+    {
+        $titles = ['50% off voucher', '500 off voucher', 'Cable_Tie', 'CableXTie', 'Back\slash'];
+
+        $this->assertSame(['50% off voucher'], $this->searchTitles('50%', $titles));
+        $this->assertSame(['Cable_Tie'], $this->searchTitles('e_t', []));
+        $this->assertSame(['Back\slash'], $this->searchTitles('k\s', []));
+    }
+
+    public function test_search_filter_keeps_a_comma_in_the_term(): void
+    {
+        $this->assertSame(['Coffee, ground'], $this->searchTitles('coffee,', ['Coffee, ground', 'Coffee beans']));
+    }
+
+    public function test_empty_search_filter_returns_every_product(): void
+    {
+        Product::factory()->count(3)->create(['user_id' => $this->user->id]);
+
+        foreach (['', '   '] as $query) {
+            $this->getJson('/api/products?filter[search]='.urlencode($query))
+                ->assertSuccessful()
+                ->assertJsonCount(3, 'data');
+        }
+    }
+
+    public function test_search_filter_does_not_return_another_users_product(): void
+    {
+        Product::factory()->create(['user_id' => User::factory()->create()->id, 'title' => 'Exact Match Kettle']);
+        $mine = Product::factory()->create(['user_id' => $this->user->id, 'title' => 'Exact Match Kettle']);
+
+        $this->getJson('/api/products?filter[search]=Exact+Match+Kettle')
+            ->assertSuccessful()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $mine->id);
+    }
+
+    public function test_search_filter_works_with_fields_sort_and_per_page(): void
+    {
+        $this->travelTo(now()->subDay());
+        Product::factory()->create(['user_id' => $this->user->id, 'title' => 'Old Kettle']);
+        $this->travelBack();
+        $new = Product::factory()->create(['user_id' => $this->user->id, 'title' => 'New Kettle']);
+        Product::factory()->create(['user_id' => $this->user->id, 'title' => 'Toaster']);
+
+        $response = $this->getJson('/api/products?filter[search]=kettle&fields[products]=id,title,image&sort=-updated_at&per_page=1')
+            ->assertSuccessful()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $new->id)
+            ->assertJsonPath('meta.total', 2);
+
+        $this->assertSame(['id', 'title', 'image'], array_keys($response->json('data.0')));
+    }
+
     public function test_url_filter_distinguishes_significant_query_params(): void
     {
         $red = Product::factory()->create(['user_id' => $this->user->id]);
