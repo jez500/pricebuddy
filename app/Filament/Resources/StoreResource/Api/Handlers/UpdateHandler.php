@@ -6,6 +6,7 @@ use App\Filament\Resources\StoreResource;
 use App\Filament\Resources\StoreResource\Api\Requests\UpdateStoreRequest;
 use Dedoc\Scramble\Attributes\Group;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
 use Rupadana\ApiService\Http\Handlers;
 
 #[Group(StoreResource::API_GROUP)]
@@ -34,13 +35,19 @@ class UpdateHandler extends Handlers
     {
         $id = $request->route('id');
 
-        $model = static::getModel()::where('id', $id)->where('user_id', auth()->id())->first();
+        // Stores are shared, so any user can edit any store (StorePolicy).
+        $model = static::getModel()::find($id);
 
         if (! $model) {
             return static::sendNotFoundResponse();
         }
 
-        $model->fill($request->all());
+        if (Gate::denies('update', $model)) {
+            return response()->json(['message' => 'You cannot edit this store.'], 403);
+        }
+
+        // user_id records who created the store. An edit does not change it.
+        $model->fill($request->except('user_id'));
 
         $model->save();
 

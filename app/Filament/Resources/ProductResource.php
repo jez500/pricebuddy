@@ -261,6 +261,11 @@ class ProductResource extends Resource
                     ->hintIcon(Icons::Help->value, 'Get notified when a tracked url for this product becomes available again after being out of stock')
                     ->columnSpanFull(),
 
+                Forms\Components\Toggle::make('notify_on_change')
+                    ->label('Notify on any price change')
+                    ->hintIcon(Icons::Help->value, 'Get notified every time the price of a tracked url goes up or down, regardless of the price and percent above')
+                    ->columnSpanFull(),
+
             ])
                 ->columns(2)
                 ->description('Notification settings'),

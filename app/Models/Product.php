@@ -44,6 +44,7 @@ use Illuminate\Support\Str;
  * @property ?float $notify_price
  * @property ?float $notify_percent
  * @property bool $notify_in_stock
+ * @property bool $notify_on_change
  * @property ?int $refresh_interval
  * @property ?Carbon $next_check_at
  * @property bool $paused
@@ -81,6 +82,7 @@ class Product extends Model
         'created_at' => 'datetime',
         'favourite' => 'boolean',
         'notify_in_stock' => 'boolean',
+        'notify_on_change' => 'boolean',
         'next_check_at' => 'datetime',
         'refresh_interval' => 'integer',
         'paused' => 'boolean',
@@ -784,5 +786,19 @@ class Product extends Model
         }
 
         return false;
+    }
+
+    /**
+     * Notify on every change from the previous price of the same URL, up or down (#212).
+     */
+    public function shouldNotifyOnPriceChange(Price $price): bool
+    {
+        if (! $this->notify_on_change) {
+            return false;
+        }
+
+        $previous = $price->url?->previousPrice($price);
+
+        return $previous !== null && round((float) $previous->price, 2) !== round((float) $price->price, 2);
     }
 }

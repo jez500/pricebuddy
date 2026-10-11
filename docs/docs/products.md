@@ -18,6 +18,13 @@ URL to get the product details and price. You can then add more URLs to the prod
 
 You can also add a URL to an existing product.
 
+To add many URLs at once, paste up to 50 URLs into **Add URL** on the product page,
+one URL per line. A single URL is added straight away. When you add more than one URL,
+PriceBuddy skips URLs that are not valid, that repeat in
+the list, or that the product already has. It adds the other URLs in the background,
+so the queue worker must be running. When a URL cannot be added, for example because
+the page has no price, you get a "URL not added" notification.
+
 ## Unit pricing
 
 When a product comes in different pack sizes, you can add a **Price Factor**
@@ -107,6 +114,9 @@ Notifications require the following settings:
 * **Notify when back in stock** - Get notified when a tracked URL for this product
   becomes available again after being out of stock. This is independent of the
   price thresholds above.
+* **Notify on any price change** - Get notified every time the price of a tracked
+  URL goes up or down from its previous price. This is independent of the price
+  thresholds above. It is useful when you monitor the prices of competitors.
 
 #### Global settings
 

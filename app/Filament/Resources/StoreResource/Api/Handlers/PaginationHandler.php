@@ -13,8 +13,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Rupadana\ApiService\Http\Handlers;
 use Spatie\QueryBuilder\AllowedFilter;
+use Spatie\QueryBuilder\AllowedInclude;
 use Spatie\QueryBuilder\QueryBuilder;
 
 #[Group(StoreResource::API_GROUP)]
@@ -75,19 +77,14 @@ class PaginationHandler extends Handlers
                 // only lowercases and strips a leading "www.", so the normalised host is
                 // always a substring of the lowercased stored value.
                 //
-                // Note: the tenancy boundary is the outer query scope already applied in
-                // handler() (->where('user_id', auth()->id())), which this filter's
-                // whereIn() composes onto with AND. The user_id clause below is NOT the
-                // tenancy boundary — it exists to bound how many rows are hydrated for the
-                // PHP comparison (without it, every user's matching stores would be loaded
-                // into memory here), plus defence in depth.
+                // Stores are shared by all users, so this matches every store. The LIKE
+                // already limits how many rows are loaded for the PHP comparison.
                 // Postgres has no LOWER(json), so cast to text there first.
                 $domainsExpr = (new Store)->getConnection()->getDriverName() === 'pgsql'
                     ? 'LOWER(domains::text)'
                     : 'LOWER(domains)';
 
                 $ids = Store::query()
-                    ->where('user_id', auth()->id())
                     ->whereRaw($domainsExpr.' LIKE ?', ['%'.addcslashes($host, '%_').'%'])
                     ->get(['id', 'domains'])
                     ->filter(fn (Store $store): bool => collect($store->domains)
@@ -108,10 +105,22 @@ class PaginationHandler extends Handlers
 
     public function getAllowedIncludes(): array
     {
+        return self::sharedStoreIncludes();
+    }
+
+    /**
+     * Stores are shared, but their URLs and products are not. Each include only loads
+     * the caller's own rows. The creator is only loaded for the creator, so a user never
+     * sees another user's email address.
+     *
+     * @return array<int, Collection<int, AllowedInclude>>
+     */
+    public static function sharedStoreIncludes(): array
+    {
         return [
-            'user',
-            'urls',
-            'products',
+            AllowedInclude::callback('user', fn ($query) => $query->whereKey(auth()->id())),
+            AllowedInclude::callback('urls', fn ($query) => $query->whereHas('product', fn (Builder $product) => $product->where('user_id', auth()->id()))),
+            AllowedInclude::callback('products', fn ($query) => $query->where('products.user_id', auth()->id())),
         ];
     }
 
@@ -140,7 +149,8 @@ class PaginationHandler extends Handlers
     #[QueryParameter('filter[domain]', description: 'Exact-match filter on a bare host such as "www.Target.com.au". Case and a leading "www." are ignored. Unlike filter[domains], this does not partial match.', type: 'string')]
     public function handler()
     {
-        $query = static::getEloquentQuery()->where('user_id', auth()->id());
+        // Stores are shared by all users.
+        $query = static::getEloquentQuery();
 
         // Add search functionality
         if (request()->has('search')) {

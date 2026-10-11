@@ -130,6 +130,7 @@ interactive docs at `/docs/api`. A few fields have behaviour worth calling out.
 | --- | --- | --- |
 | `paused` | boolean | When `true`, the product is skipped by both the global schedule and any custom cadence. |
 | `notify_in_stock` | boolean | Notify when a tracked URL becomes available again after being out of stock. |
+| `notify_on_change` | boolean | Notify every time the price of a tracked URL goes up or down from its previous price. |
 | `refresh_interval` | integer (seconds) or `null` | Custom check cadence. `null` follows the global fetch schedule. Setting or changing it makes the product due on the next run. |
 
 Allowed `refresh_interval` values (seconds): `300` (5m), `600` (10m), `900` (15m),
@@ -169,6 +170,39 @@ use `GET /api/products/{id}?include=tags`.
 PUT /api/products/42/tags
 {
   "tags": [3, 7]
+}
+```
+
+### Add URLs to a product (`POST /api/products/{id}/urls`)
+
+Adds up to 50 URLs to a product in one request. The endpoint requires the
+`product:update` ability. Each URL is scraped by a queued job, so the response is
+`202` and does not wait for the scrapes.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `urls` | array of strings | Required. 1 to 50 URLs. |
+| `price_factor` | number | Optional. Applied to every URL. Defaults to `1`. |
+
+The response lists the queued URLs and the skipped URLs. A skipped URL has a reason:
+`invalid` (not an `http` or `https` URL), `duplicate` (it repeats an earlier URL in the
+list) or `existing` (the product already has it). A queued URL can still fail, for
+example when the page has no price. The user then gets a "URL not added" notification.
+
+```json
+POST /api/products/42/urls
+{
+  "urls": ["https://example.com/a", "https://example.com/b", "not a url"]
+}
+```
+
+```json
+{
+  "data": {
+    "queued": ["https://example.com/a", "https://example.com/b"],
+    "skipped": [{ "url": "not a url", "reason": "invalid" }]
+  },
+  "message": "2 URLs queued"
 }
 ```
 
@@ -224,6 +258,21 @@ page remain distinct products.
 
 An unmatched or unparseable URL returns `200` with an empty `data` array, never an error.
 
+### Searching products by title
+
+`GET /api/products?filter[search]=<terms>`
+
+Returns your products whose title contains every term, in any order. Terms are separated
+by whitespace. Matching is case-insensitive and partial, so `sony headphones` finds
+"Sony WH-1000XM5 Wireless Headphones". The characters `%` and `_` match only themselves.
+An empty or whitespace-only value returns every product. More than 10 terms returns `422`.
+
+The filter works with `fields[products]`, `sort` and `per_page`, for example:
+
+```text
+GET /api/products?filter[search]=sony&fields[products]=id,title,image&sort=-updated_at&per_page=50
+```
+
 ### Marking the listing you are on
 
 `GET /api/products/{id}?include=insights&current_url=<raw page URL>`
@@ -247,6 +296,7 @@ matching endpoints without probing for a 4xx.
   "data": {
     "capabilities": {
       "products_filter_url": true,
+      "products_filter_search": true,
       "products_current_url": true,
       "products_sparse_fieldsets": true,
       "products_tags": true,
@@ -270,6 +320,16 @@ The response carries an `ETag` and `Cache-Control: private, max-age=86400`. Send
 `If-None-Match` to get a `304`.
 
 ## Stores
+
+Stores are shared by all users, so `GET /api/stores` and `GET /api/stores/{id}` return
+every store, whoever created it. A store's `user_id` records who created it. The server
+sets it, and an edit does not change it.
+
+- Any user can create a store and edit any store.
+- Only an admin can delete a store, because a delete removes every user's URLs and prices
+  for that store. A non-admin gets `403`.
+- `include=urls` and `include=products` only return your own URLs and products.
+  `include=user` returns the creator only to the creator. Everyone else gets `null`.
 
 ### Finding a store by domain
 

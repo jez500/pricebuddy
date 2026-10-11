@@ -43,8 +43,9 @@ class StoreTransformer extends JsonResource
         $data['locale'] = LocaleHelper::toBcp47($this->resource->locale ?: CurrencyHelper::getLocale());
 
         // Include relationships if they are loaded
+        // The user include only loads for the store's creator. Everyone else gets null.
         if ($this->resource->relationLoaded('user')) {
-            $data['user'] = new UserResource($this->resource->user);
+            $data['user'] = $this->resource->user ? new UserResource($this->resource->user) : null;
         }
 
         if ($this->resource->relationLoaded('urls')) {
