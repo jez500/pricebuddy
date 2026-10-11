@@ -28,8 +28,9 @@ class PriceAlertNotification extends Notification
      * Create a new notification instance.
      *
      * @param  ?float  $previousPrice  set for a price change alert, so the message can say "increase" or "drop"
+     * @param  ?Price  $price  the price that triggered the alert
      */
-    public function __construct(protected Url $url, protected ?float $previousPrice = null)
+    public function __construct(protected Url $url, protected ?float $previousPrice = null, protected ?Price $price = null)
     {
         $this->product = $url->product;
     }
@@ -164,8 +165,9 @@ class PriceAlertNotification extends Notification
 
     protected function getChangeType(): string
     {
+        // A newer price can be saved before the notification is rendered.
         /** @var ?Price $latest */
-        $latest = $this->url->prices()->reorder('id', 'desc')->first();
+        $latest = $this->price ?? $this->url->prices()->reorder('id', 'desc')->first();
         $latestPrice = $latest?->price;
 
         return ! is_null($this->previousPrice) && ! is_null($latestPrice) && (float) $latestPrice > $this->previousPrice

@@ -10,6 +10,7 @@ use Exception;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
+use Throwable;
 
 class AddUrlToProductJob implements ShouldQueue
 {
@@ -56,6 +57,19 @@ class AddUrlToProductJob implements ShouldQueue
         }
 
         if ($urlModel === false) {
+            $user->notify(new AddUrlFailedNotification($product, $this->url));
+        }
+    }
+
+    /**
+     * Laravel calls this when handle() throws, for example on a timeout or a PHP error.
+     */
+    public function failed(?Throwable $exception): void
+    {
+        $product = Product::find($this->productId);
+        $user = User::find($this->userId);
+
+        if ($product && $user) {
             $user->notify(new AddUrlFailedNotification($product, $this->url));
         }
     }

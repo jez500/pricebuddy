@@ -83,6 +83,22 @@ class ProductNotifyOnChangeTest extends TestCase
         $this->assertTrue($price->fresh()->notified);
     }
 
+    /**
+     * The direction comes from the price that triggered the alert, not from a newer
+     * price saved before the notification is rendered.
+     */
+    public function test_change_type_uses_the_triggering_price(): void
+    {
+        $url = $this->createUrl(['notify_on_change' => false]);
+        $this->addPrice($url, 100);
+        $increase = $this->addPrice($url, 120);
+        $this->addPrice($url, 80);
+
+        $notification = new PriceAlertNotification($url->fresh(), 100.0, $increase);
+
+        $this->assertStringStartsWith('Price increase:', $notification->toArray($this->user)['title']);
+    }
+
     public function test_price_decrease_sends_a_drop_alert(): void
     {
         $url = $this->createUrl();

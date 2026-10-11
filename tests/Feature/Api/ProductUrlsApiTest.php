@@ -114,6 +114,35 @@ class ProductUrlsApiTest extends TestCase
         );
     }
 
+    /**
+     * A timeout or a PHP error skips the catch in handle(). Laravel then calls failed().
+     */
+    public function test_failed_job_notifies_the_user(): void
+    {
+        Notification::fake();
+
+        (new AddUrlToProductJob($this->product->id, 'https://example.com/slow', $this->user->id))
+            ->failed(new \RuntimeException('Job timed out'));
+
+        Notification::assertSentTo(
+            $this->user,
+            AddUrlFailedNotification::class,
+            fn (AddUrlFailedNotification $notification) => $notification->url === 'https://example.com/slow'
+        );
+    }
+
+    public function test_failed_job_sends_nothing_when_the_product_was_deleted(): void
+    {
+        Notification::fake();
+        $productId = $this->product->id;
+        $this->product->delete();
+
+        (new AddUrlToProductJob($productId, 'https://example.com/slow', $this->user->id))
+            ->failed(new \RuntimeException('Job timed out'));
+
+        Notification::assertNothingSent();
+    }
+
     public function test_rejects_more_than_the_maximum_number_of_urls(): void
     {
         Queue::fake();
