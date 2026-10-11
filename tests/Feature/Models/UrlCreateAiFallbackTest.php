@@ -22,7 +22,7 @@ class UrlCreateAiFallbackTest extends TestCase
     {
         $user = User::factory()->create();
         $this->actingAs($user);
-        $product = Product::factory()->create();
+        $product = Product::factory()->create(['user_id' => $user->id]);
 
         // No store exists for newdomain.test, so the initial scrape finds nothing.
         // The (mocked) healer creates a working store; the re-scrape then succeeds.
