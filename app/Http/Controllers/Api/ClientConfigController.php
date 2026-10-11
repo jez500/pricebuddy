@@ -31,6 +31,7 @@ class ClientConfigController extends Controller
         $data = [
             'capabilities' => [
                 'products_filter_url' => true,
+                'products_filter_search' => true,
                 'products_current_url' => true,
                 'products_sparse_fieldsets' => true,
                 'products_tags' => true,
