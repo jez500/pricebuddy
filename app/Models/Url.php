@@ -326,6 +326,12 @@ class Url extends Model
     {
         $userId = $userId ?? auth()->id();
 
+        // A user can only add a URL to their own product. Without a user (console,
+        // seeders), the caller is trusted.
+        if ($productId && $userId && ! Product::query()->whereKey($productId)->where('user_id', $userId)->exists()) {
+            throw new AuthorizationException('The product does not belong to this user.');
+        }
+
         ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable] = self::scrapeAndResolveStore($url, $createStore);
 
         if (! $store || (! data_get($scrape, 'price') && ! $isUnavailable)) {

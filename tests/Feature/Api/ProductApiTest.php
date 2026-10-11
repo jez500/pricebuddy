@@ -168,6 +168,50 @@ class ProductApiTest extends TestCase
         ]);
     }
 
+    public function test_can_add_a_url_to_own_existing_product(): void
+    {
+        $this->mockScrape('$99.99', 'Test Product');
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+
+        $this->postJson('/api/products', [
+            'title' => 'Test Product',
+            'url' => 'https://example.com/second-store',
+            'product_id' => $product->id,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.id', $product->id);
+
+        $this->assertDatabaseHas('urls', [
+            'product_id' => $product->id,
+            'url' => 'https://example.com/second-store',
+        ]);
+    }
+
+    /**
+     * product_id must belong to the caller. Another user's product gets the same
+     * 422 as a product that does not exist, so the response does not disclose it.
+     */
+    public function test_cannot_add_a_url_to_another_users_product(): void
+    {
+        $this->mockScrape('$99.99', 'Test Product');
+        $theirs = Product::factory()->create(['user_id' => User::factory()->create()->id]);
+        $missingId = Product::max('id') + 100;
+
+        foreach ([$theirs->id, $missingId] as $productId) {
+            $this->postJson('/api/products', [
+                'title' => 'Test Product',
+                'url' => 'https://example.com/injected',
+                'product_id' => $productId,
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['product_id'])
+                ->assertJsonMissingPath('data');
+        }
+
+        $this->assertDatabaseMissing('urls', ['url' => 'https://example.com/injected']);
+        $this->assertSame(0, $theirs->urls()->count());
+    }
+
     public function test_create_product_validation_fails_with_invalid_data(): void
     {
         $invalidData = [
