@@ -154,14 +154,31 @@ class ProductUrlsApiTest extends TestCase
         Queue::assertNothingPushed();
     }
 
+    public function test_view_page_action_adds_a_single_url_straight_away(): void
+    {
+        Queue::fake();
+        $this->mockScrape(25, 'Example product');
+        $this->actingAs($this->user);
+
+        Livewire::test(ViewProduct::class, ['record' => $this->product->getRouteKey()])
+            ->callAction('add_url', data: [
+                'url' => "  https://example.com/a\n",
+                'price_factor' => 1,
+            ])
+            ->assertHasNoActionErrors();
+
+        Queue::assertNothingPushed();
+        $this->assertSame(['https://example.com/a'], $this->product->urls()->pluck('url')->all());
+    }
+
     public function test_view_page_action_queues_one_url_per_line(): void
     {
         Queue::fake();
         $this->actingAs($this->user);
 
         Livewire::test(ViewProduct::class, ['record' => $this->product->getRouteKey()])
-            ->callAction('add_multiple_urls', data: [
-                'urls' => "https://example.com/a\n\n  https://example.com/b  \r\nhttps://example.com/a",
+            ->callAction('add_url', data: [
+                'url' => "https://example.com/a\n\n  https://example.com/b  \r\nhttps://example.com/a",
                 'price_factor' => 1,
             ])
             ->assertHasNoActionErrors()
@@ -180,8 +197,8 @@ class ProductUrlsApiTest extends TestCase
             ->implode("\n");
 
         Livewire::test(ViewProduct::class, ['record' => $this->product->getRouteKey()])
-            ->callAction('add_multiple_urls', data: ['urls' => $urls, 'price_factor' => 1])
-            ->assertHasActionErrors(['urls']);
+            ->callAction('add_url', data: ['url' => $urls, 'price_factor' => 1])
+            ->assertHasActionErrors(['url']);
 
         Queue::assertNothingPushed();
     }
