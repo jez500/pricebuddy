@@ -623,6 +623,19 @@ class ProductApiTest extends TestCase
         $this->assertSame(['Coffee, ground'], $this->searchTitles('coffee,', ['Coffee, ground', 'Coffee beans']));
     }
 
+    public function test_search_filter_rejects_too_many_terms(): void
+    {
+        Product::factory()->create(['user_id' => $this->user->id, 'title' => 'a b c d e f g h i j']);
+
+        $this->getJson('/api/products?filter[search]='.urlencode('a b c d e f g h i j'))
+            ->assertSuccessful()
+            ->assertJsonCount(1, 'data');
+
+        $this->getJson('/api/products?filter[search]='.urlencode('a b c d e f g h i j k'))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['filter.search']);
+    }
+
     public function test_empty_search_filter_returns_every_product(): void
     {
         Product::factory()->count(3)->create(['user_id' => $this->user->id]);

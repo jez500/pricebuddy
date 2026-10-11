@@ -265,7 +265,7 @@ An unmatched or unparseable URL returns `200` with an empty `data` array, never 
 Returns your products whose title contains every term, in any order. Terms are separated
 by whitespace. Matching is case-insensitive and partial, so `sony headphones` finds
 "Sony WH-1000XM5 Wireless Headphones". The characters `%` and `_` match only themselves.
-An empty or whitespace-only value returns every product.
+An empty or whitespace-only value returns every product. More than 10 terms returns `422`.
 
 The filter works with `fields[products]`, `sort` and `per_page`, for example:
 

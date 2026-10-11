@@ -11,6 +11,7 @@ use Dedoc\Scramble\Attributes\QueryParameter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\ValidationException;
 use Rupadana\ApiService\Http\Handlers;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
@@ -23,6 +24,8 @@ class PaginationHandler extends Handlers
     public static ?string $uri = '/';
 
     public static ?string $resource = ProductResource::class;
+
+    public const int MAX_SEARCH_TERMS = 10;
 
     public function getAllowedFields(): array
     {
@@ -89,6 +92,13 @@ class PaginationHandler extends Handlers
             AllowedFilter::callback('search', function (Builder $query, $value): void {
                 $terms = preg_split('/\s+/', trim($this->filterValueToString($value)), -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
+                // Each term adds a LIKE condition, so limit how many a request can add.
+                if (count($terms) > self::MAX_SEARCH_TERMS) {
+                    throw ValidationException::withMessages([
+                        'filter.search' => __('Search for no more than :max words.', ['max' => self::MAX_SEARCH_TERMS]),
+                    ]);
+                }
+
                 // Every term must match, in any order. The terms go inside one group,
                 // so they narrow the user_id scope and never widen it.
                 $query->where(function (Builder $search) use ($terms): void {
@@ -123,7 +133,7 @@ class PaginationHandler extends Handlers
      * @return AnonymousResourceCollection
      */
     #[QueryParameter('filter[url]', description: 'Return products tracking this page URL. Matching is normalised: scheme, port, "www.", trailing slashes, casing and tracking parameters are ignored.', type: 'string')]
-    #[QueryParameter('filter[search]', description: 'Return products whose title contains every whitespace-separated term, in any order. Matching is case-insensitive and partial. `%` and `_` are literal. An empty value returns every product.', type: 'string')]
+    #[QueryParameter('filter[search]', description: 'Return products whose title contains every whitespace-separated term, in any order. Matching is case-insensitive and partial. `%` and `_` are literal. An empty value returns every product. More than 10 terms is a 422.', type: 'string')]
     #[QueryParameter('current_url', description: 'Raw URL of the page being viewed. When supplied, each price_cache entry gains an `is_current` boolean.', type: 'string')]
     public function handler(Request $request)
     {
