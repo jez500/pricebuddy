@@ -17,9 +17,19 @@ class SchemaOrgService
      */
     public static function parseSchemaOrg(Collection $collection, string $field): ?string
     {
+        // Some sites (e.g. Flipkart) wrap JSON-LD in nested list layers
+        // ([[{...}]]) so the Product sits one level down. Unwrap only the
+        // list-shaped wrappers; associative Product objects must not be
+        // flattened or their fields would become the candidate items.
+        $flat = $collection->flatMap(fn ($item) => self::unwrapListWrappers($item));
+
         // Match the Product node case-insensitively, and tolerate an array @type
         // (e.g. ["Product", "Thing"]). Some sites use a lowercase "product" type.
-        $schema = $collection->first(function ($item): bool {
+        $schema = $flat->first(function ($item): bool {
+            if (! is_array($item)) {
+                return false;
+            }
+
             $types = array_map(
                 static fn ($type): string => strtolower((string) $type),
                 (array) data_get($item, '@type'),
@@ -59,6 +69,29 @@ class SchemaOrgService
         }
 
         return $value === null ? null : (string) $value;
+    }
+
+    /**
+     * Unwrap list-shaped JSON-LD wrappers so each returned item is a single
+     * schema.org object. Sites like Flipkart emit [[{...}]] where the Product
+     * sits behind nested list layers; direct associative objects pass through
+     * untouched so their fields are never flattened into separate candidates.
+     *
+     * @return array<int, mixed>
+     */
+    private static function unwrapListWrappers(mixed $item): array
+    {
+        if (! is_array($item) || ! array_is_list($item)) {
+            return [$item];
+        }
+
+        $unwrapped = [];
+
+        foreach ($item as $child) {
+            array_push($unwrapped, ...self::unwrapListWrappers($child));
+        }
+
+        return $unwrapped;
     }
 
     /**
