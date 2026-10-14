@@ -31,6 +31,69 @@ class SchemaOrgServiceTest extends TestCase
         $this->assertEquals('https://example.com/image.jpg', SchemaOrgService::parseSchemaOrg($collection, 'image'));
     }
 
+    public function test_parse_schema_org_unwraps_nested_list_wrappers()
+    {
+        // Flipkart emits JSON-LD wrapped in nested list layers ([[{...}]]).
+        $jsonLd = [[[
+            '@type' => 'Product',
+            'name' => 'Flipkart Widget',
+            'offers' => [
+                'price' => 1979,
+                'priceCurrency' => 'INR',
+            ],
+        ]]];
+
+        $collection = collect($jsonLd);
+
+        $this->assertEquals('Flipkart Widget', SchemaOrgService::parseSchemaOrg($collection, 'title'));
+        $this->assertEquals('1979', SchemaOrgService::parseSchemaOrg($collection, 'price'));
+        $this->assertEquals('INR', SchemaOrgService::parseSchemaOrg($collection, 'price_currency'));
+    }
+
+    public function test_parse_schema_org_unwraps_nested_list_containing_multiple_products()
+    {
+        $jsonLd = [[
+            [
+                '@type' => 'NewsArticle',
+                'name' => 'Not a product',
+            ],
+            [
+                '@type' => 'Product',
+                'name' => 'Second Is Product',
+                'offers' => ['price' => '5.00'],
+            ],
+        ]];
+
+        $this->assertEquals('Second Is Product', SchemaOrgService::parseSchemaOrg(collect($jsonLd), 'title'));
+        $this->assertEquals('5.00', SchemaOrgService::parseSchemaOrg(collect($jsonLd), 'price'));
+    }
+
+    public function test_parse_schema_org_does_not_flatten_product_fields()
+    {
+        // A plain [{Product}] collection must keep the Product node intact —
+        // flattening its fields would destroy the @type match.
+        $jsonLd = [[
+            '@type' => 'Product',
+            'name' => 'Plain Product',
+            'offers' => ['price' => '9.99', 'priceCurrency' => 'USD'],
+        ]];
+
+        $collection = collect($jsonLd);
+
+        $this->assertEquals('Plain Product', SchemaOrgService::parseSchemaOrg($collection, 'title'));
+        $this->assertEquals('9.99', SchemaOrgService::parseSchemaOrg($collection, 'price'));
+        $this->assertEquals('USD', SchemaOrgService::parseSchemaOrg($collection, 'price_currency'));
+        $this->assertNull(SchemaOrgService::parseSchemaOrg($collection, 'unknown_field'));
+    }
+
+    public function test_parse_schema_org_skips_list_shaped_non_product_candidates()
+    {
+        // Scalars and bare lists left after unwrapping must not match @type.
+        $jsonLd = ['just a string', ['a', 'b']];
+
+        $this->assertNull(SchemaOrgService::parseSchemaOrg(collect($jsonLd), 'title'));
+    }
+
     public function test_parse_schema_org_image_handles_array_of_image_objects(): void
     {
         $jsonLd = [[
