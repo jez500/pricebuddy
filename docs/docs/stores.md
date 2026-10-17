@@ -30,6 +30,27 @@ wait for product details to load. Keep the `scraper` service running and use
 New installations using `DEFAULT_STORES_COUNTRY=all` include this preset. To seed
 only South African stores, set `DEFAULT_STORES_COUNTRY=south-africa`.
 
+## GeeWiz (South Africa)
+
+GeeWiz sits behind Cloudflare, which rejects plain HTTP requests, so it requires
+the browser based API scraper. The preset reads the product's Schema.org data
+(title, price, image and availability) and uses `en_ZA` with South African rand
+(`ZAR`). Keep the `scraper` service running and use **Stores → GeeWiz → Test**
+to check a product URL before adding it.
+
+Add the preset to an existing installation with the same South Africa command:
+
+```bash
+docker compose exec app php artisan buddy:create-stores south-africa
+```
+
+If a GeeWiz store was previously auto-created from a product URL, it keeps
+matching `geewiz.co.za` first (the oldest matching store wins), so the new preset
+will not be used for products already linked to it. Either run the command with
+`--update` after checking the store has no custom settings you want to keep, or
+copy the preset's strategy and scraper settings onto the existing store. Do not
+delete a store that has tracked URLs.
+
 ## Store name
 
 As you would expect, this is just used for store identification in the UI.
