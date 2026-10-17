@@ -4,11 +4,13 @@ namespace App\Notifications\Channels;
 
 use App\Enums\NotificationMethods;
 use App\Models\User;
+use App\Notifications\Messages\DiscordProductMessage;
 use App\Notifications\Messages\GenericNotificationMessage;
 use App\Services\Helpers\NotificationsHelper;
 use Illuminate\Http\Client\Response;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 /**
  * Sends notifications to a Discord channel via an incoming webhook.
@@ -52,7 +54,8 @@ class DiscordChannel
             $webhookUrl,
             $message->title,
             $message->content,
-            $message->url
+            $message->url,
+            embedDetails: $message instanceof DiscordProductMessage ? $message->toEmbedDetails() : [],
         );
 
         $response->throw();
@@ -70,11 +73,14 @@ class DiscordChannel
         return $settings;
     }
 
-    public static function sendRequest(string $webhookUrl, string $title, string $message, string $url = '', int $color = self::COLOR_PRICE_DROP): Response
+    /**
+     * @param  array<string, mixed>  $embedDetails
+     */
+    public static function sendRequest(string $webhookUrl, string $title, string $message, string $url = '', int $color = self::COLOR_PRICE_DROP, array $embedDetails = []): Response
     {
         $embed = [
-            'title' => $title,
-            'description' => $message,
+            'title' => Str::limit($title, 256, ''),
+            'description' => Str::limit($message, 4096, ''),
             'color' => $color,
         ];
 
@@ -83,7 +89,7 @@ class DiscordChannel
         }
 
         return Http::post($webhookUrl, [
-            'embeds' => [$embed],
+            'embeds' => [array_merge($embedDetails, $embed)],
         ]);
     }
 }
