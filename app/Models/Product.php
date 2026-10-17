@@ -227,7 +227,7 @@ class Product extends Model
      */
     public function urls(): HasMany
     {
-        return $this->hasMany(Url::class);
+        return $this->hasMany(Url::class)->orderBy('urls.id');
     }
 
     /**
@@ -352,15 +352,30 @@ class Product extends Model
     }
 
     /**
-     * Price trend for lowest priced store.
+     * Format price aggregates only when linked stores share one currency.
      */
     public function priceAggregates(): Attribute
     {
         return Attribute::make(
-            get: fn (): Collection => collect(['max', 'avg', 'min'])
-                ->mapWithKeys(fn ($method) => [$method => $this->getPriceCacheAggregate($method)])
-                ->filter(fn ($value) => $value > 0)
-                ->mapWithKeys(fn ($value, $method) => [$method => CurrencyHelper::toString($value)])
+            get: function (): Collection {
+                /** @var EloquentCollection<int, Url> $urls */
+                $urls = $this->urls;
+                $stores = $urls->map(fn (Url $url): ?Store => $url->store)->filter();
+
+                // Price histories contain amounts without currency conversion.
+                if ($stores->pluck('currency')->unique()->count() > 1) {
+                    return collect();
+                }
+
+                $store = $stores->first();
+
+                return collect(['max', 'avg', 'min'])
+                    ->mapWithKeys(fn ($method) => [$method => $this->getPriceCacheAggregate($method)])
+                    ->filter(fn ($value) => $value > 0)
+                    ->mapWithKeys(fn ($value, $method) => [
+                        $method => CurrencyHelper::toString($value, locale: $store?->locale, iso: $store?->currency),
+                    ]);
+            }
         );
     }
 

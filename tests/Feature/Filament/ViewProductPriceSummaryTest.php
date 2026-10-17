@@ -4,8 +4,11 @@ namespace Tests\Feature\Filament;
 
 use App\Filament\Resources\ProductResource;
 use App\Models\Product;
+use App\Models\Store;
 use App\Models\Url;
 use App\Models\User;
+use App\Services\Helpers\CurrencyHelper;
+use App\Services\Helpers\SettingsHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -46,5 +49,87 @@ class ViewProductPriceSummaryTest extends TestCase
         $this->get(ProductResource::getUrl('view', ['record' => $product]))
             ->assertOk()
             ->assertDontSee('product-price-summary');
+    }
+
+    public function test_summary_uses_store_currency_and_locale_instead_of_app_defaults(): void
+    {
+        SettingsHelper::setSetting('default_locale_settings', ['locale' => 'en_US', 'currency' => 'USD']);
+
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $store = Store::factory()->create([
+            'settings' => ['locale_settings' => ['locale' => 'en_ZA', 'currency' => 'ZAR']],
+        ]);
+        $product = Product::factory()->create(['user_id' => $user->id]);
+        Url::factory()->withPrices([16999, 14999, 15999])->createOne([
+            'product_id' => $product->id,
+            'store_id' => $store->id,
+        ]);
+
+        $aggregates = $product->refresh()->price_aggregates;
+        $response = $this->get(ProductResource::getUrl('view', ['record' => $product]));
+        $response->assertOk()->assertSee('product-price-summary');
+
+        foreach (['min' => 14999, 'avg' => 15999, 'max' => 16999] as $method => $value) {
+            $expected = CurrencyHelper::toString($value, locale: 'en_ZA', iso: 'ZAR');
+            $this->assertSame($expected, $aggregates[$method]);
+            $response->assertSee($expected);
+        }
+
+        $this->assertSame('USD', CurrencyHelper::getCurrency());
+        $this->assertSame('en_US', CurrencyHelper::getLocale());
+    }
+
+    public function test_view_hides_summary_when_stores_use_different_currencies(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $product = Product::factory()->create(['user_id' => $user->id]);
+
+        foreach (['ZAR' => 'en_ZA', 'USD' => 'en_US'] as $currency => $locale) {
+            $store = Store::factory()->create([
+                'settings' => ['locale_settings' => ['locale' => $locale, 'currency' => $currency]],
+            ]);
+            Url::factory()->withPrices([100, 200])->createOne([
+                'product_id' => $product->id,
+                'store_id' => $store->id,
+            ]);
+        }
+
+        $this->assertTrue($product->refresh()->price_aggregates->isEmpty());
+
+        $this->get(ProductResource::getUrl('view', ['record' => $product]))
+            ->assertOk()
+            ->assertDontSee('product-price-summary');
+    }
+
+    public function test_summary_combines_stores_with_the_same_currency_and_different_locales(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $product = Product::factory()->create(['user_id' => $user->id]);
+
+        foreach (['en_ZA' => [100, 200], 'en_US' => [300, 400]] as $locale => $prices) {
+            $store = Store::factory()->create([
+                'settings' => ['locale_settings' => ['locale' => $locale, 'currency' => 'ZAR']],
+            ]);
+            Url::factory()->withPrices($prices)->createOne([
+                'product_id' => $product->id,
+                'store_id' => $store->id,
+            ]);
+        }
+
+        $aggregates = $product->refresh()->price_aggregates;
+
+        foreach (['min' => 100, 'avg' => 250, 'max' => 400] as $method => $value) {
+            $this->assertSame(CurrencyHelper::toString($value, locale: 'en_ZA', iso: 'ZAR'), $aggregates[$method]);
+        }
+
+        $this->get(ProductResource::getUrl('view', ['record' => $product]))
+            ->assertOk()
+            ->assertSee('product-price-summary');
     }
 }
