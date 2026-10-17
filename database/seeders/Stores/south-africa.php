@@ -44,4 +44,41 @@ return [
             ],
         ],
     ],
+    [
+        'name' => 'GeeWiz',
+        'slug' => 'geewiz',
+        'domains' => [
+            ['domain' => 'geewiz.co.za'],
+            ['domain' => 'www.geewiz.co.za'],
+        ],
+        // Product pages repeat og/product meta tags (one with an empty og:title) and show
+        // the price as "R8,890 incl. VAT", so the Product JSON-LD is the reliable source.
+        'scrape_strategy' => [
+            'title' => [
+                'value' => null,
+                'type' => 'schema_org',
+            ],
+            'price' => [
+                'value' => null,
+                'type' => 'schema_org',
+            ],
+            'image' => [
+                'value' => null,
+                'type' => 'schema_org',
+            ],
+            'availability' => [
+                'value' => null,
+                'type' => 'schema_org',
+            ],
+        ],
+        'settings' => [
+            'scraper_service' => ScraperService::Api->value,
+            'scraper_service_settings' => "wait-until=domcontentloaded\nsleep=1000",
+            'test_url' => 'https://www.geewiz.co.za/seagate-nas-hdd-series-35-sata-drives/27746-seagate-10tb-ironwolf-7200-rpm-sata-iii-35-internal-nas-network-attached-storage-hard-disk-drive-hdd.html',
+            'locale_settings' => [
+                'locale' => 'en_ZA',
+                'currency' => 'ZAR',
+            ],
+        ],
+    ],
 ];
