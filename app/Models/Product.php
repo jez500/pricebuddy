@@ -352,15 +352,22 @@ class Product extends Model
     }
 
     /**
-     * Format price aggregates using the first listing's store settings.
+     * Format price aggregates only when linked stores share one currency.
      */
     public function priceAggregates(): Attribute
     {
         return Attribute::make(
             get: function (): Collection {
-                /** @var Url|null $url */
-                $url = $this->urls->first();
-                $store = $url?->store;
+                /** @var EloquentCollection<int, Url> $urls */
+                $urls = $this->urls;
+                $stores = $urls->map(fn (Url $url): ?Store => $url->store)->filter();
+
+                // Price histories contain amounts without currency conversion.
+                if ($stores->pluck('currency')->unique()->count() > 1) {
+                    return collect();
+                }
+
+                $store = $stores->first();
 
                 return collect(['max', 'avg', 'min'])
                     ->mapWithKeys(fn ($method) => [$method => $this->getPriceCacheAggregate($method)])

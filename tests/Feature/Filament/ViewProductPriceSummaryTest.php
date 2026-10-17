@@ -80,4 +80,56 @@ class ViewProductPriceSummaryTest extends TestCase
         $this->assertSame('USD', CurrencyHelper::getCurrency());
         $this->assertSame('en_US', CurrencyHelper::getLocale());
     }
+
+    public function test_view_hides_summary_when_stores_use_different_currencies(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $product = Product::factory()->create(['user_id' => $user->id]);
+
+        foreach (['ZAR' => 'en_ZA', 'USD' => 'en_US'] as $currency => $locale) {
+            $store = Store::factory()->create([
+                'settings' => ['locale_settings' => ['locale' => $locale, 'currency' => $currency]],
+            ]);
+            Url::factory()->withPrices([100, 200])->createOne([
+                'product_id' => $product->id,
+                'store_id' => $store->id,
+            ]);
+        }
+
+        $this->assertTrue($product->refresh()->price_aggregates->isEmpty());
+
+        $this->get(ProductResource::getUrl('view', ['record' => $product]))
+            ->assertOk()
+            ->assertDontSee('product-price-summary');
+    }
+
+    public function test_summary_combines_stores_with_the_same_currency_and_different_locales(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $product = Product::factory()->create(['user_id' => $user->id]);
+
+        foreach (['en_ZA' => [100, 200], 'en_US' => [300, 400]] as $locale => $prices) {
+            $store = Store::factory()->create([
+                'settings' => ['locale_settings' => ['locale' => $locale, 'currency' => 'ZAR']],
+            ]);
+            Url::factory()->withPrices($prices)->createOne([
+                'product_id' => $product->id,
+                'store_id' => $store->id,
+            ]);
+        }
+
+        $aggregates = $product->refresh()->price_aggregates;
+
+        foreach (['min' => 100, 'avg' => 250, 'max' => 400] as $method => $value) {
+            $this->assertSame(CurrencyHelper::toString($value, locale: 'en_ZA', iso: 'ZAR'), $aggregates[$method]);
+        }
+
+        $this->get(ProductResource::getUrl('view', ['record' => $product]))
+            ->assertOk()
+            ->assertSee('product-price-summary');
+    }
 }

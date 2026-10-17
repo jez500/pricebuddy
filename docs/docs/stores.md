@@ -193,6 +193,7 @@ Eg. `USD` for US Dollars or `EUR` for Euros.
 
 NOTE: Mixing currencies on the same product results in incorrect price 
 comparisons and aggregates.
+The min/average/max price summary is hidden when linked stores use different currencies.
 
 To change the locale and currency of many stores at once, select them in the
 store list and use the bulk action **Set locale and currency**. The store list
