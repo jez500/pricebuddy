@@ -9,6 +9,27 @@ it will be available to all users.
 
 Below will go into more detail on how to add or configure your own stores.
 
+## Takealot (South Africa)
+
+Takealot loads product details with JavaScript, so it requires the browser based
+API scraper. HTTP auto store creation cannot detect its price from the initial
+page HTML.
+
+On an existing installation, add the South Africa preset with:
+
+```bash
+docker compose exec app php artisan buddy:create-stores south-africa
+```
+
+If Takealot already exists, use the same command with `--update` to replace its
+configuration with the preset. This overwrites any custom settings for that store.
+The preset uses `en_ZA`, prices in South African rand (`ZAR`), and a five second
+wait for product details to load. Keep the `scraper` service running and use
+**Stores → Takealot → Test** to check a product URL before adding it.
+
+New installations using `DEFAULT_STORES_COUNTRY=all` include this preset. To seed
+only South African stores, set `DEFAULT_STORES_COUNTRY=south-africa`.
+
 ## Store name
 
 As you would expect, this is just used for store identification in the UI.
