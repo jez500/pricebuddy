@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\User;
 use App\Notifications\Channels\DiscordChannel;
 use App\Notifications\PriceAlertNotification;
+use App\Notifications\StockAlertNotification;
 use App\Services\Helpers\NotificationsHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -68,6 +69,7 @@ class DiscordChannelTest extends TestCase
 
         $product = Product::factory()->addUrlsAndPrices()->create([
             'title' => 'Notif product',
+            'image' => 'https://example.com/product.jpg',
         ]);
 
         $notification = new PriceAlertNotification($product->urls()->first());
@@ -87,7 +89,57 @@ class DiscordChannelTest extends TestCase
                 $embed['title'] === $message->title &&
                 $embed['description'] === $message->content &&
                 $embed['url'] === $message->url &&
-                $embed['color'] === DiscordChannel::COLOR_PRICE_DROP;
+                $embed['color'] === DiscordChannel::COLOR_PRICE_DROP &&
+                $embed['thumbnail']['url'] === 'https://example.com/product.jpg' &&
+                in_array('Current price', array_column($embed['fields'], 'name')) &&
+                $embed['footer']['text'] === 'PriceBuddy';
+        });
+    }
+
+    public function test_simple_connection_test_remains_supported_and_limits_long_text(): void
+    {
+        Http::fake(['discord.com/*' => Http::response()]);
+
+        DiscordChannel::sendRequest(
+            'https://discord.com/api/webhooks/test',
+            str_repeat('A', 300),
+            str_repeat('B', 4500),
+        );
+
+        Http::assertSent(function (Request $request) {
+            $embed = $request['embeds'][0];
+
+            return strlen($embed['title']) === 256 &&
+                strlen($embed['description']) === 4096 &&
+                ! isset($embed['thumbnail']) &&
+                ! isset($embed['fields']);
+        });
+    }
+
+    public function test_stock_notification_posts_last_recorded_price_and_thumbnail(): void
+    {
+        NotificationsHelper::setSetting(NotificationMethods::Discord, value: [
+            'enabled' => true,
+            'webhook_url' => 'https://discord.com/api/webhooks/default',
+        ]);
+        $user = User::factory()->create();
+        $product = Product::factory()->addUrlsAndPrices(urlCount: 1, priceCount: 1)->create([
+            'title' => 'Product back in stock',
+            'image' => 'https://example.com/product.jpg',
+        ]);
+        Http::fake(['discord.com/*' => Http::response()]);
+
+        (new DiscordChannel)->send($user, new StockAlertNotification($product->urls()->first()));
+
+        Http::assertSent(function (Request $request) {
+            $embed = $request['embeds'][0];
+            $fields = array_column($embed['fields'], 'value', 'name');
+
+            return $embed['title'] === 'Back in stock' &&
+                $embed['description'] === 'Product back in stock' &&
+                $embed['thumbnail']['url'] === 'https://example.com/product.jpg' &&
+                isset($fields['Last recorded price'], $fields['Price recorded']) &&
+                ! isset($fields['Current price']);
         });
     }
 

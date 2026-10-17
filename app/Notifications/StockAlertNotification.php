@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\Product;
 use App\Models\Url;
 use App\Models\User;
+use App\Notifications\Messages\DiscordProductMessage;
 use App\Notifications\Messages\GenericNotificationMessage;
 use App\Services\Helpers\NotificationsHelper;
 use Filament\Notifications\Actions\Action;
@@ -102,9 +103,9 @@ class StockAlertNotification extends Notification
         return $this->genericMessage();
     }
 
-    public function toDiscord($notifiable)
+    public function toDiscord($notifiable): DiscordProductMessage
     {
-        return $this->genericMessage();
+        return DiscordProductMessage::forStockAlert($this->url);
     }
 
     public function toNtfy($notifiable)

@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\Product;
 use App\Models\Url;
 use App\Models\User;
+use App\Notifications\Messages\DiscordProductMessage;
 use App\Notifications\Messages\GenericNotificationMessage;
 use App\Services\Helpers\NotificationsHelper;
 use Filament\Notifications\Actions\Action;
@@ -121,12 +122,9 @@ class PriceAlertNotification extends Notification
             ->priority(5);
     }
 
-    public function toDiscord($notifiable)
+    public function toDiscord($notifiable): DiscordProductMessage
     {
-        return GenericNotificationMessage::create($this->getSummary())
-            ->title($this->getTitle())
-            ->url($this->getUrl())
-            ->priority(5);
+        return DiscordProductMessage::forPriceAlert($this->url);
     }
 
     public function toNtfy($notifiable)
