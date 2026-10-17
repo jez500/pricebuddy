@@ -27,13 +27,13 @@ class StockAlertNotificationTest extends TestCase
         $this->assertEquals(5, $message->priority);
     }
 
-    public function test_telegram_discord_ntfy_share_generic_message()
+    public function test_telegram_ntfy_apprise_share_generic_message()
     {
         [$user, $url] = $this->createStoreProductAndUrl('Test Store', 'Test Product');
 
         $notification = new StockAlertNotification($url);
 
-        foreach (['toTelegram', 'toDiscord', 'toNtfy', 'toApprise'] as $method) {
+        foreach (['toTelegram', 'toNtfy', 'toApprise'] as $method) {
             $message = $notification->{$method}($user);
             $this->assertInstanceOf(GenericNotificationMessage::class, $message);
             $this->assertEquals('Back in stock: Test Product', $message->title);
