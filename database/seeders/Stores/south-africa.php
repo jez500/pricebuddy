@@ -20,7 +20,7 @@ return [
                 'type' => 'selector',
             ],
             'image' => [
-                'value' => 'img[data-ref="main-gallery-photo-0"]|src',
+                'value' => 'img[data-ref="main-gallery-photo-0"], img[data-ref="main-gallery-photo-single"]|src',
                 'type' => 'selector',
             ],
             'availability' => [

@@ -64,6 +64,35 @@ class TakealotStoreTest extends TestCase
         Http::assertNothingSent();
     }
 
+    #[\PHPUnit\Framework\Attributes\DataProvider('singleImageProducts')]
+    public function test_single_image_products_use_the_main_photo_instead_of_thumbnails_or_recommendations(string $fixture, string $url, string $image): void
+    {
+        $this->fakeBrowserResponse(file_get_contents(base_path('tests/Fixtures/Takealot/'.$fixture)));
+
+        $result = ScrapeUrl::new($url)->scrape();
+
+        $this->assertSame($image, $result['image']);
+    }
+
+    /**
+     * @return array<string, array{string, string, string}>
+     */
+    public static function singleImageProducts(): array
+    {
+        return [
+            'Canon ink cartridges' => [
+                'single-image-canon.html',
+                'https://www.takealot.com/canon-ink-pg440xl-cl441xl-black-tri-colour-cartridge-oem/PLID44926016',
+                'https://media.takealot.com/covers_tsins/47771220/47771220-1-pdpxl.jpg',
+            ],
+            'Seagate hard drive' => [
+                'single-image-seagate.html',
+                'https://www.takealot.com/seagate-ironwolf-pro-3-5-inch-12tb-internal-hard-drive/PLID93411769',
+                'https://media.takealot.com/covers_images/0deb3195f5a14f5d9fd79cd78522c0d9/s-pdpxl.file',
+            ],
+        ];
+    }
+
     public function test_out_of_stock_product_does_not_use_a_recommended_product_price(): void
     {
         $this->fakeBrowserResponse(<<<'HTML'
