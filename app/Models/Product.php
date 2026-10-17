@@ -227,7 +227,7 @@ class Product extends Model
      */
     public function urls(): HasMany
     {
-        return $this->hasMany(Url::class);
+        return $this->hasMany(Url::class)->orderBy('urls.id');
     }
 
     /**
