@@ -352,15 +352,23 @@ class Product extends Model
     }
 
     /**
-     * Price trend for lowest priced store.
+     * Format price aggregates using the first listing's store settings.
      */
     public function priceAggregates(): Attribute
     {
         return Attribute::make(
-            get: fn (): Collection => collect(['max', 'avg', 'min'])
-                ->mapWithKeys(fn ($method) => [$method => $this->getPriceCacheAggregate($method)])
-                ->filter(fn ($value) => $value > 0)
-                ->mapWithKeys(fn ($value, $method) => [$method => CurrencyHelper::toString($value)])
+            get: function (): Collection {
+                /** @var Url|null $url */
+                $url = $this->urls->first();
+                $store = $url?->store;
+
+                return collect(['max', 'avg', 'min'])
+                    ->mapWithKeys(fn ($method) => [$method => $this->getPriceCacheAggregate($method)])
+                    ->filter(fn ($value) => $value > 0)
+                    ->mapWithKeys(fn ($value, $method) => [
+                        $method => CurrencyHelper::toString($value, locale: $store?->locale, iso: $store?->currency),
+                    ]);
+            }
         );
     }
 
