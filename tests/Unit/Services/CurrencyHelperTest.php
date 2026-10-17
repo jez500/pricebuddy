@@ -126,6 +126,24 @@ class CurrencyHelperTest extends TestCase
         $this->assertCurrencyToFloat($assertions, 'GBP');
     }
 
+    public function test_rand_converts_takealot_prices_to_float(): void
+    {
+        $this->assertCurrencyToFloat([
+            ['val' => 'R 14,999', 'expected' => 14999.0, 'locale' => 'en_ZA'],
+            ['val' => 'R 1,499,999', 'expected' => 1499999.0, 'locale' => 'en_ZA'],
+            ['val' => 'R 14,999.95', 'expected' => 14999.95, 'locale' => 'en_ZA'],
+            ['val' => 'R 14 999,95', 'expected' => 14999.95, 'locale' => 'en_ZA'],
+            ['val' => 'R 999', 'expected' => 999.0, 'locale' => 'en_ZA'],
+            ['val' => 'R 0,99', 'expected' => 0.99, 'locale' => 'en_ZA'],
+        ], 'ZAR');
+    }
+
+    public function test_to_float_preserves_three_decimal_currency_precision(): void
+    {
+        $this->assertSame(1.234, CurrencyHelper::toFloat('1.234', 'en_US', 'BHD'));
+        $this->assertSame(14.999, CurrencyHelper::toFloat('14,999', 'en_ZA', 'BHD'));
+    }
+
     public function test_to_float_converts_string_value()
     {
         $this->assertEquals(10.5, CurrencyHelper::toFloat('10.5'));
