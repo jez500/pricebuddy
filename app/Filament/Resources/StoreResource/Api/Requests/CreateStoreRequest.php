@@ -42,7 +42,6 @@ class CreateStoreRequest extends FormRequest
             'settings.locale_settings.locale' => 'nullable|string',
             'settings.locale_settings.currency' => 'nullable|string',
             'notes' => 'nullable|string',
-            'user_id' => 'nullable|exists:users,id|in:'.auth()->id(),
         ], self::getStrategyRules());
     }
 

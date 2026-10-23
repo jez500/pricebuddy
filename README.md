@@ -151,7 +151,7 @@ See [supporting the project](https://pricebuddy.jez.me/support-project.html) for
 
 ## License
 
-See [LICENSE.md](LICENSE.md).
+PriceBuddy is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
 
 ## Contributors
 

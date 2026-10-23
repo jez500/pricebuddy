@@ -206,7 +206,7 @@ class AiConfigHealer
      * exists) or repairing (when one does) its scrape_strategy via the AI agent.
      * Returns the usable Store, or null when AI is unavailable/opted-out/fails.
      */
-    public function healStoreForUrl(string $url, ?Store $store, ?string $html): ?Store
+    public function healStoreForUrl(string $url, ?Store $store, ?string $html, ?int $userId = null): ?Store
     {
         if ($store !== null && $store->ai_self_healing_disabled) {
             return null;
@@ -258,7 +258,7 @@ class AiConfigHealer
                 return $store;
             }
 
-            $attributes = AutoCreateStore::buildAttributes($url, $config['fields']);
+            $attributes = AutoCreateStore::buildAttributes($url, $config['fields'], $userId);
 
             if ($config['usedBrowser']) {
                 data_set($attributes, 'settings.scraper_service', ScraperService::Api->value);

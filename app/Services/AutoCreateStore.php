@@ -58,7 +58,10 @@ class AutoCreateStore
         return ! is_null(self::new($url, timeout: $timeout)->getStoreAttributes());
     }
 
-    public static function createStoreFromUrl(string $url): ?Store
+    /**
+     * @param  ?int  $userId  the user who adds the URL. Jobs have no logged-in user, so they pass it.
+     */
+    public static function createStoreFromUrl(string $url, ?int $userId = null): ?Store
     {
         // Check if store exists.
         $host = strtolower(Uri::of($url)->host());
@@ -68,6 +71,10 @@ class AutoCreateStore
         }
 
         $attributes = self::new($url)->getStoreAttributes();
+
+        if ($attributes && $userId) {
+            $attributes['user_id'] = $userId;
+        }
 
         return $attributes
             ? (new CreateStoreAction)($attributes)
@@ -134,7 +141,7 @@ class AutoCreateStore
      * @param  array<string, mixed>  $scrapeStrategy
      * @return array<string, mixed>
      */
-    public static function buildAttributes(string $url, array $scrapeStrategy): array
+    public static function buildAttributes(string $url, array $scrapeStrategy, ?int $userId = null): array
     {
         $host = strtolower(Uri::of($url)->host());
 
@@ -143,7 +150,8 @@ class AutoCreateStore
         }
 
         return [
-            'user_id' => auth()->id(),
+            // Store::creating() fills in a creator when this is null.
+            'user_id' => $userId ?? auth()->id(),
             'domains' => [
                 ['domain' => $host],
                 ['domain' => 'www.'.$host],

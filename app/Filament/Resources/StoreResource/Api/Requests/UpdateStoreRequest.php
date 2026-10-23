@@ -47,7 +47,6 @@ class UpdateStoreRequest extends FormRequest
             'scrape_strategy.title.type' => 'sometimes|in:'.implode(',', ScraperStrategyType::values()),
             'scrape_strategy.title.value' => [new ScrapeStrategyValue],
             'notes' => 'sometimes|string',
-            'user_id' => 'sometimes|exists:users,id|in:'.auth()->id(),
         ];
     }
 }

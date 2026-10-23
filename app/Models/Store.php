@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Casts\StoreScraperStrategySetCast;
 use App\Dto\StoreScraperStrategySetDto;
+use App\Enums\Role;
 use App\Enums\ScraperService;
 use App\Services\Helpers\CurrencyHelper;
 use Database\Factories\StoreFactory;
@@ -71,6 +72,12 @@ class Store extends Model
 
     public static function booted()
     {
+        // Stores are shared. user_id records who created the store. Jobs and the CLI
+        // have no logged-in user, so they fall back to the oldest admin.
+        static::creating(function (Store $store) {
+            $store->user_id ??= auth()->id() ?? self::defaultCreatorId();
+        });
+
         static::deleted(function (Store $store) {
             // Get all products before deleting URLs (since products() relationship uses URLs).
             $products = Product::whereIn('id', function ($query) use ($store) {
@@ -88,6 +95,17 @@ class Store extends Model
                 $product->updateInsightsCache();
             });
         });
+    }
+
+    /**
+     * The creator for a store made without a user: the oldest admin, else the oldest user.
+     */
+    public static function defaultCreatorId(): ?int
+    {
+        $id = User::query()->where('role', Role::Admin)->orderBy('id')->value('id')
+            ?? User::query()->orderBy('id')->value('id');
+
+        return $id === null ? null : (int) $id;
     }
 
     public function getSlugOptions(): SlugOptions

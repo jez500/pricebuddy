@@ -47,6 +47,19 @@ class UrlTest extends TestCase
         Url::createFromUrl(self::TEST_URL);
     }
 
+    public function test_cannot_create_url_on_another_users_product()
+    {
+        $this->mockScrape(10, 'test');
+        $theirs = Product::factory()->create(['user_id' => User::factory()->create()->id]);
+
+        try {
+            Url::createFromUrl(self::TEST_URL, productId: $theirs->id, userId: $this->user->id);
+            $this->fail('Expected an AuthorizationException.');
+        } catch (AuthorizationException) {
+            $this->assertSame(0, $theirs->urls()->count());
+        }
+    }
+
     public function test_create_from_url_with_valid_data()
     {
         $this->actingAs($this->user);

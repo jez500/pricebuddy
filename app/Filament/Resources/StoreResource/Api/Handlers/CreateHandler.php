@@ -35,7 +35,8 @@ class CreateHandler extends Handlers
     public function handler(CreateStoreRequest $request)
     {
         $values = $request->all();
-        $values['user_id'] = $values['user_id'] ?? auth()->id();
+        // user_id records who created the store. A client cannot set it.
+        $values['user_id'] = auth()->id();
 
         $action = new CreateStoreAction;
         $model = $action($values);
