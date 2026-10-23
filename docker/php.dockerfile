@@ -21,6 +21,11 @@ RUN npm install && \
 
 FROM jez500/pricebuddy-base-${PHP_VERSION}:latest
 
+# Refuse to publish on a stale base image. PHP below 8.4.27 is vulnerable to
+# PHP2Shell (CVE-2026-109618, CVE-2026-109619). Rebuild the base image first.
+ARG MIN_PHP_VERSION=8.4.27
+RUN php -r 'if (version_compare(PHP_VERSION, $argv[1], "<")) { fwrite(STDERR, "PHP ".PHP_VERSION." is below ".$argv[1].". Rebuild the base image.\n"); exit(1); }' "${MIN_PHP_VERSION}"
+
 ARG APP_VERSION=development
 ENV APP_VERSION=${APP_VERSION}
 
