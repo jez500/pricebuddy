@@ -95,11 +95,21 @@ class CurrencyHelper
     {
         try {
             $currencies = new ISOCurrencies;
+            $currency = new Currency($iso);
+
+            // Retailers can use thousands groups that differ from their locale:
+            // en_ZA reads Takealot's "14,999" as 14.999. Preserve three-decimal
+            // currencies, where a value such as "1.234" can be a real decimal.
+            if ($currencies->subunitFor($currency) < 3
+                && preg_match('/^[1-9]\d{0,2}([.,])\d{3}(?:\1\d{3})*$/', $value)) {
+                return self::parseBySeparators($value);
+            }
+
             $numberFormatter = new NumberFormatter($locale, NumberFormatter::DECIMAL);
             $moneyParser = new IntlLocalizedDecimalParser($numberFormatter, $currencies);
             $moneyFormatter = new DecimalMoneyFormatter($currencies);
 
-            $money = $moneyParser->parse($value, new Currency($iso));
+            $money = $moneyParser->parse($value, $currency);
 
             return (float) $moneyFormatter->format($money);
         } catch (Exception|ParserException $e) {
@@ -108,7 +118,7 @@ class CurrencyHelper
     }
 
     /**
-     * Fallback for a price that does not use the store locale's format, for example
+     * Parse a price that does not use the store locale's format, for example
      * "319.00" on a fr_FR store. The last separator is the decimal point, except that
      * a single kind of separator followed by exactly three digits is a thousands group.
      * That exception does not apply when the integer part is empty or zero ("0.125").
