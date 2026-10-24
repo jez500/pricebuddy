@@ -20,16 +20,25 @@ class DiscordProductMessage extends GenericNotificationMessage
     public array $fields = [];
 
     /**
-     * Compare the two latest prices from this listing, using its store's currency.
+     * Compare the triggering price (or the latest) with the one before it, using its store's currency.
      */
-    public static function forPriceAlert(Url $url): self
+    public static function forPriceAlert(Url $url, ?Price $current = null): self
     {
         $message = self::forProduct($url, __('Price alert'));
-        $prices = $url->prices()->reorder()->orderByDesc('created_at')->orderByDesc('id')->limit(2)->get();
-        /** @var Price|null $current */
-        $current = $prices->first();
-        /** @var Price|null $previous */
-        $previous = $prices->get(1);
+        $prices = $url->prices()->reorder()->orderByDesc('created_at')->orderByDesc('id');
+
+        if ($current) {
+            /** @var Price|null $previous */
+            $previous = $prices->where(fn ($query) => $query->where('created_at', '<', $current->created_at)
+                ->orWhere(fn ($query) => $query->where('created_at', $current->created_at)->where('id', '<', $current->id)))
+                ->first();
+        } else {
+            $latest = $prices->limit(2)->get();
+            /** @var Price|null $current */
+            $current = $latest->first();
+            /** @var Price|null $previous */
+            $previous = $latest->get(1);
+        }
 
         if ($current) {
             $message->field(__('Current price'), self::formatPrice($url, (float) $current->price));
@@ -148,7 +157,7 @@ class DiscordProductMessage extends GenericNotificationMessage
         $message = new self($url->product->title ?? __('Unknown product'));
         $message->title($title)->url($url->buy_url);
         $message->thumbnailUrl = $url->product?->image;
-        $message->historyUrl = $url->product ? url($url->product_url) : '';
+        $message->historyUrl = $url->product?->view_url ? url($url->product->view_url) : '';
         $message->field(__('Store'), $url->store_name);
         $message->field(__('Availability'), $url->getAvailabilityStatus()?->getLabel() ?? __('In Stock'));
 

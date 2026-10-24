@@ -50,6 +50,26 @@ class DiscordProductMessageTest extends TestCase
         $this->assertStringNotContainsString($url->buy_url, implode(' ', $fields));
     }
 
+    public function test_price_alert_uses_triggering_price_not_a_newer_one(): void
+    {
+        $url = $this->createListing([15000, 12000]);
+        $trigger = $url->prices()->reorder()->orderByDesc('created_at')->first();
+        $url->prices()->create(['price' => 9000, 'store_id' => $url->store_id]);
+        $fields = array_column(DiscordProductMessage::forPriceAlert($url, $trigger)->toEmbedDetails()['fields'], 'value', 'name');
+
+        $this->assertSame(CurrencyHelper::toString(12000, locale: 'en_ZA', iso: 'ZAR'), $fields['Current price']);
+        $this->assertSame(CurrencyHelper::toString(15000, locale: 'en_ZA', iso: 'ZAR'), $fields['Previous price']);
+    }
+
+    public function test_product_without_view_url_omits_price_history_link(): void
+    {
+        $url = $this->createListing([12000]);
+        $url->setRelation('product', Product::factory()->make());
+        $fields = array_column(DiscordProductMessage::forPriceAlert($url)->toEmbedDetails()['fields'], 'value', 'name');
+
+        $this->assertArrayNotHasKey('Price history', $fields);
+    }
+
     public function test_first_price_does_not_claim_a_previous_price_or_change(): void
     {
         $url = $this->createListing([12000]);

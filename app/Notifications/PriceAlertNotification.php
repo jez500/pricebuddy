@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Models\Price;
 use App\Models\Product;
 use App\Models\Url;
 use App\Models\User;
@@ -26,7 +27,7 @@ class PriceAlertNotification extends Notification
     /**
      * Create a new notification instance.
      */
-    public function __construct(protected Url $url)
+    public function __construct(protected Url $url, protected ?Price $price = null)
     {
         $this->product = $url->product;
     }
@@ -124,7 +125,7 @@ class PriceAlertNotification extends Notification
 
     public function toDiscord($notifiable): DiscordProductMessage
     {
-        return DiscordProductMessage::forPriceAlert($this->url);
+        return DiscordProductMessage::forPriceAlert($this->url, $this->price);
     }
 
     public function toNtfy($notifiable)
