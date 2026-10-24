@@ -6,6 +6,7 @@ use App\Models\Price;
 use App\Models\Product;
 use App\Models\Url;
 use App\Models\User;
+use App\Notifications\Messages\DiscordProductMessage;
 use App\Notifications\Messages\GenericNotificationMessage;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\NotificationsHelper;
@@ -126,12 +127,9 @@ class PriceAlertNotification extends Notification
             ->priority(5);
     }
 
-    public function toDiscord($notifiable)
+    public function toDiscord($notifiable): DiscordProductMessage
     {
-        return GenericNotificationMessage::create($this->getSummary())
-            ->title($this->getTitle())
-            ->url($this->getUrl())
-            ->priority(5);
+        return DiscordProductMessage::forPriceAlert($this->url, $this->price);
     }
 
     public function toNtfy($notifiable)
@@ -164,7 +162,7 @@ class PriceAlertNotification extends Notification
     }
 
     /**
-     * The price that triggered the alert. A threshold alert has none, so it shows the latest price.
+     * The price that triggered the alert, or the latest price when none was given.
      */
     protected function getPriceFormatted(): string
     {

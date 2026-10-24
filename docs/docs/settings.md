@@ -65,7 +65,11 @@ verify the token is valid.
 
 **Discord** - Optionally configure a default channel webhook URL. Each user can
 override this with their own webhook in their account settings. Use the **Test**
-button to send a sample message.
+button to send a sample message. Product alerts include the product thumbnail when
+available, the store, availability, and links to the listing and price history.
+Price alerts show the latest and previous prices, the change, and any configured
+price or percentage target. Back-in-stock alerts show the last recorded price
+and when it was recorded. Prices use the store's currency and locale.
 
 **ntfy** - Optionally configure a server URL (leave blank to use the public
 [ntfy.sh](https://ntfy.sh)) and, for protected self-hosted servers, a username and
