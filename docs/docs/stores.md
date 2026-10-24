@@ -11,6 +11,48 @@ prices for that store.
 
 Below will go into more detail on how to add or configure your own stores.
 
+## Takealot (South Africa)
+
+Takealot loads product details with JavaScript, so it requires the browser based
+API scraper. HTTP auto store creation cannot detect its price from the initial
+page HTML.
+
+On an existing installation, add the South Africa preset with:
+
+```bash
+docker compose exec app php artisan buddy:create-stores south-africa
+```
+
+If Takealot already exists, use the same command with `--update` to replace its
+configuration with the preset. This overwrites any custom settings for that store.
+The preset uses `en_ZA`, prices in South African rand (`ZAR`), and a five second
+wait for product details to load. Keep the `scraper` service running and use
+**Stores → Takealot → Test** to check a product URL before adding it.
+
+New installations using `DEFAULT_STORES_COUNTRY=all` include this preset. To seed
+only South African stores, set `DEFAULT_STORES_COUNTRY=south-africa`.
+
+## GeeWiz (South Africa)
+
+GeeWiz sits behind Cloudflare, which rejects plain HTTP requests, so it requires
+the browser based API scraper. The preset reads the product's Schema.org data
+(title, price, image and availability) and uses `en_ZA` with South African rand
+(`ZAR`). Keep the `scraper` service running and use **Stores → GeeWiz → Test**
+to check a product URL before adding it.
+
+Add the preset to an existing installation with the same South Africa command:
+
+```bash
+docker compose exec app php artisan buddy:create-stores south-africa
+```
+
+If a GeeWiz store was previously auto-created from a product URL, it keeps
+matching `geewiz.co.za` first (the oldest matching store wins), so the new preset
+will not be used for products already linked to it. Either run the command with
+`--update` after checking the store has no custom settings you want to keep, or
+copy the preset's strategy and scraper settings onto the existing store. Do not
+delete a store that has tracked URLs.
+
 ## Store name
 
 As you would expect, this is just used for store identification in the UI.
@@ -174,6 +216,7 @@ Eg. `USD` for US Dollars or `EUR` for Euros.
 
 NOTE: Mixing currencies on the same product results in incorrect price 
 comparisons and aggregates.
+The min/average/max price summary is hidden when linked stores use different currencies.
 
 To change the locale and currency of many stores at once, select them in the
 store list and use the bulk action **Set locale and currency**. The store list
