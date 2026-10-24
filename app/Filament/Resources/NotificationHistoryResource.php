@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\NotificationHistoryResource\Pages;
 use App\Models\Notification;
 use App\Models\User;
+use App\Notifications\AddUrlFailedNotification;
 use App\Notifications\PriceAlertNotification;
 use App\Notifications\ScrapeFailNotification;
 use App\Notifications\StockAlertNotification;
@@ -50,6 +51,7 @@ class NotificationHistoryResource extends Resource
             PriceAlertNotification::class => ['label' => 'Price alert', 'color' => 'success', 'icon' => 'heroicon-m-tag'],
             StockAlertNotification::class => ['label' => 'Back in stock', 'color' => 'success', 'icon' => 'heroicon-m-check-circle'],
             ScrapeFailNotification::class => ['label' => 'Scrape error', 'color' => 'warning', 'icon' => 'heroicon-m-exclamation-triangle'],
+            AddUrlFailedNotification::class => ['label' => 'URL not added', 'color' => 'warning', 'icon' => 'heroicon-m-link'],
         ];
     }
 

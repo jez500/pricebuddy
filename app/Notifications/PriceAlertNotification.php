@@ -8,6 +8,7 @@ use App\Models\Url;
 use App\Models\User;
 use App\Notifications\Messages\DiscordProductMessage;
 use App\Notifications\Messages\GenericNotificationMessage;
+use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\NotificationsHelper;
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification as DatabaseNotification;
@@ -26,8 +27,11 @@ class PriceAlertNotification extends Notification
 
     /**
      * Create a new notification instance.
+     *
+     * @param  ?float  $previousPrice  set for a price change alert, so the message can say "increase" or "drop"
+     * @param  ?Price  $price  the price that triggered the alert
      */
-    public function __construct(protected Url $url, protected ?Price $price = null)
+    public function __construct(protected Url $url, protected ?float $previousPrice = null, protected ?Price $price = null)
     {
         $this->product = $url->product;
     }
@@ -87,7 +91,7 @@ class PriceAlertNotification extends Notification
             'productUrl' => $this->getUrl(),
             'productName' => Str::limit(($this->product->title ?? 'Unknown product'), 100),
             'imgUrl' => $this->product?->image,
-            'newPrice' => $this->url->latest_price_formatted,
+            'newPrice' => $this->getPriceFormatted(),
             'averagePrice' => data_get($this->product?->price_aggregates, 'avg', '$0.00'),
         ];
     }
@@ -138,13 +142,51 @@ class PriceAlertNotification extends Notification
 
     protected function getTitle(): string
     {
-        return 'Price drop: '.$this->url->product_name_short.' ('.$this->url->latest_price_formatted.')';
+        return 'Price '.$this->getChangeType().': '.$this->url->product_name_short.' ('.$this->getPriceFormatted().')';
     }
 
     protected function getSummary(): string
     {
-        return $this->url->store_name.' has had a price drop for '.
-            $this->url->product_name_short.' - '.$this->url->latest_price_formatted;
+        $summary = $this->url->store_name.' has had a price '.$this->getChangeType().' for '.
+            $this->url->product_name_short.' - '.$this->getPriceFormatted();
+
+        if (! is_null($this->previousPrice)) {
+            $summary .= ' (was '.CurrencyHelper::toString(
+                $this->previousPrice,
+                locale: $this->url->store?->locale,
+                iso: $this->url->store?->currency
+            ).')';
+        }
+
+        return $summary;
+    }
+
+    /**
+     * The price that triggered the alert, or the latest price when none was given.
+     */
+    protected function getPriceFormatted(): string
+    {
+        if (is_null($this->price)) {
+            return $this->url->latest_price_formatted;
+        }
+
+        return CurrencyHelper::toString(
+            $this->price->price,
+            locale: $this->url->store?->locale,
+            iso: $this->url->store?->currency
+        );
+    }
+
+    protected function getChangeType(): string
+    {
+        // A newer price can be saved before the notification is rendered.
+        /** @var ?Price $latest */
+        $latest = $this->price ?? $this->url->prices()->reorder('id', 'desc')->first();
+        $latestPrice = $latest?->price;
+
+        return ! is_null($this->previousPrice) && ! is_null($latestPrice) && (float) $latestPrice > $this->previousPrice
+            ? 'increase'
+            : 'drop';
     }
 
     protected function getUrl(): string

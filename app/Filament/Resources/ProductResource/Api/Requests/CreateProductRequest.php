@@ -28,7 +28,8 @@ class CreateProductRequest extends FormRequest
         return [
             'title' => 'required',
             'url' => 'required|url',
-            'product_id' => 'nullable|exists:products,id',
+            // Only the caller's own products. Another user's product fails like a missing one.
+            'product_id' => ['nullable', 'integer', Rule::exists('products', 'id')->where('user_id', $this->user()?->getKey())],
             'image' => 'nullable|url',
             'status' => 'sometimes|in:'.implode(',', Statuses::values()),
             'weight' => 'sometimes|numeric',
@@ -38,6 +39,7 @@ class CreateProductRequest extends FormRequest
             'only_official' => 'nullable|boolean',
             'create_store' => 'sometimes|boolean',
             'notify_in_stock' => 'sometimes|boolean',
+            'notify_on_change' => 'sometimes|boolean',
             'paused' => 'sometimes|boolean',
             'refresh_interval' => ['sometimes', 'nullable', 'integer', Rule::in(array_keys(ProductResource::REFRESH_INTERVALS))],
         ];

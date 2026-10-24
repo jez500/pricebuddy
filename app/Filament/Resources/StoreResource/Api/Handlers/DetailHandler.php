@@ -26,12 +26,13 @@ class DetailHandler extends Handlers
     {
         $id = $request->route('id');
 
-        $query = static::getEloquentQuery()->where('user_id', auth()->id());
+        // Stores are shared by all users.
+        $query = static::getEloquentQuery();
 
         $query = QueryBuilder::for(
             $query->where(static::getKeyName(), $id)
         )
-            ->allowedIncludes(['user', 'urls', 'products'])
+            ->allowedIncludes(PaginationHandler::sharedStoreIncludes())
             ->first();
 
         if (! $query) {

@@ -6,6 +6,7 @@ use App\Filament\Resources\StoreResource;
 use Dedoc\Scramble\Attributes\Group;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Rupadana\ApiService\Http\Handlers;
 
 #[Group(StoreResource::API_GROUP)]
@@ -34,10 +35,16 @@ class DeleteHandler extends Handlers
     {
         $id = $request->route('id');
 
-        $model = static::getModel()::where('id', $id)->where('user_id', auth()->id())->first();
+        $model = static::getModel()::find($id);
 
         if (! $model) {
             return static::sendNotFoundResponse();
+        }
+
+        // Deleting a shared store deletes every user's URLs and prices for it, so only
+        // an admin can do it (StorePolicy). 403, not 404, so a client can explain it.
+        if (Gate::denies('delete', $model)) {
+            return response()->json(['message' => 'Only an admin can delete a store.'], 403);
         }
 
         $model->delete();

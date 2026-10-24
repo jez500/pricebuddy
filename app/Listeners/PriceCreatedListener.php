@@ -27,9 +27,18 @@ class PriceCreatedListener
         }
 
         try {
+            // Notify the user if the price changed and the product asks for every change.
+            if ($product->shouldNotifyOnPriceChange($event->price)) {
+                $previousPrice = (float) $url->previousPrice($event->price)?->price;
+                $product->user?->notify(new PriceAlertNotification($url, $previousPrice, $event->price));
+                $event->price->update(['notified' => true]);
+
+                return;
+            }
+
             // Notify the user if the price is within the range.
             if ($product->shouldNotifyOnPrice($event->price) && $url->shouldNotifyOnPrice($event->price)) {
-                $product->user?->notify(new PriceAlertNotification($url, $event->price));
+                $product->user?->notify(new PriceAlertNotification($url, price: $event->price));
                 $event->price->update(['notified' => true]);
             }
         } catch (Exception $e) {

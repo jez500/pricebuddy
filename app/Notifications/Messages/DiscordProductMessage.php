@@ -25,15 +25,10 @@ class DiscordProductMessage extends GenericNotificationMessage
     public static function forPriceAlert(Url $url, ?Price $current = null): self
     {
         $message = self::forProduct($url, __('Price alert'));
-        $prices = $url->prices()->reorder()->orderByDesc('created_at')->orderByDesc('id');
-
         if ($current) {
-            /** @var Price|null $previous */
-            $previous = $prices->where(fn ($query) => $query->where('created_at', '<', $current->created_at)
-                ->orWhere(fn ($query) => $query->where('created_at', $current->created_at)->where('id', '<', $current->id)))
-                ->first();
+            $previous = $url->previousPrice($current);
         } else {
-            $latest = $prices->limit(2)->get();
+            $latest = $url->prices()->reorder()->orderByDesc('created_at')->orderByDesc('id')->limit(2)->get();
             /** @var Price|null $current */
             $current = $latest->first();
             /** @var Price|null $previous */

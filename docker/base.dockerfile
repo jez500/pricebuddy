@@ -1,6 +1,9 @@
 ARG PHP_VERSION=8.4
+# Pin the PHP patch release. The floating `8.4` tag only updates when this
+# image is rebuilt. 8.4.27 fixes PHP2Shell (CVE-2026-109618, CVE-2026-109619).
+ARG PHP_PATCH_VERSION=8.4.27
 
-FROM php:${PHP_VERSION}-apache-bookworm
+FROM php:${PHP_PATCH_VERSION}-apache-bookworm
 
 ENV EDITOR=nano
 WORKDIR /app

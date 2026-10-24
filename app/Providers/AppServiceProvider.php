@@ -5,13 +5,16 @@ namespace App\Providers;
 use App\Enums\NotificationMethods;
 use App\Models\Product;
 use App\Models\ProductSource;
+use App\Models\Store;
 use App\Models\User;
 use App\Policies\ProductPolicy;
 use App\Policies\ProductSourcePolicy;
+use App\Policies\StorePolicy;
 use App\Policies\UserPolicy;
 use App\Services\Helpers\NotificationsHelper;
 use App\Services\Helpers\QueueHelper;
 use App\Services\Helpers\SettingsHelper;
+use App\Services\Scrapers\Utf8WebScraperHttp;
 use Filament\Facades\Filament;
 use Filament\Navigation\MenuItem;
 use Filament\Support\Facades\FilamentView;
@@ -20,12 +23,14 @@ use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Jez500\WebScraperForLaravel\WebScraperHttp;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        // Convert scraped pages to UTF-8 before they are cached (#203).
+        $this->app->bind(WebScraperHttp::class, Utf8WebScraperHttp::class);
     }
 
     public function boot(): void
@@ -41,6 +46,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(Product::class, ProductPolicy::class);
         Gate::policy(ProductSource::class, ProductSourcePolicy::class);
+        Gate::policy(Store::class, StorePolicy::class);
         Gate::policy(User::class, UserPolicy::class);
     }
 

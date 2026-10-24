@@ -326,7 +326,13 @@ class Url extends Model
     {
         $userId = $userId ?? auth()->id();
 
-        ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable] = self::scrapeAndResolveStore($url, $createStore);
+        // A user can only add a URL to their own product. Without a user (console,
+        // seeders), the caller is trusted.
+        if ($productId && $userId && ! Product::query()->whereKey($productId)->where('user_id', $userId)->exists()) {
+            throw new AuthorizationException('The product does not belong to this user.');
+        }
+
+        ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable] = self::scrapeAndResolveStore($url, $createStore, $userId);
 
         if (! $store || (! data_get($scrape, 'price') && ! $isUnavailable)) {
             return false;
@@ -378,7 +384,7 @@ class Url extends Model
             return true;
         }
 
-        ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable] = self::scrapeAndResolveStore($newUrl, $createStore);
+        ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable] = self::scrapeAndResolveStore($newUrl, $createStore, $this->product?->user_id);
 
         if (! $store || (! data_get($scrape, 'price') && ! $isUnavailable)) {
             return false;
@@ -400,10 +406,10 @@ class Url extends Model
      *
      * @return array{store: ?Store, scrape: array<string, mixed>, isUnavailable: bool}
      */
-    protected static function scrapeAndResolveStore(string $url, bool $createStore = true): array
+    protected static function scrapeAndResolveStore(string $url, bool $createStore = true, ?int $userId = null): array
     {
         if ($createStore) {
-            AutoCreateStore::createStoreFromUrl($url);
+            AutoCreateStore::createStoreFromUrl($url, $userId);
         }
 
         // Suppress UI toasts on these intermediate scrapes: a first attempt may legitimately
@@ -420,7 +426,7 @@ class Url extends Model
         // AI fallback: when a normal create would fail, let the healing agent build or
         // repair the store config, then re-scrape once with the new config.
         if ((! $store || (! data_get($scrape, 'price') && ! $isUnavailable))
-            && AiConfigHealer::new()->healStoreForUrl($url, $store, data_get($scrape, 'body')) !== null) {
+            && AiConfigHealer::new()->healStoreForUrl($url, $store, data_get($scrape, 'body'), $userId) !== null) {
             $scrape = ScrapeUrl::new($url)->setSendUiNotifications(false)->scrape();
             $store = data_get($scrape, 'store');
             $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
@@ -518,6 +524,18 @@ class Url extends Model
         return $this->prices()
             ->orderBy('created_at')
             ->where('notified', true)
+            ->first();
+    }
+
+    /**
+     * The price recorded for this URL before the given price.
+     */
+    public function previousPrice(Price $price): ?Price
+    {
+        /** @var ?Price */
+        return $this->prices()
+            ->reorder('id', 'desc')
+            ->where('id', '<', $price->getKey())
             ->first();
     }
 
