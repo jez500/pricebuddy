@@ -34,8 +34,20 @@ class DiscordProductMessageTest extends TestCase
         $this->assertArrayHasKey('Previous price', $fields);
         $this->assertArrayHasKey('Your target price', $fields);
         $this->assertSame('15% below the first recorded price', $fields['Your drop target']);
-        $this->assertStringContainsString($url->buy_url, $fields['Links']);
-        $this->assertStringContainsString(url($url->product_url), $fields['Links']);
+        $this->assertSame($url->buy_url, $message->url);
+        $this->assertSame('[View price history](<'.url($url->product_url).'>)', $fields['Price history']);
+    }
+
+    public function test_long_store_url_does_not_displace_price_history_link(): void
+    {
+        $url = $this->createListing([12000]);
+        $url->update(['url' => 'https://example.com/dishwasher?ref='.str_repeat('a', 2000)]);
+        $message = DiscordProductMessage::forPriceAlert($url);
+        $fields = array_column($message->toEmbedDetails()['fields'], 'value', 'name');
+
+        $this->assertSame($url->buy_url, $message->url);
+        $this->assertSame('[View price history](<'.url($url->product_url).'>)', $fields['Price history']);
+        $this->assertStringNotContainsString($url->buy_url, implode(' ', $fields));
     }
 
     public function test_first_price_does_not_claim_a_previous_price_or_change(): void

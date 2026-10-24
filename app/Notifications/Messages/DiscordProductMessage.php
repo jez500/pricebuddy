@@ -99,13 +99,13 @@ class DiscordProductMessage extends GenericNotificationMessage
     public function toEmbedDetails(): array
     {
         $fields = $this->fields;
-        $links = '[View at store](<'.$this->url.'>)';
+        // The embed URL links the store listing, so only price history needs a field.
+        $history = '[View price history](<'.$this->historyUrl.'>)';
 
-        if ($this->historyUrl !== '') {
-            $links .= ' · [Price history](<'.$this->historyUrl.'>)';
+        if ($this->historyUrl !== '' && mb_strlen($history) <= 1024) {
+            $fields[] = ['name' => __('Price history'), 'value' => $history, 'inline' => false];
         }
 
-        $fields[] = ['name' => __('Links'), 'value' => $links, 'inline' => false];
         $remaining = 6000 - mb_strlen(Str::limit($this->title, 256, ''))
             - mb_strlen(Str::limit($this->content, 4096, '')) - mb_strlen('PriceBuddy');
         $embedFields = [];
