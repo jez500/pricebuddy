@@ -24,6 +24,28 @@ return [
         ],
     ],
     [
+        'name' => 'BestBuy',
+        'slug' => 'bestbuy',
+        'domains' => [
+            ['domain' => 'bestbuy.com'],
+            ['domain' => 'www.bestbuy.com'],
+        ],
+        'scrape_strategy' => [
+            'title' => [
+                'value' => 'meta[property=og:title]|content',
+                'type' => 'selector',
+            ],
+            'price' => [
+                'value' => '~>\$((?:\d{1,3}(?:,\d{3})+|\d+)(\.\d{2})?)<~',
+                'type' => 'regex',
+            ],
+            'image' => [
+                'value' => '~"primaryImage":\{"__typename":"ProductImage","piscesHref":"([^"]{1,2048})"\}~',
+                'type' => 'regex',
+            ],
+        ],
+    ],
+    [
         'name' => 'eBay US',
         'slug' => 'ebay-us',
         'domains' => [
