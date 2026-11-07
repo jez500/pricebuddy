@@ -720,6 +720,8 @@ class Product extends Model
      * Serialize history writes and derived-cache calculation for one product.
      * Acquire this lock before reading history so MySQL's transaction snapshot
      * cannot predate a writer that was holding the lock.
+     * The callback receives a fresh, locked Product and may be retried on a
+     * concurrency error; keep network requests and external side effects outside it.
      *
      * @template T
      *

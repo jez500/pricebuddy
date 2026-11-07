@@ -50,6 +50,8 @@ class PriceHistoryCleanup
 
     /**
      * A price range belongs to one listing and its store currency.
+     * Removed or reassigned listings yield no rows, so an applied filter cannot
+     * silently expand to the product's other listings.
      *
      * @param  array<string, mixed>  $filters
      * @return Builder<Price>
@@ -108,7 +110,9 @@ class PriceHistoryCleanup
     }
 
     /**
-     * Atomically remove the confirmed rows and rebuild this product's caches.
+     * Reauthorize the actor under the product lock and reject records belonging to
+     * other products. Delete the confirmed IDs and rebuild both caches atomically.
+     * Replaying a valid confirmation returns zero once all its records are gone.
      */
     public function deleteSnapshot(User $actor, Product $product, string $snapshot): int
     {

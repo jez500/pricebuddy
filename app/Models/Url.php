@@ -438,10 +438,11 @@ class Url extends Model
 
     /**
      * Record a price or accept a confirmed unavailable listing without a price.
+     * Default standalone checks refresh both caches on success or stock changes.
      *
      * @param  int|float|string|null  $price  Null or an empty string uses the supplied result or fetches the page.
      * @param  array<string, mixed>|null  $scrapeResult  Scraped price, availability and optional store/body metadata.
-     * @param  bool  $rebuildInsights  Product-wide checks defer insights until all listings have been checked.
+     * @param  bool  $rebuildInsights  False requires a final caller rebuild, including failed prices with stock changes.
      * @return Price|Model|true|null A new/latest price, true for unavailable with no history, or null for failure.
      */
     public function updatePrice(int|float|string|null $price = null, ?array $scrapeResult = null, bool $rebuildInsights = true): Price|Model|true|null
@@ -490,7 +491,8 @@ class Url extends Model
             }
 
             if ($priceFloat === null) {
-                if ($availabilityChanged) {
+                $unavailableWithoutPrice = $missingPrice && $stockStatus?->isUnavailable();
+                if ($availabilityChanged || ($unavailableWithoutPrice && $rebuildInsights)) {
                     $product->updatePriceCache();
                     if ($rebuildInsights) {
                         $product->updateInsightsCache();
@@ -498,7 +500,7 @@ class Url extends Model
                 }
 
                 // An unavailable listing without a price is not a failed scrape.
-                return $missingPrice && $stockStatus?->isUnavailable()
+                return $unavailableWithoutPrice
                     ? ($url->prices()->latest('id')->first() ?? true)
                     : null;
             }
@@ -522,6 +524,10 @@ class Url extends Model
         });
     }
 
+    /**
+     * Persist an optional factor and rescale history under the product lock.
+     * Null uses the database's factor, not unsaved attributes on this instance.
+     */
     public function syncStoredPricesForCurrentFactor(?float $factor = null): void
     {
         $this->product?->withPriceHistoryLock(function (Product $product) use ($factor): void {
