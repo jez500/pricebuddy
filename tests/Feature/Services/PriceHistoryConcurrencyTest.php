@@ -286,9 +286,15 @@ class PriceHistoryConcurrencyTest extends TestCase
     private function assertDisposableTestDatabase(): void
     {
         $this->assertTrue($this->app->environment('testing'), 'Destructive isolation is only allowed in the testing environment.');
-        $database = DB::connection()->getDatabaseName();
-        $this->assertNotSame('pricebuddy', $database, 'The browser database must never be reset by these tests.');
-        $this->assertMatchesRegularExpression('/^(?:tests_db|tests_pb242_[A-Za-z0-9_]+|[A-Za-z0-9_]+_test_\d+)$/', $database, 'Use the dedicated test database or a parallel-test database.');
+        $connection = DB::connection();
+        $database = $connection->getDatabaseName();
+        $baseDatabase = preg_replace('/_test_\d+\z/', '', $database);
+        $dedicatedSchema = $baseDatabase === 'tests_db' || preg_match('/\A[A-Za-z0-9_]+_test\z/', $baseDatabase) === 1;
+        // Lando uses the same schema name on separate application and test services.
+        $landoTestService = $baseDatabase === 'laravel'
+            && $connection->getConfig('host') === 'tests_db'
+            && ! $connection->getConfig('unix_socket');
+        $this->assertTrue($dedicatedSchema || $landoTestService, 'Use a dedicated test schema or the configured Lando test service.');
         $this->assertSame($database, DB::selectOne('SELECT DATABASE() AS current_database')->current_database, 'The actual connection must match the declared disposable test database.');
     }
 }
