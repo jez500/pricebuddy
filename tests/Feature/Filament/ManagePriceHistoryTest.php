@@ -6,6 +6,7 @@ use App\Filament\Resources\ProductResource;
 use App\Filament\Resources\ProductResource\Pages\ManagePriceHistory;
 use App\Models\Price;
 use App\Models\Product;
+use App\Models\Url;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
@@ -88,6 +89,56 @@ class ManagePriceHistoryTest extends TestCase
             ->call('applyFilters')
             ->assertHasErrors(['filters.until']);
         $this->assertSame(3, $this->product->prices()->count());
+    }
+
+    public function test_a_deleted_applied_listing_filter_can_be_cleared(): void
+    {
+        $listing = $this->product->urls()->firstOrFail();
+        $remaining = Url::factory()->for($this->product)->withPrices([80])->create();
+        $foreign = Product::factory()->for(User::factory())->addUrlWithPrices('https://foreign.example/item', [10])->create();
+        $component = Livewire::test(ManagePriceHistory::class, ['record' => $this->product->id])
+            ->set('filters.listing_id', $listing->id)
+            ->set('filters.max_price', 70)
+            ->call('applyFilters')
+            ->assertHasNoErrors()
+            ->assertCanSeeTableRecords($listing->prices()->get());
+        $listing->delete();
+
+        $component->call('$refresh')
+            ->assertSuccessful()
+            ->assertSee('No matching price records')
+            ->assertCanNotSeeTableRecords($foreign->prices()->get())
+            ->call('clearFilters')
+            ->assertSuccessful()
+            ->assertHasNoErrors()
+            ->assertSet('appliedFilters', [])
+            ->assertCanSeeTableRecords($remaining->prices()->get())
+            ->assertCanNotSeeTableRecords($foreign->prices()->get());
+    }
+
+    public function test_an_applied_listing_moved_to_another_product_can_be_cleared(): void
+    {
+        $listing = $this->product->urls()->firstOrFail();
+        $remaining = Url::factory()->for($this->product)->withPrices([80])->create();
+        $foreign = Product::factory()->for(User::factory())->addUrlWithPrices('https://foreign.example/item', [10])->create();
+        $component = Livewire::test(ManagePriceHistory::class, ['record' => $this->product->id])
+            ->set('filters.listing_id', $listing->id)
+            ->set('filters.max_price', 70)
+            ->call('applyFilters')
+            ->assertHasNoErrors()
+            ->assertCanSeeTableRecords($listing->prices()->get());
+        $listing->update(['product_id' => $foreign->id]);
+
+        $component->call('$refresh')
+            ->assertSuccessful()
+            ->assertSee('No matching price records')
+            ->assertCanNotSeeTableRecords($foreign->prices()->get())
+            ->call('clearFilters')
+            ->assertSuccessful()
+            ->assertHasNoErrors()
+            ->assertSet('appliedFilters', [])
+            ->assertCanSeeTableRecords($remaining->prices()->get())
+            ->assertCanNotSeeTableRecords($foreign->prices()->get());
     }
 
     public function test_raw_records_are_paginated_instead_of_loading_the_whole_history(): void

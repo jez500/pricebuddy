@@ -331,7 +331,7 @@ class UrlTest extends TestCase
 
         $priceModel = $url->updatePrice();
 
-        $this->assertNull($priceModel);
+        $this->assertTrue($priceModel);
         $this->assertCount(0, $url->prices);
         $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
     }

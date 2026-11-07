@@ -62,8 +62,12 @@ class PriceHistoryCleanup
         $query = Price::query()->whereHas('url', fn (Builder $query) => $query->where('product_id', $product->getKey()));
 
         if (filled($filters['listing_id'] ?? null)) {
-            /** @var Url $listing */
-            $listing = $product->urls()->whereKey($filters['listing_id'])->firstOrFail();
+            /** @var ?Url $listing */
+            $listing = $product->urls()->whereKey($filters['listing_id'])->first();
+            // An applied filter can outlive its listing or product association.
+            if (! $listing) {
+                return $query->whereRaw('1 = 0');
+            }
             $query->where('url_id', $listing->getKey())->where('store_id', $listing->store_id);
         }
         if (filled($filters['from'] ?? null)) {

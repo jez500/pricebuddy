@@ -436,7 +436,15 @@ class Url extends Model
         return ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable];
     }
 
-    public function updatePrice(int|float|string|null $price = null, ?array $scrapeResult = null, bool $rebuildInsights = true): Price|Model|null
+    /**
+     * Record a price or accept a confirmed unavailable listing without a price.
+     *
+     * @param  int|float|string|null  $price  Null or an empty string uses the supplied result or fetches the page.
+     * @param  array<string, mixed>|null  $scrapeResult  Scraped price, availability and optional store/body metadata.
+     * @param  bool  $rebuildInsights  Product-wide checks defer insights until all listings have been checked.
+     * @return Price|Model|true|null A new/latest price, true for unavailable with no history, or null for failure.
+     */
+    public function updatePrice(int|float|string|null $price = null, ?array $scrapeResult = null, bool $rebuildInsights = true): Price|Model|true|null
     {
         if (! $this->store_id) {
             return null;
@@ -457,7 +465,7 @@ class Url extends Model
         $missingPrice = is_null($price) || $price === '';
         $priceFloat = $missingPrice ? null : CurrencyHelper::toFloat($price, locale: $this->store?->locale, iso: $this->store?->currency);
 
-        return $product->withPriceHistoryLock(function (Product $product) use ($scrapeResult, $missingPrice, $priceFloat, $rebuildInsights): Price|Model|null {
+        return $product->withPriceHistoryLock(function (Product $product) use ($scrapeResult, $missingPrice, $priceFloat, $rebuildInsights): Price|Model|true|null {
             /** @var ?Url $url */
             $url = $this->newQuery()->whereKey($this->getKey())->where('product_id', $product->getKey())->lockForUpdate()->first();
             if (! $url || $url->url !== $this->url) {
@@ -491,7 +499,7 @@ class Url extends Model
 
                 // An unavailable listing without a price is not a failed scrape.
                 return $missingPrice && $stockStatus?->isUnavailable()
-                    ? $url->prices()->latest('id')->first()
+                    ? ($url->prices()->latest('id')->first() ?? true)
                     : null;
             }
 

@@ -285,6 +285,48 @@ class PriceHistoryCleanupTest extends TestCase
         $this->cleanup->validateFilters(['min_price' => 30]);
     }
 
+    public function test_a_deleted_listing_filter_returns_no_records(): void
+    {
+        $product = $this->product();
+        $listing = $product->urls()->firstOrFail();
+        $remaining = Url::factory()->for($product)->withPrices([90])->create();
+        $foreign = Product::factory()->for(User::factory())->addUrlWithPrices('https://foreign.example/item', [10])->create();
+        $listing->delete();
+
+        $this->assertEmpty($this->cleanup->query($this->user, $product, ['listing_id' => $listing->id, 'max_price' => 100])->get());
+        $this->assertSame($remaining->prices()->pluck('id')->all(), $this->cleanup->query($this->user, $product)->pluck('id')->all());
+        $this->assertSame(1, $foreign->prices()->count());
+    }
+
+    public function test_a_listing_moved_to_another_product_returns_no_records(): void
+    {
+        $product = $this->product();
+        $listing = $product->urls()->firstOrFail();
+        $remaining = Url::factory()->for($product)->withPrices([90])->create();
+        $foreign = Product::factory()->for(User::factory())->addUrlWithPrices('https://foreign.example/item', [10])->create();
+        $listing->update(['product_id' => $foreign->id]);
+
+        $this->assertEmpty($this->cleanup->query($this->user, $product, ['listing_id' => $listing->id, 'max_price' => 100])->get());
+        $this->assertSame($remaining->prices()->pluck('id')->all(), $this->cleanup->query($this->user, $product)->pluck('id')->all());
+        $this->assertSame(4, $foreign->prices()->count());
+    }
+
+    public function test_a_valid_listing_filter_keeps_the_store_constraint(): void
+    {
+        $product = $this->product([40]);
+        $listing = $product->urls()->firstOrFail();
+        $expected = $listing->prices()->firstOrFail();
+        $otherStore = Store::factory()->create();
+        $wrongStore = Price::withoutEvents(fn () => Price::factory()->for($listing)->create([
+            'store_id' => $otherStore->id, 'price' => 40, 'unit_price' => 40,
+        ]));
+
+        $matches = $this->cleanup->query($this->user, $product, ['listing_id' => $listing->id, 'min_price' => 40, 'max_price' => 40])->get();
+
+        $this->assertSame([$expected->id], $matches->modelKeys());
+        $this->assertDatabaseHas('prices', ['id' => $wrongStore->id]);
+    }
+
     public function test_date_range_includes_both_days_but_not_the_next_midnight(): void
     {
         $product = $this->product([40, 50, 60]);

@@ -49,8 +49,8 @@ class RetryUrlPriceJob implements ShouldQueue
 
         // A non-null result means the scrape recovered (a price was recorded,
         // or the URL is legitimately out of stock). Refresh the caches to reflect
-        // the new data, then stop. A null result changed nothing, so skip the
-        // (heavy) cache rebuild and fall through to the retry/notify logic.
+        // the new data, then stop. Null means neither a usable price nor a
+        // confirmed unavailable result, so continue to retry/notify logic.
         if (! is_null($result)) {
             $product->updatePriceCache();
             $product->updateInsightsCache();

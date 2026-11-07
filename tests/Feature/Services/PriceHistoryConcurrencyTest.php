@@ -31,6 +31,10 @@ class PriceHistoryConcurrencyTest extends TestCase
 
     public function runDatabaseMigrations(): void
     {
+        if (! in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'], true)) {
+            $this->markTestSkipped('This test requires two real MySQL/InnoDB connections.');
+        }
+
         $this->assertDisposableTestDatabase();
         $this->beforeRefreshingDatabase();
         $this->refreshTestDatabase();
@@ -49,10 +53,6 @@ class PriceHistoryConcurrencyTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        if (! in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'], true)) {
-            $this->markTestSkipped('This test requires two real MySQL/InnoDB connections.');
-        }
 
         $this->assertSame(0, DB::transactionLevel());
         $probeConfig = DB::connection()->getConfig();
