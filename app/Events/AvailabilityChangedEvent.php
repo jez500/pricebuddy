@@ -4,6 +4,7 @@ namespace App\Events;
 
 use App\Enums\StockStatus;
 use App\Models\Url;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -13,7 +14,7 @@ use Illuminate\Queue\SerializesModels;
  * `$previous` and `$current` are null when the item is in stock (PriceBuddy
  * stores in-stock as a null availability) or a StockStatus when unavailable.
  */
-class AvailabilityChangedEvent
+class AvailabilityChangedEvent implements ShouldDispatchAfterCommit
 {
     use Dispatchable, SerializesModels;
 

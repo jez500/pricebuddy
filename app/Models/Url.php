@@ -436,15 +436,13 @@ class Url extends Model
         return ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable];
     }
 
-    public function updatePrice(int|float|string|null $price = null, ?array $scrapeResult = null): Price|Model|null
+    public function updatePrice(int|float|string|null $price = null, ?array $scrapeResult = null, bool $rebuildInsights = true): Price|Model|null
     {
         if (! $this->store_id) {
             return null;
         }
 
-        $availabilityChanged = false;
-        $stockStatus = null;
-
+        // Scraping and optional AI requests happen before taking database locks.
         if (is_null($price) || $price === '') {
             $scrapeResult = $scrapeResult ?? $this->scrape();
             $scrapeResult = AiConfigHealer::new()->heal($this, $scrapeResult);
@@ -452,67 +450,91 @@ class Url extends Model
             $price = data_get($scrapeResult, 'price');
         }
 
-        // Update out-of-stock status based on scrape result.
-        if ($scrapeResult) {
-            $availabilityStrategy = data_get($this->store, 'scrape_strategy.availability');
-            $stockStatus = ScrapeUrl::resolveStockStatus($scrapeResult, $availabilityStrategy);
-            $availability = $stockStatus->isUnavailable() ? $stockStatus : null;
-            $previousAvailability = $this->getAvailabilityStatus();
-            $availabilityChanged = $previousAvailability !== $availability;
-
-            if ($availabilityChanged) {
-                $this->availability = $availability;
-                $this->save();
-                AvailabilityChangedEvent::dispatch($this, $previousAvailability, $availability);
-            }
-        }
-
-        if (is_null($price) || $price === '') {
-            if ($availabilityChanged) {
-                $this->product?->updatePriceCache();
-            }
-
-            // An out-of-stock product with no scraped price is the expected
-            // outcome, not a failure. Keep the existing price history (we
-            // don't insert a new row) and return the latest known Price so
-            // the parent `Product::updatePrices()` doesn't count this URL
-            // as failed and trigger a scrape-error notification.
-            if ($stockStatus?->isUnavailable()) {
-                return $this->prices()->latest('id')->first();
-            }
-
+        $product = $this->product;
+        if (! $product) {
             return null;
         }
+        $missingPrice = is_null($price) || $price === '';
+        $priceFloat = $missingPrice ? null : CurrencyHelper::toFloat($price, locale: $this->store?->locale, iso: $this->store?->currency);
 
-        $priceFloat = CurrencyHelper::toFloat($price, locale: $this->store?->locale, iso: $this->store?->currency);
+        return $product->withPriceHistoryLock(function (Product $product) use ($scrapeResult, $missingPrice, $priceFloat, $rebuildInsights): Price|Model|null {
+            /** @var ?Url $url */
+            $url = $this->newQuery()->whereKey($this->getKey())->where('product_id', $product->getKey())->lockForUpdate()->first();
+            if (! $url || $url->url !== $this->url) {
+                return null;
+            }
 
-        // An unreadable price is a failed scrape, not a price of zero.
-        if ($priceFloat === null) {
-            return null;
-        }
+            $stockStatus = null;
+            $availabilityChanged = false;
+            if ($scrapeResult) {
+                $availabilityStrategy = data_get($url->store, 'scrape_strategy.availability');
+                $stockStatus = ScrapeUrl::resolveStockStatus($scrapeResult, $availabilityStrategy);
+                $availability = $stockStatus->isUnavailable() ? $stockStatus : null;
+                $previousAvailability = $url->getAvailabilityStatus();
+                $availabilityChanged = $previousAvailability !== $availability;
 
-        $priceFactor = $this->price_factor ?: 1;
+                if ($availabilityChanged) {
+                    $url->availability = $availability;
+                    $url->save();
+                    AvailabilityChangedEvent::dispatch($url, $previousAvailability, $availability);
+                    $this->forceFill($url->only(['availability', 'updated_at']))->syncOriginalAttributes(['availability', 'updated_at']);
+                }
+            }
 
-        return $this->prices()->create([
-            'price' => $priceFloat,
-            'unit_price' => $priceFloat / $priceFactor,
-            'price_factor' => $priceFactor,
-            'store_id' => $this->store_id,
-        ]);
+            if ($priceFloat === null) {
+                if ($availabilityChanged) {
+                    $product->updatePriceCache();
+                    if ($rebuildInsights) {
+                        $product->updateInsightsCache();
+                    }
+                }
+
+                // An unavailable listing without a price is not a failed scrape.
+                return $missingPrice && $stockStatus?->isUnavailable()
+                    ? $url->prices()->latest('id')->first()
+                    : null;
+            }
+
+            $priceFactor = $url->price_factor ?: 1;
+
+            $record = $url->prices()->create([
+                'price' => $priceFloat,
+                'unit_price' => $priceFloat / $priceFactor,
+                'price_factor' => $priceFactor,
+                'store_id' => $url->store_id,
+            ]);
+            // Product-wide refreshes defer this expensive calculation until all
+            // listings are checked. A standalone URL check must update readers
+            // that consume the materialized insights cache directly.
+            if ($rebuildInsights) {
+                $product->updateInsightsCache();
+            }
+
+            return $record;
+        });
     }
 
-    public function syncStoredPricesForCurrentFactor(): void
+    public function syncStoredPricesForCurrentFactor(?float $factor = null): void
     {
-        $priceFactor = $this->price_factor ?: 1;
+        $this->product?->withPriceHistoryLock(function (Product $product) use ($factor): void {
+            /** @var Url $url */
+            $url = $this->newQuery()->whereKey($this->getKey())->lockForUpdate()->firstOrFail();
+            if ($factor !== null) {
+                $url->update(['price_factor' => $factor]);
+                $this->forceFill(['price_factor' => $factor])->syncOriginalAttribute('price_factor');
+            }
+            $priceFactor = $url->price_factor ?: 1;
 
-        /** @var Collection<int, Price> $prices */
-        $prices = $this->prices()->get();
+            $url->prices()->each(function ($price) use ($priceFactor): void {
+                /** @var Price $price */
+                $price->forceFill([
+                    'unit_price' => $price->price / $priceFactor,
+                    'price_factor' => $priceFactor,
+                ])->saveQuietly();
+            });
 
-        $prices->each(function (Price $price) use ($priceFactor): void {
-            $price->forceFill([
-                'unit_price' => $price->price / $priceFactor,
-                'price_factor' => $priceFactor,
-            ])->saveQuietly();
+            $product->updatePriceCache();
+            $product->updateInsightsCache();
         });
     }
 

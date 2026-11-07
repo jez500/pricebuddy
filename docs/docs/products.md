@@ -88,6 +88,21 @@ availability status instead of displaying a misleading zero price.
 
 Price history charts can also switch between retail price and unit price.
 
+### Remove incorrect readings
+
+Open **Price history** from a product to inspect its individual recorded prices.
+The table shows raw readings, so deleting a row does not remove every reading on
+the same day. Choose a listing to filter amounts in its store's currency, and use
+the inclusive date range to narrow the selection.
+
+Delete one record or select up to 1,000 records for a batch. The confirmation fixes
+that selection: prices recorded afterwards are not included. Confirmations expire
+after 15 minutes. Deletion cannot be undone.
+
+PriceBuddy recalculates the product's chart, current price and insights automatically.
+The tracked URLs, stock status, targets and check schedule are kept. Removing all
+readings leaves the product ready for its next normal price check.
+
 ## Price trends
 
 For each URL, PriceBuddy will show the price trend compared to the previous price.
