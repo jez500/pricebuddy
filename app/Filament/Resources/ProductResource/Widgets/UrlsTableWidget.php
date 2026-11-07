@@ -71,15 +71,11 @@ class UrlsTableWidget extends BaseWidget
                             ]);
                         }
 
-                        $record->price_factor = (float) $data['price_factor'];
-                        $record->save();
+                        $record->syncStoredPricesForCurrentFactor((float) $data['price_factor']);
 
                         return $record;
                     })
                     ->after(function (Url $record) {
-                        $record->syncStoredPricesForCurrentFactor();
-                        $record->product->updatePriceCache();
-
                         Notification::make('url_updated')
                             ->title('URL updated')
                             ->success()

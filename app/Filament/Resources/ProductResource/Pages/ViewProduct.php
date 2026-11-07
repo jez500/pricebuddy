@@ -42,6 +42,8 @@ class ViewProduct extends ViewRecord
         return [
             ProductResource\Actions\AddUrlAction::make(),
             ProductResource\Actions\FetchAction::make(),
+            BaseAction::make('price_history')->label(__('Price history'))->icon('heroicon-o-clock')
+                ->url(ProductResource::getUrl('history', ['record' => $this->record])),
             BaseAction::make('edit_product')->icon(Icons::Edit->value)
                 ->label(__('Edit'))
                 ->resourceName('product')

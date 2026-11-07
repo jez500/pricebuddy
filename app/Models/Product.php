@@ -661,7 +661,7 @@ class Product extends Model
     public function updatePrices(): \Illuminate\Database\Eloquent\Collection
     {
         $failed = $this->urls
-            ->filter(fn (Url $url) => $url->updatePrice() === null) // @phpstan-ignore-line
+            ->filter(fn (Url $url) => $url->updatePrice(rebuildInsights: false) === null) // @phpstan-ignore-line
             ->values();
 
         $this->updatePriceCache();
@@ -686,9 +686,14 @@ class Product extends Model
      */
     public function updateInsightsCache(): void
     {
-        // Saved quietly so a pure cache write doesn't re-trigger the saving hook
-        // (which manages next_check_at) or the updated hook.
-        $this->forceFill(['insights_cache' => $this->buildInsightsCache()])->saveQuietly();
+        $state = $this->withPriceHistoryLock(function (Product $product): array {
+            $product->forceFill(['insights_cache' => $product->buildInsightsCache()])->saveQuietly();
+
+            return $product->only(['insights_cache', 'updated_at']);
+        });
+
+        $this->forceFill($state)->syncOriginalAttributes(array_keys($state));
+        $this->unsetRelations();
     }
 
     /**
@@ -696,11 +701,41 @@ class Product extends Model
      */
     public function updatePriceCache(): void
     {
-        $priceCache = $this->buildPriceCache()->toArray();
-        $currentPrice = collect($priceCache)
-            ->first(fn (array $item) => StockStatus::fromScrapedValue($item['availability'] ?? null)->isUnavailable() === false)['unit_price'] ?? 0;
+        $state = $this->withPriceHistoryLock(function (Product $product): array {
+            $priceCache = $product->buildPriceCache()->toArray();
+            $currentPrice = collect($priceCache)
+                ->first(fn (array $item) => StockStatus::fromScrapedValue($item['availability'] ?? null)->isUnavailable() === false)['unit_price'] ?? 0;
 
-        $this->update(['price_cache' => $priceCache, 'current_price' => $currentPrice]);
+            // Cache maintenance must not change the next scheduled scrape.
+            $product->forceFill(['price_cache' => $priceCache, 'current_price' => $currentPrice])->saveQuietly();
+
+            return $product->only(['price_cache', 'current_price', 'updated_at']);
+        });
+
+        $this->forceFill($state)->syncOriginalAttributes(array_keys($state));
+        $this->unsetRelations();
+    }
+
+    /**
+     * Serialize history writes and derived-cache calculation for one product.
+     * Acquire this lock before reading history so MySQL's transaction snapshot
+     * cannot predate a writer that was holding the lock.
+     * The callback receives a fresh, locked Product and may be retried on a
+     * concurrency error; keep network requests and external side effects outside it.
+     *
+     * @template T
+     *
+     * @param  callable(Product): T  $callback
+     * @return T
+     */
+    public function withPriceHistoryLock(callable $callback): mixed
+    {
+        return $this->getConnection()->transaction(function () use ($callback) {
+            /** @var Product $product */
+            $product = $this->newQuery()->whereKey($this->getKey())->lockForUpdate()->firstOrFail();
+
+            return $callback($product);
+        }, 3);
     }
 
     /**
