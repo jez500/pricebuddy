@@ -11,6 +11,7 @@ Route::get('/', function () {
 });
 
 Route::prefix('admin/products')->name('filament.admin.resources.products.')
+    ->middleware('auth')
     ->group(function () {
         Route::post('/{product}/fetch', [ProductController::class, 'fetch'])
             ->name('fetch');

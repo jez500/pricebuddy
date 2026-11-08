@@ -6,6 +6,7 @@ use App\Models\Product;
 use Exception;
 use Filament\Notifications\Notification;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * For things not provided by filament.
@@ -14,6 +15,8 @@ class ProductController extends Controller
 {
     public function fetch(Product $product): RedirectResponse
     {
+        Gate::authorize('update', $product);
+
         try {
             $product->updatePrices();
 
