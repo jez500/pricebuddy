@@ -68,6 +68,18 @@ class PriceAlertBreakdownTest extends TestCase
         $this->assertStringContainsString(self::BREAKDOWN, (string) $notification->toMail($this->user)->render());
     }
 
+    public function test_an_alert_says_when_shipping_is_not_counted(): void
+    {
+        [$url] = $this->makePrice(['tax_included_percent' => 19, 'tax_percent' => 23, 'shipping_cost' => 7.65]);
+        $url->update(['ignore_shipping' => true]);
+        $price = $url->updatePrice(324.80);
+
+        $this->assertSame(
+            "Amazon.de has had a price drop for Ryzen & Co 5800X3D - €335.72\n(page €324.80 + €10.92 tax · shipping not counted)",
+            (new PriceAlertNotification($url, null, $price))->toTelegram($this->user)->content,
+        );
+    }
+
     public function test_a_threshold_alert_uses_the_latest_price(): void
     {
         [$url] = $this->makePrice(['tax_included_percent' => 19, 'tax_percent' => 23, 'shipping_cost' => 7.65]);

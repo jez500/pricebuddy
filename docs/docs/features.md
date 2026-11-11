@@ -31,6 +31,14 @@ This is useful for multi-packs, bundles, and products sold in different
 pack sizes. For example, PriceBuddy can show the price per tablet, bag,
 or other unit so cheaper-looking bundles do not hide a worse value.
 
+## Tax and shipping
+
+The price on a page is not always the price you pay. A store can swap the tax
+its page shows for the tax you pay, and add shipping as a flat fee, free from an
+amount, or read from the page. Alerts, history and insights then compare the
+checkout price, and each listing can leave shipping out when you combine orders.
+See [price adjustments](/stores.html#price-adjustments).
+
 ## Flexible scheduling
 
 Prices are fetched automatically on a schedule you control. You can also set a

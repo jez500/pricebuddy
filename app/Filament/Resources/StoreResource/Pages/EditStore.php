@@ -58,16 +58,14 @@ class EditStore extends EditRecord
             return;
         }
 
-        $apply = data_get($this->data, 'price_adjustments_apply') ?? 'all';
+        $data = (array) $this->data;
 
-        if ($apply === 'new') {
+        if (! StoreResource::shouldRecalculatePastPrices($data)) {
             return;
         }
 
-        $since = $apply === 'since' ? data_get($this->data, 'price_adjustments_since') : null;
-
         // After the save commits, so the job never reads the old settings.
-        RecalculateStorePrices::dispatch($this->getRecord()->getKey(), filled($since) ? (string) $since : null)
+        RecalculateStorePrices::dispatch($this->getRecord()->getKey(), StoreResource::pastPricesSince($data)?->toDateString())
             ->afterCommit();
 
         Notification::make()

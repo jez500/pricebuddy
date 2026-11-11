@@ -57,6 +57,7 @@ class StorePriceAdjustmentsFormTest extends TestCase
             'settings.price_adjustments.tax_included_percent' => 19,
             'settings.price_adjustments.tax_percent' => 23,
             'settings.price_adjustments.shipping_cost' => 7.65,
+            'settings.price_adjustments.free_shipping_from' => 39,
             'settings.price_adjustments.tax_on_shipping' => false,
             'scrape_strategy.shipping.type' => 'selector',
             'scrape_strategy.shipping.value' => '#delivery|data-price',
@@ -69,6 +70,7 @@ class StorePriceAdjustmentsFormTest extends TestCase
         $this->assertSame(19.0, $store->price_adjustments->taxIncludedPercent);
         $this->assertSame(23.0, $store->price_adjustments->taxPercent);
         $this->assertSame(7.65, $store->price_adjustments->shippingCost);
+        $this->assertSame(39.0, $store->price_adjustments->freeShippingFrom);
         $this->assertTrue($store->hasShippingStrategy());
         $this->assertSame('http', $store->settings['scraper_service'], 'other settings are kept');
     }
@@ -121,6 +123,18 @@ class StorePriceAdjustmentsFormTest extends TestCase
         Queue::assertNothingPushed();
     }
 
+    public function test_changing_only_the_threshold_asks_about_past_prices(): void
+    {
+        $this->store->update(['settings' => array_merge($this->store->settings, ['price_adjustments' => ['shipping_cost' => 5]])]);
+
+        $this->editStore(['settings.price_adjustments.free_shipping_from' => 50])
+            ->assertFormFieldIsVisible('price_adjustments_apply')
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        Queue::assertPushed(RecalculateStorePrices::class);
+    }
+
     public function test_saving_unchanged_adjustments_recalculates_nothing(): void
     {
         $this->store->update(['settings' => array_merge($this->store->settings, ['price_adjustments' => ['tax_percent' => 23]])]);
@@ -138,9 +152,14 @@ class StorePriceAdjustmentsFormTest extends TestCase
         $this->editStore([
             'settings.price_adjustments.tax_percent' => 150,
             'settings.price_adjustments.shipping_cost' => -1,
+            'settings.price_adjustments.free_shipping_from' => -1,
         ])
             ->call('save')
-            ->assertHasFormErrors(['settings.price_adjustments.tax_percent', 'settings.price_adjustments.shipping_cost']);
+            ->assertHasFormErrors([
+                'settings.price_adjustments.tax_percent',
+                'settings.price_adjustments.shipping_cost',
+                'settings.price_adjustments.free_shipping_from',
+            ]);
     }
 
     public function test_shipping_strategy_cannot_use_schema_org(): void

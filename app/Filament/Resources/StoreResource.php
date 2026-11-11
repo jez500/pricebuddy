@@ -8,6 +8,7 @@ use App\Enums\Icons;
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
 use App\Enums\StockStatus;
+use App\Filament\Concerns\HasPastPricesFields;
 use App\Filament\Concerns\HasScraperTrait;
 use App\Filament\Pages\AppSettingsPage;
 use App\Filament\Resources\StoreResource\Pages\CreateStore;
@@ -21,8 +22,6 @@ use App\Services\Helpers\IntegrationHelper;
 use Filament\Forms;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action as FormAction;
-use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -46,6 +45,7 @@ use Illuminate\Support\HtmlString;
 
 class StoreResource extends Resource
 {
+    use HasPastPricesFields;
     use HasScraperTrait;
 
     public const array DEFAULT_SELECTORS = [
@@ -199,30 +199,22 @@ class StoreResource extends Resource
                     ->placeholder('0')
                     ->hintIcon(Icons::Help->value, 'In the store currency. Used when there is no shipping strategy, or when it finds nothing')
                     ->live(onBlur: true),
+                TextInput::make('settings.price_adjustments.free_shipping_from')
+                    ->label('Free shipping from')
+                    ->numeric()
+                    ->minValue(0)
+                    ->placeholder('0')
+                    ->hintIcon(Icons::Help->value, 'The flat shipping fee is free when the price after tax reaches this amount. Leave at 0 for no threshold')
+                    ->live(onBlur: true),
                 Toggle::make('settings.price_adjustments.tax_on_shipping')
                     ->label('Apply tax to shipping')
                     ->helperText('Off: shipping is added as entered. On: shipping gets the same tax adjustment as the page price.')
-                    ->inline(false)
-                    ->live(),
-                Radio::make('price_adjustments_apply')
-                    ->label('Apply the new settings to')
-                    ->options([
-                        'all' => 'All past prices',
-                        'since' => 'Prices since a date',
-                        'new' => 'New prices only',
-                    ])
-                    ->afterStateHydrated(fn (Radio $component, ?string $state) => $component->state($state ?? 'all'))
                     ->live()
-                    ->dehydrated(false)
-                    ->visible(fn (Get $get, ?Store $record): bool => self::priceAdjustmentsChanged($get, $record))
                     ->columnSpanFull(),
-                DatePicker::make('price_adjustments_since')
-                    ->label('Since')
-                    ->maxDate(now())
-                    ->required()
-                    ->dehydrated(false)
-                    ->visible(fn (Get $get, ?Store $record): bool => $get('price_adjustments_apply') === 'since'
-                        && self::priceAdjustmentsChanged($get, $record)),
+                ...self::makePastPricesFields(
+                    fn (Get $get, ?Store $record): bool => self::priceAdjustmentsChanged($get, $record),
+                    dehydrated: false,
+                ),
             ])
             ->columns(2)
             ->collapsed(fn (Get $get): bool => PriceAdjustmentsDto::fromArray((array) $get('settings.price_adjustments'))->isEmpty());

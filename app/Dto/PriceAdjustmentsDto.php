@@ -21,6 +21,7 @@ class PriceAdjustmentsDto implements Arrayable
         public float $taxIncludedPercent = 0,
         public float $taxPercent = 0,
         public float $shippingCost = 0,
+        public float $freeShippingFrom = 0,
         public bool $taxOnShipping = false,
     ) {}
 
@@ -33,12 +34,13 @@ class PriceAdjustmentsDto implements Arrayable
             taxIncludedPercent: (float) ($data['tax_included_percent'] ?? 0),
             taxPercent: (float) ($data['tax_percent'] ?? 0),
             shippingCost: (float) ($data['shipping_cost'] ?? 0),
+            freeShippingFrom: (float) ($data['free_shipping_from'] ?? 0),
             taxOnShipping: (bool) ($data['tax_on_shipping'] ?? false),
         );
     }
 
     /**
-     * @return array{tax_included_percent: float, tax_percent: float, shipping_cost: float, tax_on_shipping: bool}
+     * @return array{tax_included_percent: float, tax_percent: float, shipping_cost: float, free_shipping_from: float, tax_on_shipping: bool}
      */
     public function toArray(): array
     {
@@ -46,6 +48,7 @@ class PriceAdjustmentsDto implements Arrayable
             'tax_included_percent' => $this->taxIncludedPercent,
             'tax_percent' => $this->taxPercent,
             'shipping_cost' => $this->shippingCost,
+            'free_shipping_from' => $this->freeShippingFrom,
             'tax_on_shipping' => $this->taxOnShipping,
         ];
     }
@@ -64,23 +67,39 @@ class PriceAdjustmentsDto implements Arrayable
     }
 
     /**
-     * The price the user pays for a page price. Shipping read from the page replaces the
-     * flat shipping fee when given.
+     * The flat shipping fee for an item, which is free once the price after tax reaches
+     * the free-shipping threshold.
      */
-    public function apply(float $pagePrice, ?float $pageShipping = null): AdjustedPriceDto
+    public function flatShippingFor(float $priceAfterTax): float
     {
-        $shipping = round($pageShipping ?? $this->shippingCost, 2);
+        if ($this->freeShippingFrom > 0 && round($priceAfterTax, 2) >= round($this->freeShippingFrom, 2)) {
+            return 0.0;
+        }
+
+        return $this->shippingCost;
+    }
+
+    /**
+     * The price the user pays for a page price. Shipping read from the page replaces the
+     * flat shipping fee when given. Ignored shipping is left out of the price but kept, so
+     * the price can be worked out again if the listing stops ignoring it.
+     */
+    public function apply(float $pagePrice, ?float $pageShipping = null, bool $ignoreShipping = false): AdjustedPriceDto
+    {
         $factor = $this->taxFactor();
+        $shipping = round($pageShipping ?? $this->flatShippingFor($pagePrice * $factor), 2);
+        $counted = $ignoreShipping ? 0.0 : $shipping;
 
         $total = round($this->taxOnShipping
-            ? ($pagePrice + $shipping) * $factor
-            : $pagePrice * $factor + $shipping, 2);
+            ? ($pagePrice + $counted) * $factor
+            : $pagePrice * $factor + $counted, 2);
 
         return new AdjustedPriceDto(
             pagePrice: $pagePrice,
-            tax: round($total - $pagePrice - $shipping, 2),
-            shipping: $shipping,
-            shippingFromPage: $pageShipping !== null,
+            tax: round($total - $pagePrice - $counted, 2),
+            shipping: $counted,
+            pageShipping: $pageShipping,
+            uncountedShipping: $ignoreShipping ? $shipping : 0.0,
             total: $total,
             settings: $this,
         );

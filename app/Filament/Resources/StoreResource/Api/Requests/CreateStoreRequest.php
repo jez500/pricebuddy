@@ -60,6 +60,7 @@ class CreateStoreRequest extends FormRequest
             'settings.price_adjustments.tax_included_percent' => 'nullable|numeric|min:0|max:100',
             'settings.price_adjustments.tax_percent' => 'nullable|numeric|min:0|max:100',
             'settings.price_adjustments.shipping_cost' => 'nullable|numeric|min:0',
+            'settings.price_adjustments.free_shipping_from' => 'nullable|numeric|min:0',
             'settings.price_adjustments.tax_on_shipping' => 'nullable|boolean',
             'scrape_strategy.shipping.type' => 'sometimes|in:'.implode(',', $shippingTypes),
             'scrape_strategy.shipping.value' => [new ScrapeStrategyValue],

@@ -247,4 +247,40 @@ class PriceCacheDtoTest extends TestCase
 
         $this->assertTrue($dto->isLastScrapeSuccessful());
     }
+
+    public function test_price_breakdown_text(): void
+    {
+        $dto = new PriceCacheDto(price: 343.37, locale: 'en_US', currency: 'EUR', priceBreakdown: ['page' => 324.80, 'tax' => 10.92, 'shipping' => 7.65]);
+
+        $this->assertSame('€324.80 + €10.92 tax + €7.65 shipping', $dto->getPriceBreakdownText());
+        $this->assertNull((new PriceCacheDto(price: 10))->getPriceBreakdownText());
+    }
+
+    public function test_price_breakdown_with_a_price_factor_adds_up_to_the_pack_price(): void
+    {
+        // The shown price is €12 per tablet; the breakdown is for the pack.
+        $dto = new PriceCacheDto(
+            price: 36,
+            locale: 'en_US',
+            currency: 'EUR',
+            unitPrice: 12,
+            priceFactor: 3,
+            unitOfMeasure: 'tablets',
+            priceBreakdown: ['page' => 30, 'tax' => 0, 'shipping' => 6, 'shipping_not_counted' => false],
+        );
+
+        $this->assertSame('€30.00 + €6.00 shipping = €36.00 for 3 tablets', $dto->getPriceBreakdownText());
+
+        $ignored = new PriceCacheDto(
+            price: 36.9,
+            locale: 'en_US',
+            currency: 'EUR',
+            unitPrice: 12.3,
+            priceFactor: 3,
+            unitOfMeasure: 'tablets',
+            priceBreakdown: ['page' => 30, 'tax' => 6.9, 'shipping' => 0, 'shipping_not_counted' => true],
+        );
+
+        $this->assertSame('€30.00 + €6.90 tax = €36.90 for 3 tablets · shipping not counted', $ignored->getPriceBreakdownText());
+    }
 }

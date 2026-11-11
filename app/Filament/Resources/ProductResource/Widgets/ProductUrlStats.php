@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\ProductResource\Widgets;
 
 use App\Dto\PriceCacheDto;
+use App\Filament\Concerns\HasIgnoreShippingFields;
 use App\Models\Product;
 use App\Models\Url;
 use App\Rules\StoreUrl;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ProductUrlStats extends BaseWidget implements HasActions, HasForms
 {
+    use HasIgnoreShippingFields;
     use InteractsWithActions;
     use InteractsWithForms;
 
@@ -115,9 +117,10 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
                 return [
                     'url' => $url->url,
                     'price_factor' => $url->price_factor,
+                    'ignore_shipping' => $url->ignore_shipping,
                 ];
             })
-            ->form([
+            ->form(fn (array $arguments): array => [
                 TextInput::make('url')
                     ->label('URL')
                     ->required()
@@ -128,6 +131,7 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
                     ->default(1)
                     ->minValue(0.01)
                     ->required(),
+                ...self::makeIgnoreShippingFields(Url::find($arguments['url'] ?? null)),
             ])
             ->action(function ($arguments, $data) {
                 $url = Url::find($arguments['url']);
@@ -142,6 +146,7 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
                 }
 
                 $url->update(['price_factor' => $data['price_factor']]);
+                self::saveIgnoreShipping($url, $data);
                 $url->syncStoredPricesForCurrentFactor();
                 $url->product->updatePriceCache();
 

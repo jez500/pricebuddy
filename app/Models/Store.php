@@ -302,6 +302,15 @@ class Store extends Model
     }
 
     /**
+     * Whether the store adds shipping to its prices: a flat fee or shipping read from the
+     * page. A listing can only ignore shipping when it does.
+     */
+    public function hasShipping(): bool
+    {
+        return $this->price_adjustments->shippingCost > 0 || $this->hasShippingStrategy();
+    }
+
+    /**
      * Whether prices from this store are adjusted before they are saved: tax, a flat
      * shipping fee, or shipping read from the page.
      */
@@ -314,13 +323,13 @@ class Store extends Model
      * The price the user pays for a page price, or null when the store adjusts nothing.
      * Shipping read from the page only counts while the store has a shipping strategy.
      */
-    public function adjustPrice(float $pagePrice, ?float $pageShipping = null): ?AdjustedPriceDto
+    public function adjustPrice(float $pagePrice, ?float $pageShipping = null, bool $ignoreShipping = false): ?AdjustedPriceDto
     {
         if ($pagePrice <= 0 || ! $this->hasPriceAdjustments()) {
             return null;
         }
 
-        return $this->price_adjustments->apply($pagePrice, $this->hasShippingStrategy() ? $pageShipping : null);
+        return $this->price_adjustments->apply($pagePrice, $this->hasShippingStrategy() ? $pageShipping : null, $ignoreShipping);
     }
 
     /**
@@ -337,21 +346,11 @@ class Store extends Model
         Price::query()
             ->where('store_id', $this->getKey())
             ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
-            ->with('url:id,product_id')
+            ->with('url:id,product_id,ignore_shipping')
             ->chunkById(500, function (Collection $prices) use (&$count, &$productIds): void {
                 /** @var Price $price */
                 foreach ($prices as $price) {
-                    $pagePrice = (float) ($price->scraped_price ?? $price->price);
-                    $previous = $price->adjusted_price;
-                    $adjusted = $this->adjustPrice($pagePrice, $previous?->shippingFromPage ? $previous->shipping : null);
-                    $total = $adjusted->total ?? $pagePrice;
-
-                    $price->forceFill([
-                        'price' => $total,
-                        'unit_price' => $total / ($price->price_factor ?: 1),
-                        'scraped_price' => $pagePrice,
-                        'price_adjustments' => $adjusted?->toStorageArray(),
-                    ])->saveQuietly();
+                    $price->recalculate($this, (bool) $price->url?->ignore_shipping);
 
                     $count++;
                     $productIds[] = $price->url?->product_id;

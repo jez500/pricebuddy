@@ -97,6 +97,42 @@ class ProductUrlsApiTest extends TestCase
         $this->assertEquals(25, $urls->first()->prices()->first()->price);
     }
 
+    public function test_urls_can_be_added_ignoring_shipping(): void
+    {
+        $this->mockScrape(25, 'Example product');
+        $store = Store::query()->firstOrFail();
+        $store->update(['settings' => array_merge($store->settings ?? [], ['price_adjustments' => ['shipping_cost' => 5]])]);
+
+        $this->postJson("/api/products/{$this->product->id}/urls", [
+            'urls' => ['https://example.com/a'],
+            'ignore_shipping' => true,
+        ])->assertStatus(202);
+
+        $url = $this->product->urls()->firstOrFail();
+        $this->assertTrue($url->ignore_shipping);
+        $this->assertEquals(25, $url->prices()->first()->price);
+
+        $this->postJson("/api/products/{$this->product->id}/urls", ['urls' => ['https://example.com/b'], 'ignore_shipping' => 'sometimes'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['ignore_shipping']);
+    }
+
+    public function test_a_job_queued_before_ignore_shipping_existed_still_runs(): void
+    {
+        $this->mockScrape(25, 'Example product');
+
+        // Laravel leaves out a property that equals its default, so this is also the payload
+        // the previous version queued. It must not need the property to run.
+        $payload = serialize(new AddUrlToProductJob($this->product->id, 'https://example.com/old', $this->user->id, 2));
+        $this->assertStringNotContainsString('ignoreShipping', $payload);
+
+        unserialize($payload)->handle();
+
+        $url = $this->product->urls()->firstOrFail();
+        $this->assertFalse($url->ignore_shipping);
+        $this->assertEquals(2, $url->price_factor);
+    }
+
     public function test_job_notifies_the_user_when_a_url_cannot_be_added(): void
     {
         Notification::fake();

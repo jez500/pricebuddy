@@ -60,6 +60,7 @@ class AddUrlsHandler extends Handlers
             $request->validated('urls'),
             (int) auth()->id(),
             (float) $request->validated('price_factor', 1),
+            (bool) $request->validated('ignore_shipping', false),
         );
 
         return response()->json([

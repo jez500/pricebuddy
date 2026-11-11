@@ -196,6 +196,10 @@ target prices, alerts, history and insights all compare what you would really pa
 * **Flat shipping fee** - Added to every price, in the store's currency. It is used
   when the store has no [shipping strategy](#shipping-strategy), or when that strategy
   finds nothing on the page.
+* **Free shipping from** - The flat shipping fee is free when the price after tax
+  reaches this amount, for stores with "free shipping from €50" offers. An item at
+  exactly the amount ships free. Leave it at 0 for no threshold. Shipping read from
+  the page is used as it is, since the page already says when an item ships free.
 * **Apply tax to shipping** - Off: shipping is added as entered. On: shipping gets the
   same tax adjustment as the page price, such as import VAT charged on the goods and
   the delivery.
@@ -209,6 +213,9 @@ The two tax fields swap one tax for the other. Examples:
 
 Leave everything at 0 when the page shows the price you pay. Stores are shared, so
 the adjustments apply to every user's prices from the store.
+
+Each product's listings can still [ignore shipping](/products.html#ignore-shipping), for
+the stores where you usually combine orders.
 
 PriceBuddy keeps the page price next to the price you pay. Wherever a price is not the
 page price, it is marked with `*`, and hovering over or tapping the `*` shows what it is

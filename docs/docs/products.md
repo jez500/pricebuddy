@@ -51,6 +51,20 @@ marked with `*`: hover over or tap the `*` to see what the price is made of. Tar
 prices, alerts, history and insights all use the price you pay. With a price factor,
 the unit price includes the tax and shipping too.
 
+### Ignore shipping
+
+Shipping is charged per order, so it may not apply to how you buy an item: in bulk, or
+together with other things from the same store. Edit the URL and switch on **Ignore
+shipping** to leave shipping out of that listing's price. Tax adjustments still apply.
+The switch is only shown when the store adds shipping, and the URL list marks the
+listing with "No shipping".
+
+When shipping would have cost something, the breakdown says so, such as
+`€324.80 + €10.92 tax · shipping not counted`. Turning the switch on or off asks which
+prices it applies to, the same choice as [changing a store's adjustments](/stores.html#applying-changes-to-past-prices),
+and the change is applied straight away. PriceBuddy keeps the shipping read from the
+page even while it is ignored, so turning the switch off counts it again.
+
 ## Check frequency &amp; pausing
 
 By default every product is checked on the global

@@ -70,9 +70,26 @@ class Price extends Model
      */
     public function getPageShipping(): ?float
     {
-        $adjusted = $this->adjusted_price;
+        return $this->adjusted_price?->pageShipping;
+    }
 
-        return $adjusted?->shippingFromPage ? $adjusted->shipping : null;
+    /**
+     * Work this price out again from its page price, with the store's current price
+     * adjustments. Shipping read from the page is kept, since a past page cannot be read
+     * again. Saved quietly: a recalculated price is not a new price and alerts nobody.
+     */
+    public function recalculate(Store $store, bool $ignoreShipping = false): void
+    {
+        $pagePrice = (float) ($this->scraped_price ?? $this->price);
+        $adjusted = $store->adjustPrice($pagePrice, $this->getPageShipping(), $ignoreShipping);
+        $total = $adjusted->total ?? $pagePrice;
+
+        $this->forceFill([
+            'price' => $total,
+            'unit_price' => $total / ($this->price_factor ?: 1),
+            'scraped_price' => $pagePrice,
+            'price_adjustments' => $adjusted?->toStorageArray(),
+        ])->saveQuietly();
     }
 
     /***************************************************

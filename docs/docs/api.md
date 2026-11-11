@@ -183,6 +183,7 @@ Adds up to 50 URLs to a product in one request. The endpoint requires the
 | --- | --- | --- |
 | `urls` | array of strings | Required. 1 to 50 URLs. |
 | `price_factor` | number | Optional. Applied to every URL. Defaults to `1`. |
+| `ignore_shipping` | boolean | Optional. Leave the store's shipping out of these URLs' prices ([ignore shipping](/products.html#ignore-shipping)). Defaults to `false`. |
 
 The response lists the queued URLs and the skipped URLs. A skipped URL has a reason:
 `invalid` (not an `http` or `https` URL), `duplicate` (it repeats an earlier URL in the
@@ -369,6 +370,7 @@ A store's [price adjustments](/stores.html#price-adjustments) are in
 | `settings.price_adjustments.tax_included_percent` | Number from 0 to 100 |
 | `settings.price_adjustments.tax_percent` | Number from 0 to 100 |
 | `settings.price_adjustments.shipping_cost` | Number, 0 or more, in the store's currency |
+| `settings.price_adjustments.free_shipping_from` | Number, 0 or more (0 is no threshold) |
 | `settings.price_adjustments.tax_on_shipping` | Boolean |
 | `scrape_strategy.shipping.type` | `selector`, `xpath`, `regex` or `json` (not `schema_org`) |
 
@@ -376,8 +378,9 @@ A store's [price adjustments](/stores.html#price-adjustments) are in
 applies to new prices only: saved prices are not recalculated.
 
 Each price is the price you pay. In a product's `price_cache`, an entry from a store with
-adjustments has a `price_breakdown` of `{"page": …, "tax": …, "shipping": …}`, the parts
-that add up to its price. It is `null` when the price is the page price.
+adjustments has a `price_breakdown` of `{"page": …, "tax": …, "shipping": …, "shipping_not_counted": …}`:
+the parts that add up to its price, and whether the listing ignores shipping the store would
+charge. It is `null` when the price is the page price.
 
 ### Currency & locale
 
