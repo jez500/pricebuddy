@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 /**
@@ -39,6 +40,7 @@ class StorePriceAdjustmentsTest extends TestCase
         parent::setUp();
 
         Notification::fake();
+        RecalculateStorePrices::$batchSize = 1000;
 
         $this->user = User::factory()->create();
     }
@@ -261,12 +263,71 @@ HTML;
         $after = $url->prices()->create(['price' => 100, 'store_id' => $store->id, 'created_at' => '2026-11-10 12:00:00']);
 
         $store->update(['settings' => array_merge($store->settings, ['price_adjustments' => ['tax_percent' => 23]])]);
-        (new RecalculateStorePrices($store->id, '2026-11-10'))->handle();
+        $store->fresh()->queuePriceRecalculation(Carbon::parse('2026-11-10'));
 
         $this->assertSame(100.0, (float) $before->fresh()->price);
         $this->assertNull($before->fresh()->price_adjustments);
         $this->assertSame(123.0, (float) $midnight->fresh()->price);
         $this->assertSame(123.0, (float) $after->fresh()->price);
+    }
+
+    public function test_background_recalculation_runs_in_batches_and_refreshes_the_caches(): void
+    {
+        RecalculateStorePrices::$batchSize = 2;
+        $store = $this->makeStore();
+        $url = $this->makeUrl($store);
+        $prices = collect(range(1, 5))->map(fn (int $day) => $url->prices()->create([
+            'price' => 100, 'scraped_price' => 100, 'store_id' => $store->id, 'created_at' => now()->subDays(6 - $day),
+        ]));
+        $url->product->updatePriceCache();
+
+        $store->update(['settings' => array_merge($store->settings, ['price_adjustments' => ['tax_percent' => 23]])]);
+        Queue::fake();
+        $store->fresh()->queuePriceRecalculation();
+
+        // Run the chain by hand: each batch queues the next.
+        $this->assertTrue($store->isRecalculatingPrices());
+        $batches = 0;
+        while ($job = Queue::pushed(RecalculateStorePrices::class)->skip($batches)->first()) {
+            $job->handle();
+            $batches++;
+        }
+
+        $this->assertSame(3, $batches, '2 + 2 + 1');
+        $prices->each(fn (Price $price) => $this->assertSame(123.0, (float) $price->fresh()->price));
+        $this->assertSame(123.0, (float) $url->product->fresh()->current_price);
+        $this->assertFalse($store->isRecalculatingPrices());
+    }
+
+    public function test_background_recalculation_keeps_the_settings_and_scope_it_started_with(): void
+    {
+        $store = $this->makeStore(['tax_percent' => 23]);
+        $url = $this->makeUrl($store);
+        $old = $url->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $store->id]);
+
+        Queue::fake();
+        $store->queuePriceRecalculation();
+
+        // The settings change again before the job runs, and a new price uses them.
+        $store->update(['settings' => array_merge($store->settings, ['price_adjustments' => ['tax_percent' => 10]])]);
+        $new = $url->fresh()->updatePrice(100);
+
+        Queue::pushed(RecalculateStorePrices::class)->first()->handle();
+
+        $this->assertSame(123.0, (float) $old->fresh()->price, 'the settings it started with');
+        $this->assertSame(110.0, (float) $new->fresh()->price, 'a price saved after it started is left alone');
+    }
+
+    public function test_a_failed_recalculation_unlocks_the_store(): void
+    {
+        $store = $this->makeStore(['tax_percent' => 23]);
+        Queue::fake();
+        $store->queuePriceRecalculation();
+        $this->assertTrue($store->isRecalculatingPrices());
+
+        Queue::pushed(RecalculateStorePrices::class)->first()->failed(new \RuntimeException('boom'));
+
+        $this->assertFalse($store->isRecalculatingPrices());
     }
 
     public function test_recalculation_keeps_page_shipping_only_while_the_store_reads_it(): void

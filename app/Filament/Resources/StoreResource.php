@@ -221,6 +221,16 @@ class StoreResource extends Resource
     }
 
     /**
+     * The fields of the store page's "Recalculate prices" action.
+     *
+     * @return array<int, \Filament\Forms\Components\Component>
+     */
+    public static function pastPricesFormFields(): array
+    {
+        return self::makePastPricesFields(fn (): bool => true, offerNewOnly: false, label: 'Recalculate');
+    }
+
+    /**
      * Whether the form's price adjustments differ from the saved ones, so saving changes
      * how prices from this store are worked out.
      */

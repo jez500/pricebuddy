@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Dto\AdjustedPriceDto;
+use App\Dto\PriceAdjustmentsDto;
 use App\Events\PriceCreatedEvent;
 use Carbon\Carbon;
 use Database\Factories\UrlFactory;
@@ -74,14 +75,15 @@ class Price extends Model
     }
 
     /**
-     * Work this price out again from its page price, with the store's current price
-     * adjustments. Shipping read from the page is kept, since a past page cannot be read
-     * again. Saved quietly: a recalculated price is not a new price and alerts nobody.
+     * Work this price out again from its page price, with the given price adjustments.
+     * Shipping read from the page is kept while the store reads it, since a past page
+     * cannot be read again. Saved quietly: a recalculated price is not a new price and
+     * alerts nobody.
      */
-    public function recalculate(Store $store, bool $ignoreShipping = false): void
+    public function recalculate(PriceAdjustmentsDto $settings, bool $readsPageShipping, bool $ignoreShipping = false): void
     {
         $pagePrice = (float) ($this->scraped_price ?? $this->price);
-        $adjusted = $store->adjustPrice($pagePrice, $this->getPageShipping(), $ignoreShipping);
+        $adjusted = $settings->adjust($pagePrice, $this->getPageShipping(), $readsPageShipping, $ignoreShipping);
         $total = $adjusted->total ?? $pagePrice;
 
         $this->forceFill([

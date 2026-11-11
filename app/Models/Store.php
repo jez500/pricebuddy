@@ -8,6 +8,7 @@ use App\Dto\PriceAdjustmentsDto;
 use App\Dto\StoreScraperStrategySetDto;
 use App\Enums\Role;
 use App\Enums\ScraperService;
+use App\Jobs\RecalculateStorePrices;
 use App\Services\Helpers\CurrencyHelper;
 use Carbon\CarbonInterface;
 use Database\Factories\StoreFactory;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Spatie\Sluggable\HasSlug;
@@ -325,44 +327,98 @@ class Store extends Model
      */
     public function adjustPrice(float $pagePrice, ?float $pageShipping = null, bool $ignoreShipping = false): ?AdjustedPriceDto
     {
-        if ($pagePrice <= 0 || ! $this->hasPriceAdjustments()) {
-            return null;
-        }
-
-        return $this->price_adjustments->apply($pagePrice, $this->hasShippingStrategy() ? $pageShipping : null, $ignoreShipping);
+        return $this->price_adjustments->adjust($pagePrice, $pageShipping, $this->hasShippingStrategy(), $ignoreShipping);
     }
 
     /**
-     * Recalculate saved prices with the store's current adjustments, from their page
-     * price. Shipping read from the page is kept while the store still has a shipping
-     * strategy, since a past page cannot be read again. Returns how many prices were
-     * recalculated.
+     * Recalculate saved prices in the background, in batches, with the store's price
+     * adjustments as they are now: from a date (midnight) or from the start. Only prices
+     * saved before this call are touched, since later ones already use these settings.
      */
-    public function recalculatePrices(?CarbonInterface $since = null): int
+    public function queuePriceRecalculation(?CarbonInterface $since = null): void
     {
-        $count = 0;
-        $productIds = [];
+        Cache::put(self::recalculatingCacheKey($this->getKey()), true, RecalculateStorePrices::LOCK_MINUTES * 60);
 
-        Price::query()
+        RecalculateStorePrices::dispatch(
+            storeId: $this->getKey(),
+            settings: $this->price_adjustments->toArray(),
+            readsPageShipping: $this->hasShippingStrategy(),
+            upToId: (int) Price::query()->where('store_id', $this->getKey())->max('id'),
+            since: $since?->toDateTimeString(),
+        )->afterCommit();
+    }
+
+    /**
+     * Whether a background recalculation of this store's prices is still running. A
+     * second one could finish first and be overwritten, so it waits for this one.
+     */
+    public function isRecalculatingPrices(): bool
+    {
+        return Cache::has(self::recalculatingCacheKey($this->getKey()));
+    }
+
+    public static function recalculatingCacheKey(int $storeId): string
+    {
+        return 'store-prices-recalculating:'.$storeId;
+    }
+
+    /**
+     * Recalculate the next batch of saved prices, in id order after $afterId and up to
+     * $upToId. Returns the last id done, or null when there are no more.
+     */
+    public function recalculatePriceBatch(PriceAdjustmentsDto $settings, bool $readsPageShipping, int $afterId, int $upToId, ?CarbonInterface $since, int $limit): ?int
+    {
+        $prices = Price::query()
             ->where('store_id', $this->getKey())
+            ->where('id', '>', $afterId)
+            ->where('id', '<=', $upToId)
             ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
-            ->with('url:id,product_id,ignore_shipping')
-            ->chunkById(500, function (Collection $prices) use (&$count, &$productIds): void {
-                /** @var Price $price */
-                foreach ($prices as $price) {
-                    $price->recalculate($this, (bool) $price->url?->ignore_shipping);
+            ->orderBy('id')
+            ->limit($limit)
+            ->with('url:id,ignore_shipping')
+            ->get();
 
-                    $count++;
-                    $productIds[] = $price->url?->product_id;
-                }
-            });
+        /** @var Price $price */
+        foreach ($prices as $price) {
+            $price->recalculate($settings, $readsPageShipping, (bool) $price->url?->ignore_shipping);
+        }
 
+        return $prices->count() < $limit ? null : (int) $prices->last()?->getKey();
+    }
+
+    /**
+     * Rebuild the price and insights caches of every product with a URL at this store.
+     */
+    public function refreshProductCaches(): void
+    {
         Product::query()
-            ->whereIn('id', array_unique(array_filter($productIds)))
+            ->whereIn('id', $this->urls()->select('product_id'))
             ->each(function (Product $product): void {
                 $product->updatePriceCache();
                 $product->updateInsightsCache();
             });
+    }
+
+    /**
+     * Recalculate saved prices right away with the store's current price adjustments,
+     * from a date or from the start. Returns how many prices were recalculated.
+     */
+    public function recalculatePrices(?CarbonInterface $since = null): int
+    {
+        $upToId = (int) Price::query()->where('store_id', $this->getKey())->max('id');
+        $count = Price::query()
+            ->where('store_id', $this->getKey())
+            ->where('id', '<=', $upToId)
+            ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
+            ->count();
+
+        $afterId = 0;
+
+        do {
+            $afterId = $this->recalculatePriceBatch($this->price_adjustments, $this->hasShippingStrategy(), $afterId, $upToId, $since, 500);
+        } while ($afterId !== null);
+
+        $this->refreshProductCaches();
 
         return $count;
     }

@@ -2,10 +2,10 @@
 
 namespace App\Filament\Resources\StoreResource\Pages;
 
+use App\Dto\PriceAdjustmentsDto;
 use App\Enums\ScraperService;
 use App\Exceptions\AiProviderException;
 use App\Filament\Resources\StoreResource;
-use App\Jobs\RecalculateStorePrices;
 use App\Models\Store;
 use App\Services\AiConfigHealer;
 use App\Services\AiExtractionService;
@@ -46,6 +46,22 @@ class EditStore extends EditRecord
     protected function beforeSave(): void
     {
         $this->priceAdjustmentsBeforeSave = $this->getPriceAdjustmentsState();
+
+        $data = (array) $this->data;
+        $changed = [
+            PriceAdjustmentsDto::fromArray((array) data_get($data, 'settings.price_adjustments'))->toArray(),
+            filled(data_get($data, 'scrape_strategy.shipping.value')),
+        ] !== $this->priceAdjustmentsBeforeSave;
+
+        /** @var Store $store */
+        $store = $this->getRecord();
+
+        // A second recalculation could finish first and then be overwritten by this one.
+        if ($changed && StoreResource::shouldRecalculatePastPrices($data) && $store->isRecalculatingPrices()) {
+            self::notifyStillRecalculating();
+
+            $this->halt();
+        }
     }
 
     /**
@@ -64,9 +80,9 @@ class EditStore extends EditRecord
             return;
         }
 
-        // After the save commits, so the job never reads the old settings.
-        RecalculateStorePrices::dispatch($this->getRecord()->getKey(), StoreResource::pastPricesSince($data)?->toDateString())
-            ->afterCommit();
+        /** @var Store $store */
+        $store = $this->getRecord();
+        $store->queuePriceRecalculation(StoreResource::pastPricesSince($data));
 
         Notification::make()
             ->title('Recalculating past prices')
@@ -242,10 +258,54 @@ class EditStore extends EditRecord
         return $store;
     }
 
+    protected static function notifyStillRecalculating(): void
+    {
+        Notification::make()
+            ->title('Prices from this store are still being recalculated')
+            ->body('Try again when that has finished, usually in a minute or two.')
+            ->warning()
+            ->send();
+    }
+
+    /**
+     * Recalculate saved prices with the store's saved price adjustments. For a
+     * recalculation that stopped, or after changing settings with "New prices only".
+     */
+    protected function getRecalculatePricesAction(): Actions\Action
+    {
+        return Actions\Action::make('recalculatePrices')
+            ->label('Recalculate prices')
+            ->color('gray')
+            ->icon('heroicon-o-calculator')
+            ->modalHeading('Recalculate prices')
+            ->modalDescription('Work out saved prices from this store again, from their page price, with the saved price adjustments. Save any changes first.')
+            ->modalSubmitActionLabel('Recalculate')
+            ->form(StoreResource::pastPricesFormFields())
+            ->action(function (array $data): void {
+                /** @var Store $store */
+                $store = $this->getRecord();
+
+                if ($store->isRecalculatingPrices()) {
+                    self::notifyStillRecalculating();
+
+                    return;
+                }
+
+                $store->queuePriceRecalculation(StoreResource::pastPricesSince($data));
+
+                Notification::make()
+                    ->title('Recalculating prices')
+                    ->body('Prices from this store are being recalculated in the background.')
+                    ->info()
+                    ->send();
+            });
+    }
+
     protected function getHeaderActions(): array
     {
         return [
             StoreResource\Actions\ShareStoreAction::make(),
+            $this->getRecalculatePricesAction(),
             Actions\Action::make('test')
                 ->label('Test')->color('gray')
                 ->icon('heroicon-o-rocket-launch')

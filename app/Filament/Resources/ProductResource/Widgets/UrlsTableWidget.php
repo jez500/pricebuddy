@@ -72,7 +72,10 @@ class UrlsTableWidget extends BaseWidget
                             ->required(),
                         ...self::makeIgnoreShippingFields($record),
                     ])
+                    ->databaseTransaction()
                     ->using(function (Url $record, array $data): Url {
+                        $wasIgnoringShipping = self::prepareIgnoreShipping($record, $data);
+
                         // Validate/apply the URL change first so a failed change leaves
                         // nothing persisted (changeUrl fails closed) before price_factor.
                         if (trim($data['url']) !== $record->url && ! $record->changeUrl($data['url'])) {
@@ -84,7 +87,7 @@ class UrlsTableWidget extends BaseWidget
                         $record->price_factor = (float) $data['price_factor'];
                         $record->save();
 
-                        self::saveIgnoreShipping($record, $data);
+                        self::saveIgnoreShipping($record, $data, $wasIgnoringShipping);
 
                         return $record;
                     })

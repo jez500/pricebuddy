@@ -10,6 +10,7 @@ use App\Models\Store;
 use App\Models\Url;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\TestCase;
 use Tests\Traits\ScraperTrait;
@@ -52,8 +53,8 @@ class IgnoreShippingFormTest extends TestCase
 
         $this->older = $this->url->prices()->create(['price' => 105, 'scraped_price' => 100, 'store_id' => $store->id, 'created_at' => now()->subDays(5)]);
         $this->newer = $this->url->prices()->create(['price' => 105, 'scraped_price' => 100, 'store_id' => $store->id, 'created_at' => now()->subDay()]);
-        $this->older->recalculate($store);
-        $this->newer->recalculate($store);
+        $this->older->recalculate($store->price_adjustments, false);
+        $this->newer->recalculate($store->price_adjustments, false);
     }
 
     /**
@@ -135,6 +136,58 @@ class IgnoreShippingFormTest extends TestCase
         $this->editInTable(['ignore_shipping' => false]);
 
         $this->assertFalse($this->url->fresh()->ignore_shipping);
+    }
+
+    public function test_the_product_page_edit_only_reaches_this_products_urls(): void
+    {
+        $theirs = Url::factory()->for(Product::factory()->for(User::factory()))->create(['url' => 'https://example.com/theirs', 'price_factor' => 1]);
+
+        Livewire::test(ProductUrlStats::class, ['record' => $this->product])
+            ->callAction('edit', data: ['url' => 'https://example.com/p', 'price_factor' => 5], arguments: ['url' => $theirs->getKey()]);
+
+        $this->assertSame('https://example.com/theirs', $theirs->fresh()->url);
+        $this->assertSame(1.0, (float) $theirs->fresh()->price_factor);
+    }
+
+    public function test_a_failed_recalculation_keeps_the_old_setting_and_prices(): void
+    {
+        // Fail half way, after one price was already recalculated.
+        $updates = 0;
+        DB::listen(function ($query) use (&$updates): void {
+            if (str_starts_with($query->sql, 'update `prices`') && ++$updates === 2) {
+                throw new \RuntimeException('database went away');
+            }
+        });
+
+        try {
+            $this->editInTable(['ignore_shipping' => true]);
+            $this->fail('expected the edit to fail');
+        } catch (\RuntimeException) {
+        }
+
+        $this->assertFalse($this->url->fresh()->ignore_shipping);
+        $this->assertSame(105.0, (float) $this->older->fresh()->price);
+        $this->assertSame(105.0, (float) $this->newer->fresh()->price);
+    }
+
+    public function test_new_prices_only_applies_to_the_price_a_url_change_records(): void
+    {
+        $other = Store::factory()->create([
+            'domains' => [['domain' => 'example2.com']],
+            'settings' => ['scraper_service' => 'http', 'price_adjustments' => ['shipping_cost' => 5]],
+        ]);
+
+        $this->editInTable([
+            'url' => 'https://example2.com/p',
+            'ignore_shipping' => true,
+            'price_adjustments_apply' => 'new',
+        ]);
+
+        $url = $this->url->fresh();
+        $this->assertSame($other->id, $url->store_id);
+        $this->assertTrue($url->ignore_shipping);
+        $this->assertSame(100.0, (float) $url->prices()->reorder('id', 'desc')->first()->price, 'the new URL\'s first price leaves shipping out');
+        $this->assertSame(105.0, (float) $this->older->fresh()->price, 'older prices are left alone');
     }
 
     public function test_the_listings_table_shows_a_badge(): void

@@ -233,9 +233,18 @@ apply to before saving:
   Use this when a tax rate changed on a known date.
 * **New prices only** - Saved prices stay as they are.
 
-The recalculation runs in the background, so the queue worker must be running. It
-sends no alerts. Changing a store's price adjustments through the API applies them to
-new prices only.
+The recalculation runs in the background, in batches, so the queue worker must be
+running. It uses the settings you saved, sends no alerts, and leaves alone prices saved
+after it started, which already use those settings. One recalculation runs per store
+at a time: while it runs, saving changed settings for all past prices or since a date
+asks you to wait, and "New prices only" can still be saved.
+
+To recalculate later, use **Recalculate prices** at the top of the store page. It works
+out saved prices again with the saved settings, for all past prices or since a date.
+Use it if a recalculation stopped with an error (it is logged), or after changing
+settings with "New prices only".
+
+Changing a store's price adjustments through the API applies them to new prices only.
 
 ### Shipping strategy
 
@@ -313,7 +322,7 @@ more custom strategies.
 
 When editing a store, use **Test** to try a product URL and see exactly what the
 current strategies extract. Results are shown in a comparison table (title,
-price, image, availability and more) so you can confirm each field before
+price, image, availability, shipping and more) so you can confirm each field before
 saving. You can switch the [scraper service](#scraper-service) and re-test, and —
 if an [AI provider](/settings.html#ai-providers) is configured — use **Compare
 with AI** to see what AI extracts from the same page alongside the scraped

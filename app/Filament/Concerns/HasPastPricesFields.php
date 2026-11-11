@@ -21,18 +21,19 @@ trait HasPastPricesFields
 
     /**
      * @param  \Closure  $changed  whether the setting was changed, with the usual Filament injections
+     * @param  bool  $offerNewOnly  whether "New prices only" is a choice
      * @return array<int, Component>
      */
-    protected static function makePastPricesFields(\Closure $changed, bool $dehydrated = true): array
+    protected static function makePastPricesFields(\Closure $changed, bool $dehydrated = true, bool $offerNewOnly = true, string $label = 'Apply the new settings to'): array
     {
         return [
             Radio::make(self::PAST_PRICES_APPLY)
-                ->label('Apply the new settings to')
-                ->options([
+                ->label($label)
+                ->options(array_filter([
                     'all' => 'All past prices',
                     'since' => 'Prices since a date',
-                    'new' => 'New prices only',
-                ])
+                    'new' => $offerNewOnly ? 'New prices only' : null,
+                ]))
                 ->afterStateHydrated(fn (Radio $component, ?string $state) => $component->state($state ?? 'all'))
                 ->live()
                 ->dehydrated($dehydrated)

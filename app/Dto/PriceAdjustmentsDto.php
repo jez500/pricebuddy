@@ -106,6 +106,19 @@ class PriceAdjustmentsDto implements Arrayable
     }
 
     /**
+     * The price the user pays for a page price, or null when nothing is adjusted. Shipping
+     * read from the page only counts when the store reads it ($readsPageShipping).
+     */
+    public function adjust(float $pagePrice, ?float $pageShipping, bool $readsPageShipping, bool $ignoreShipping = false): ?AdjustedPriceDto
+    {
+        if ($pagePrice <= 0 || ($this->isEmpty() && ! $readsPageShipping)) {
+            return null;
+        }
+
+        return $this->apply($pagePrice, $readsPageShipping ? $pageShipping : null, $ignoreShipping);
+    }
+
+    /**
      * Read a scraped shipping value. Null when nothing was found or the amount cannot be
      * read, 0 when the value has no number in it (e.g. "FREE" or "Envío gratis").
      */

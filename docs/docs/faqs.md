@@ -62,6 +62,14 @@ The store may require you to select a language or region before you can view pri
 This is often stored in the user session rather than the url. The best fix to this
 is to try and find a direct link to the product that bypasses the region selection.
 
+## The price is right, but it's not what I pay at checkout
+
+PriceBuddy saves the price shown on the product page. Checkout can add to it: a store
+in another country may show its own country's tax and charge yours, and many stores add
+shipping. Set the store's [price adjustments](/stores.html#price-adjustments) so
+PriceBuddy saves the price you pay instead. If you usually combine orders at a store, a
+listing can [ignore shipping](/products.html#ignore-shipping).
+
 ## The image is not displaying on the dashboard
 
 The image is fetched when the product is first scraped, if the image is not displaying, 

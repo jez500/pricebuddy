@@ -564,7 +564,7 @@ class Url extends Model
                     $store = $price->store ?? $this->store;
 
                     if ($store) {
-                        $price->recalculate($store, (bool) $this->ignore_shipping);
+                        $price->recalculate($store->price_adjustments, $store->hasShippingStrategy(), (bool) $this->ignore_shipping);
                         $count++;
                     }
                 }

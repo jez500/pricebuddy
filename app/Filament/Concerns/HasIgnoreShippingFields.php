@@ -34,18 +34,38 @@ trait HasIgnoreShippingFields
     }
 
     /**
-     * Save a changed "Ignore shipping" and recalculate past prices as chosen. Call it
-     * before syncStoredPricesForCurrentFactor(), which then sets every unit price.
+     * Set a changed "Ignore shipping" on the listing before its URL is changed, so the
+     * price the new URL records already follows it. Nothing is saved yet. Returns the
+     * previous value, for saveIgnoreShipping().
      *
      * @param  array<string, mixed>  $data
      */
-    protected static function saveIgnoreShipping(Url $url, array $data): void
+    protected static function prepareIgnoreShipping(Url $url, array $data): bool
     {
-        if (! array_key_exists('ignore_shipping', $data) || (bool) $data['ignore_shipping'] === (bool) $url->ignore_shipping) {
+        $previous = (bool) $url->ignore_shipping;
+
+        if (array_key_exists('ignore_shipping', $data)) {
+            $url->ignore_shipping = (bool) $data['ignore_shipping'];
+        }
+
+        return $previous;
+    }
+
+    /**
+     * Save a changed "Ignore shipping" and recalculate past prices as chosen. Call it
+     * inside the edit's database transaction, so a failure keeps the old value and the
+     * old prices together, and before syncStoredPricesForCurrentFactor(), which then sets
+     * every unit price.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected static function saveIgnoreShipping(Url $url, array $data, bool $previous): void
+    {
+        if (! array_key_exists('ignore_shipping', $data) || (bool) $data['ignore_shipping'] === $previous) {
             return;
         }
 
-        $url->update(['ignore_shipping' => (bool) $data['ignore_shipping']]);
+        $url->forceFill(['ignore_shipping' => (bool) $data['ignore_shipping']])->save();
 
         if (self::shouldRecalculatePastPrices($data)) {
             $url->recalculatePrices(self::pastPricesSince($data));

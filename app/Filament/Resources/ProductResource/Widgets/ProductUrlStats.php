@@ -104,6 +104,19 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
             });
     }
 
+    /**
+     * One of this product's URLs. The id comes from the browser, so it is only looked up
+     * among this product's URLs.
+     */
+    protected function findProductUrl(mixed $id): ?Url
+    {
+        /** @var ?Product $product */
+        $product = $this->record;
+
+        /** @var ?Url */
+        return $id === null ? null : $product?->urls()->find($id);
+    }
+
     public function editAction(): Action
     {
         return Action::make('edit')
@@ -111,8 +124,13 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
             ->color('gray')
             ->icon('heroicon-o-pencil-square')
             ->outlined(false)
+            ->databaseTransaction()
             ->fillForm(function ($arguments) {
-                $url = Url::find($arguments['url']);
+                $url = $this->findProductUrl($arguments['url'] ?? null);
+
+                if (! $url) {
+                    return [];
+                }
 
                 return [
                     'url' => $url->url,
@@ -131,10 +149,21 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
                     ->default(1)
                     ->minValue(0.01)
                     ->required(),
-                ...self::makeIgnoreShippingFields(Url::find($arguments['url'] ?? null)),
+                ...self::makeIgnoreShippingFields($this->findProductUrl($arguments['url'] ?? null)),
             ])
             ->action(function ($arguments, $data) {
-                $url = Url::find($arguments['url']);
+                $url = $this->findProductUrl($arguments['url'] ?? null);
+
+                if (! $url) {
+                    Notification::make('url_not_found')
+                        ->title('URL not found on this product')
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                $wasIgnoringShipping = self::prepareIgnoreShipping($url, $data);
 
                 if (trim($data['url']) !== $url->url && ! $url->changeUrl($data['url'])) {
                     Notification::make('url_update_failed')
@@ -146,7 +175,7 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
                 }
 
                 $url->update(['price_factor' => $data['price_factor']]);
-                self::saveIgnoreShipping($url, $data);
+                self::saveIgnoreShipping($url, $data, $wasIgnoringShipping);
                 $url->syncStoredPricesForCurrentFactor();
                 $url->product->updatePriceCache();
 

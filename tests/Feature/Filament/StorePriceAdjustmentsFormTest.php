@@ -8,6 +8,7 @@ use App\Jobs\RecalculateStorePrices;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Features\SupportTesting\Testable;
@@ -81,7 +82,9 @@ class StorePriceAdjustmentsFormTest extends TestCase
             ->call('save')
             ->assertHasNoFormErrors();
 
-        Queue::assertPushed(RecalculateStorePrices::class, fn (RecalculateStorePrices $job): bool => $job->storeId === $this->store->id && $job->since === null);
+        Queue::assertPushed(RecalculateStorePrices::class, fn (RecalculateStorePrices $job): bool => $job->storeId === $this->store->id
+            && $job->since === null
+            && $job->settings['tax_percent'] === 23.0);
     }
 
     public function test_recalculates_prices_since_a_date(): void
@@ -94,7 +97,7 @@ class StorePriceAdjustmentsFormTest extends TestCase
             ->call('save')
             ->assertHasNoFormErrors();
 
-        Queue::assertPushed(RecalculateStorePrices::class, fn (RecalculateStorePrices $job): bool => $job->since === '2026-11-01');
+        Queue::assertPushed(RecalculateStorePrices::class, fn (RecalculateStorePrices $job): bool => $job->since === '2026-11-01 00:00:00');
     }
 
     public function test_a_future_date_is_rejected(): void
@@ -143,6 +146,47 @@ class StorePriceAdjustmentsFormTest extends TestCase
             ->assertFormFieldIsHidden('price_adjustments_apply')
             ->call('save')
             ->assertHasNoFormErrors();
+
+        Queue::assertNothingPushed();
+    }
+
+    public function test_no_second_recalculation_while_one_is_running(): void
+    {
+        Cache::put(Store::recalculatingCacheKey($this->store->id), true, 60);
+
+        $this->editStore(['settings.price_adjustments.tax_percent' => 23])
+            ->call('save')
+            ->assertNotified('Prices from this store are still being recalculated');
+
+        $this->assertTrue($this->store->fresh()->price_adjustments->isEmpty(), 'not saved');
+        Queue::assertNothingPushed();
+
+        // New prices only does not touch saved prices, so it can be saved.
+        $this->editStore(['settings.price_adjustments.tax_percent' => 23, 'price_adjustments_apply' => 'new'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $this->assertSame(23.0, $this->store->fresh()->price_adjustments->taxPercent);
+    }
+
+    public function test_the_recalculate_button_uses_the_saved_settings(): void
+    {
+        $this->store->update(['settings' => array_merge($this->store->settings, ['price_adjustments' => ['tax_percent' => 23]])]);
+
+        Livewire::test(EditStore::class, ['record' => $this->store->getKey()])
+            ->callAction('recalculatePrices', data: ['price_adjustments_apply' => 'since', 'price_adjustments_since' => '2026-11-01'])
+            ->assertHasNoActionErrors();
+
+        Queue::assertPushed(RecalculateStorePrices::class, fn (RecalculateStorePrices $job): bool => $job->settings['tax_percent'] === 23.0
+            && $job->since === '2026-11-01 00:00:00');
+    }
+
+    public function test_the_recalculate_button_waits_for_a_running_recalculation(): void
+    {
+        Cache::put(Store::recalculatingCacheKey($this->store->id), true, 60);
+
+        Livewire::test(EditStore::class, ['record' => $this->store->getKey()])
+            ->callAction('recalculatePrices', data: ['price_adjustments_apply' => 'all'])
+            ->assertNotified('Prices from this store are still being recalculated');
 
         Queue::assertNothingPushed();
     }
