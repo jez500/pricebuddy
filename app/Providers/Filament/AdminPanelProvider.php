@@ -9,7 +9,12 @@ use App\Filament\Plugins\ApiKeyPlugin;
 use App\Filament\Resources\ApiKeyResource;
 use App\Filament\Resources\LogMessageResource;
 use App\Filament\Resources\NotificationHistoryResource;
+use App\Services\Oidc\OidcRoleSync;
+use App\Services\Oidc\OidcUserResolver;
 use Awcodes\FilamentQuickCreate\QuickCreatePlugin;
+use ChrisReedIO\Socialment\Models\ConnectedAccount;
+use ChrisReedIO\Socialment\SocialmentPlugin;
+use Filament\Contracts\Plugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -71,6 +76,7 @@ class AdminPanelProvider extends PanelProvider
                     ->excludes([
                         LogMessageResource::class,
                     ]),
+                ...$this->oidcPlugins(),
             ])
             ->userMenuItems([
                 MenuItem::make()
@@ -98,5 +104,27 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->breadcrumbs(false)
             ->databaseNotifications();
+    }
+
+    /**
+     * Single sign-on via OIDC, only registered when OIDC_ENABLED=true.
+     *
+     * @see config/oidc.php
+     *
+     * @return list<Plugin>
+     */
+    protected function oidcPlugins(): array
+    {
+        if (! config('oidc.enabled')) {
+            return [];
+        }
+
+        return [
+            SocialmentPlugin::make()
+                ->registerProvider('oidc', 'heroicon-o-key', config()->string('oidc.label'))
+                ->createUserUsing(fn (ConnectedAccount $account) => resolve(OidcUserResolver::class)($account))
+                ->preLogin(fn (ConnectedAccount $account) => resolve(OidcRoleSync::class)($account))
+                ->homeRoute('filament.admin.pages.dashboard'),
+        ];
     }
 }

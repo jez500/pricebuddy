@@ -93,6 +93,9 @@ user.
 Each user has their own products, tags and settings. Great for sharing with others
 who want to track their own products.
 
+Users can sign in with your existing identity provider (Pocket ID, Authentik,
+Keycloak, etc) using [single sign-on](/users.html#single-sign-on-oidc).
+
 ## Notifications
 
 Set a target price or a price-drop threshold per product and get alerted when

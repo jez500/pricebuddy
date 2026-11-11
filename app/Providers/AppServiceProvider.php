@@ -14,6 +14,7 @@ use App\Policies\UserPolicy;
 use App\Services\Helpers\NotificationsHelper;
 use App\Services\Helpers\QueueHelper;
 use App\Services\Helpers\SettingsHelper;
+use App\Services\Oidc\OidcClaims;
 use App\Services\Scrapers\Utf8WebScraperHttp;
 use Filament\Facades\Filament;
 use Filament\Navigation\MenuItem;
@@ -31,6 +32,9 @@ class AppServiceProvider extends ServiceProvider
     {
         // Convert scraped pages to UTF-8 before they are cached (#203).
         $this->app->bind(WebScraperHttp::class, Utf8WebScraperHttp::class);
+
+        // Claims from the current OIDC login, shared between provider and role sync.
+        $this->app->scoped(OidcClaims::class);
     }
 
     public function boot(): void
