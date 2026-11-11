@@ -9,6 +9,7 @@ use App\Models\Store;
 use App\Models\Url;
 use App\Models\User;
 use App\Notifications\PriceAlertNotification;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -41,6 +42,7 @@ class StorePriceAdjustmentsTest extends TestCase
 
         Notification::fake();
         RecalculateStorePrices::$batchSize = 1000;
+        Store::$priceLockWait = 30;
 
         $this->user = User::factory()->create();
     }
@@ -286,21 +288,16 @@ HTML;
         $store->fresh()->queuePriceRecalculation();
 
         // Run the chain by hand: each batch queues the next.
-        $this->assertTrue($store->isRecalculatingPrices());
-        $batches = 0;
-        while ($job = Queue::pushed(RecalculateStorePrices::class)->skip($batches)->first()) {
-            $job->handle();
-            $batches++;
-        }
+        $this->runQueuedChain($store->fresh()->price_recalculation_run);
 
         $steps = Queue::pushed(RecalculateStorePrices::class)->map(fn (RecalculateStorePrices $job) => $job->step)->all();
         $this->assertSame(['prices', 'prices', 'prices', 'caches'], $steps, 'prices in 2 + 2 + 1, then the product caches');
         $prices->each(fn (Price $price) => $this->assertSame(123.0, (float) $price->fresh()->price));
         $this->assertSame(123.0, (float) $url->product->fresh()->current_price);
-        $this->assertFalse($store->isRecalculatingPrices());
+        $this->assertTrue(Cache::lock(Store::priceLockKey($store->id), 1)->get(), 'the lock was released');
     }
 
-    public function test_background_recalculation_keeps_the_settings_and_scope_it_started_with(): void
+    public function test_background_recalculation_leaves_prices_saved_after_it_started(): void
     {
         $store = $this->makeStore(['tax_percent' => 23]);
         $url = $this->makeUrl($store);
@@ -308,57 +305,79 @@ HTML;
 
         Queue::fake();
         $store->queuePriceRecalculation();
+        $later = $url->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $store->id]);
 
-        // The settings change again before the job runs, and a new price uses them.
-        $store->update(['settings' => array_merge($store->settings, ['price_adjustments' => ['tax_percent' => 10]])]);
-        $new = $url->fresh()->updatePrice(100);
+        $this->runQueuedChain($store->fresh()->price_recalculation_run);
 
-        Queue::pushed(RecalculateStorePrices::class)->first()->handle();
-
-        $this->assertSame(123.0, (float) $old->fresh()->price, 'the settings it started with');
-        $this->assertSame(110.0, (float) $new->fresh()->price, 'a price saved after it started is left alone');
+        $this->assertSame(123.0, (float) $old->fresh()->price);
+        $this->assertSame(100.0, (float) $later->fresh()->price);
     }
 
-    public function test_only_one_of_two_starts_at_once_wins(): void
-    {
-        $store = $this->makeStore(['tax_percent' => 23]);
-        Queue::fake();
-
-        $this->assertTrue($store->queuePriceRecalculation());
-        $this->assertFalse($store->fresh()->queuePriceRecalculation());
-
-        Queue::assertPushed(RecalculateStorePrices::class, 1);
-    }
-
-    public function test_a_replaced_run_stops(): void
+    public function test_starting_again_replaces_a_running_recalculation(): void
     {
         $store = $this->makeStore(['tax_percent' => 23]);
         $price = $this->makeUrl($store)->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $store->id]);
         Queue::fake();
-        $store->queuePriceRecalculation();
 
-        // Its marker expired while it waited in the queue, and another run took it.
-        Cache::put(Store::recalculatingCacheKey($store->id), 'another-run', 60);
-        Queue::pushed(RecalculateStorePrices::class)->first()->handle();
-
-        $this->assertSame(100.0, (float) $price->fresh()->price);
-        $this->assertSame('another-run', Cache::get(Store::recalculatingCacheKey($store->id)));
-        Queue::assertPushed(RecalculateStorePrices::class, 1);
-    }
-
-    public function test_a_run_whose_marker_expired_takes_it_back(): void
-    {
-        $store = $this->makeStore(['tax_percent' => 23]);
-        $price = $this->makeUrl($store)->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $store->id]);
-        Queue::fake();
         $store->queuePriceRecalculation();
         $first = Queue::pushed(RecalculateStorePrices::class)->first();
+        $store->fresh()->queuePriceRecalculation();
+        $second = Queue::pushed(RecalculateStorePrices::class)->last();
 
-        Cache::forget(Store::recalculatingCacheKey($store->id));
+        $this->assertSame($second->runId, $store->fresh()->price_recalculation_run);
+
         $first->handle();
+        $this->assertSame(100.0, (float) $price->fresh()->price, 'the replaced run stops');
+        Queue::assertPushed(RecalculateStorePrices::class, 2);
 
+        $this->runQueuedChain($second->runId);
         $this->assertSame(123.0, (float) $price->fresh()->price);
-        $this->assertSame($first->runId, Cache::get(Store::recalculatingCacheKey($store->id)), 'held again until the chain ends');
+    }
+
+    public function test_changing_the_price_adjustments_stops_a_running_recalculation(): void
+    {
+        $store = $this->makeStore(['tax_percent' => 23]);
+        Queue::fake();
+        $store->queuePriceRecalculation();
+        $this->assertNotNull($store->fresh()->price_recalculation_run);
+
+        // Other settings leave it running.
+        $store->fresh()->update(['name' => 'Renamed']);
+        $this->assertNotNull($store->fresh()->price_recalculation_run);
+
+        $store = $store->fresh();
+        $price = $this->makeUrl($store)->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $store->id]);
+        $run = Queue::pushed(RecalculateStorePrices::class)->first();
+
+        // "New prices only": the run must not apply the new settings to past prices either.
+        $store->update(['settings' => array_merge($store->settings, ['price_adjustments' => ['tax_percent' => 10]])]);
+        $this->assertNull($store->fresh()->price_recalculation_run);
+
+        $run->handle();
+        $this->assertSame(100.0, (float) $price->fresh()->price);
+    }
+
+    public function test_a_listing_recalculation_waits_for_the_stores_lock(): void
+    {
+        $store = $this->makeStore(['tax_percent' => 23]);
+        $url = $this->makeUrl($store);
+        $price = $url->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $store->id]);
+
+        $batch = Cache::lock(Store::priceLockKey($store->id), 120);
+        $batch->get();
+        Store::$priceLockWait = 0;
+
+        try {
+            $url->recalculatePrices();
+            $this->fail('expected the listing to wait for the lock');
+        } catch (LockTimeoutException) {
+        }
+
+        $this->assertSame(100.0, (float) $price->fresh()->price);
+
+        $batch->release();
+        $url->recalculatePrices();
+        $this->assertSame(123.0, (float) $price->fresh()->price);
     }
 
     public function test_product_caches_resume_from_their_cursor(): void
@@ -371,12 +390,11 @@ HTML;
         Product::query()->update(['current_price' => 1]);
 
         // A retried cache batch carries the cursor of the products already done.
-        Cache::put(Store::recalculatingCacheKey($store->id), 'run', 60);
-        (new RecalculateStorePrices($store->id, 'run', [], false, 0, null, RecalculateStorePrices::STEP_CACHES, $first->product_id))->handle();
+        Store::query()->whereKey($store->id)->update(['price_recalculation_run' => 'run']);
+        (new RecalculateStorePrices($store->id, 'run', 0, null, RecalculateStorePrices::STEP_CACHES, $first->product_id))->handle();
 
         $this->assertSame(1.0, (float) $first->product->fresh()->current_price, 'done before the failure, not redone');
         $this->assertSame(123.0, (float) $second->product->fresh()->current_price);
-        $this->assertNull(Cache::get(Store::recalculatingCacheKey($store->id)), 'released at the end');
     }
 
     public function test_products_whose_url_moved_to_another_store_are_refreshed(): void
@@ -394,16 +412,82 @@ HTML;
         $this->assertSame(123.0, (float) $url->product->fresh()->current_price);
     }
 
-    public function test_a_failed_recalculation_unlocks_the_store(): void
+    /**
+     * Run every queued recalculation batch of a run, in order, the way a worker would.
+     */
+    protected function runQueuedChain(string $runId): void
+    {
+        $done = 0;
+
+        while ($job = Queue::pushed(RecalculateStorePrices::class)->filter(fn ($job) => $job->runId === $runId)->skip($done)->first()) {
+            $job->handle();
+            $done++;
+        }
+    }
+
+    public function test_an_older_run_held_up_in_the_queue_cannot_overwrite_a_newer_one(): void
     {
         $store = $this->makeStore(['tax_percent' => 23]);
+        $price = $this->makeUrl($store)->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $store->id]);
         Queue::fake();
         $store->queuePriceRecalculation();
-        $this->assertTrue($store->isRecalculatingPrices());
+        $older = Queue::pushed(RecalculateStorePrices::class)->first();
 
-        Queue::pushed(RecalculateStorePrices::class)->first()->failed(new \RuntimeException('boom'));
+        // The older run's first batch waits behind a long scheduled fetch. Meanwhile the
+        // settings change again and a newer run starts and finishes.
+        $this->travel(2)->hours();
+        $store->update(['settings' => array_merge($store->settings, ['price_adjustments' => ['tax_percent' => 10]])]);
+        $store->fresh()->queuePriceRecalculation();
+        $newer = Queue::pushed(RecalculateStorePrices::class)->last();
+        $this->assertNotSame($older->runId, $newer->runId);
+        $this->runQueuedChain($newer->runId);
+        $this->assertSame(110.0, (float) $price->fresh()->price);
 
-        $this->assertFalse($store->isRecalculatingPrices());
+        $this->runQueuedChain($older->runId);
+
+        $this->assertSame(110.0, (float) $price->fresh()->price);
+    }
+
+    public function test_a_store_run_does_not_overwrite_a_listing_recalculated_with_newer_settings(): void
+    {
+        $store = $this->makeStore(['tax_percent' => 23]);
+        $url = $this->makeUrl($store);
+        $price = $url->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $store->id]);
+        Queue::fake();
+        $store->queuePriceRecalculation();
+        $run = Queue::pushed(RecalculateStorePrices::class)->first();
+
+        // While the run is under way, the settings are saved with "New prices only", and a
+        // listing edit recalculates that listing's prices with them.
+        $store->update(['settings' => array_merge($store->settings, ['price_adjustments' => ['tax_percent' => 10]])]);
+        $url->fresh()->recalculatePrices();
+        $this->assertSame(110.0, (float) $price->fresh()->price);
+
+        $this->runQueuedChain($run->runId);
+
+        $this->assertSame(110.0, (float) $price->fresh()->price);
+    }
+
+    public function test_a_batch_waits_while_another_holds_the_stores_lock(): void
+    {
+        $store = $this->makeStore(['tax_percent' => 23]);
+        $price = $this->makeUrl($store)->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $store->id]);
+        Queue::fake();
+        $store->queuePriceRecalculation();
+        $job = Queue::pushed(RecalculateStorePrices::class)->first();
+
+        $other = Cache::lock(Store::priceLockKey($store->id), 120);
+        $this->assertTrue($other->get());
+
+        $job->handle();
+
+        $this->assertSame(100.0, (float) $price->fresh()->price, 'nothing done while another batch holds the lock');
+        $this->assertFalse(Cache::lock(Store::priceLockKey($store->id), 120)->get(), 'and the other owner still holds it');
+
+        $other->release();
+        $job->handle();
+
+        $this->assertSame(123.0, (float) $price->fresh()->price);
     }
 
     public function test_recalculation_counts_page_shipping_only_while_the_store_reads_it(): void

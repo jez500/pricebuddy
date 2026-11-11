@@ -552,6 +552,19 @@ class Url extends Model
      */
     public function recalculatePrices(?CarbonInterface $since = null): int
     {
+        $storeIds = $this->prices()
+            ->reorder()
+            ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
+            ->distinct()
+            ->pluck('store_id')
+            ->all();
+
+        // The same locks as a store's batches, so the two never interleave.
+        return Store::withPriceLocks($storeIds, fn (): int => $this->recalculatePricesNow($since));
+    }
+
+    protected function recalculatePricesNow(?CarbonInterface $since): int
+    {
         $count = 0;
 
         $this->prices()

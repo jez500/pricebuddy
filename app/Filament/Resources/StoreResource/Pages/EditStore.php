@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\StoreResource\Pages;
 
-use App\Dto\PriceAdjustmentsDto;
 use App\Enums\ScraperService;
 use App\Exceptions\AiProviderException;
 use App\Filament\Resources\StoreResource;
@@ -46,27 +45,12 @@ class EditStore extends EditRecord
     protected function beforeSave(): void
     {
         $this->priceAdjustmentsBeforeSave = $this->getPriceAdjustmentsState();
-
-        $data = (array) $this->data;
-        $changed = [
-            PriceAdjustmentsDto::fromArray((array) data_get($data, 'settings.price_adjustments'))->toArray(),
-            filled(data_get($data, 'scrape_strategy.shipping.value')),
-        ] !== $this->priceAdjustmentsBeforeSave;
-
-        /** @var Store $store */
-        $store = $this->getRecord();
-
-        // A second recalculation could finish first and then be overwritten by this one.
-        if ($changed && StoreResource::shouldRecalculatePastPrices($data) && $store->isRecalculatingPrices()) {
-            self::notifyStillRecalculating();
-
-            $this->halt();
-        }
     }
 
     /**
      * Changed price adjustments apply to new prices. Unless "New prices only" was chosen,
-     * past prices are recalculated too, in the background.
+     * past prices are recalculated too, in the background. Either way, a recalculation
+     * still running with the old settings stops (see Store::booted()).
      */
     protected function afterSave(): void
     {
@@ -82,18 +66,7 @@ class EditStore extends EditRecord
 
         /** @var Store $store */
         $store = $this->getRecord();
-
-        // Another recalculation started between the check before saving and now: the
-        // settings are saved, and the button on this page applies them once it is done.
-        if (! $store->queuePriceRecalculation(StoreResource::pastPricesSince($data))) {
-            Notification::make()
-                ->title('Saved, but prices from this store are still being recalculated')
-                ->body('When that has finished, use "Recalculate prices" to apply the new settings to past prices.')
-                ->warning()
-                ->send();
-
-            return;
-        }
+        $store->queuePriceRecalculation(StoreResource::pastPricesSince($data));
 
         Notification::make()
             ->title('Recalculating past prices')
@@ -269,18 +242,10 @@ class EditStore extends EditRecord
         return $store;
     }
 
-    protected static function notifyStillRecalculating(): void
-    {
-        Notification::make()
-            ->title('Prices from this store are still being recalculated')
-            ->body('Try again when that has finished, usually in a minute or two.')
-            ->warning()
-            ->send();
-    }
-
     /**
      * Recalculate saved prices with the store's saved price adjustments. For a
-     * recalculation that stopped, or after changing settings with "New prices only".
+     * recalculation that stopped, or after changing settings with "New prices only". A
+     * recalculation still running is replaced.
      */
     protected function getRecalculatePricesAction(): Actions\Action
     {
@@ -296,11 +261,7 @@ class EditStore extends EditRecord
                 /** @var Store $store */
                 $store = $this->getRecord();
 
-                if (! $store->queuePriceRecalculation(StoreResource::pastPricesSince($data))) {
-                    self::notifyStillRecalculating();
-
-                    return;
-                }
+                $store->queuePriceRecalculation(StoreResource::pastPricesSince($data));
 
                 Notification::make()
                     ->title('Recalculating prices')

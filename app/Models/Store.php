@@ -11,6 +11,7 @@ use App\Enums\ScraperService;
 use App\Jobs\RecalculateStorePrices;
 use App\Services\Helpers\CurrencyHelper;
 use Carbon\CarbonInterface;
+use Closure;
 use Database\Factories\StoreFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -42,6 +43,7 @@ use Spatie\Sluggable\SlugOptions;
  * @property bool $ai_self_healing_disabled
  * @property bool $missing_price_out_of_stock
  * @property PriceAdjustmentsDto $price_adjustments
+ * @property ?string $price_recalculation_run
  * @property string $locale
  * @property string $currency
  * @property Collection $urls
@@ -82,6 +84,15 @@ class Store extends Model
         // have no logged-in user, so they fall back to the oldest admin.
         static::creating(function (Store $store) {
             $store->user_id ??= auth()->id() ?? self::defaultCreatorId();
+        });
+
+        // Changed price adjustments stop a recalculation that is still running, whichever
+        // way they were saved: its remaining batches would use settings that no longer
+        // apply, and could overwrite prices already worked out with the new ones.
+        static::updating(function (Store $store) {
+            if ($store->priceAdjustmentsChanged()) {
+                $store->price_recalculation_run = null;
+            }
         });
 
         static::deleted(function (Store $store) {
@@ -331,45 +342,77 @@ class Store extends Model
     }
 
     /**
-     * Recalculate saved prices in the background, in batches, with the store's price
-     * adjustments as they are now: from a date (midnight) or from the start. Only prices
-     * saved before this call are touched, since later ones already use these settings.
-     *
-     * Returns false, and starts nothing, while another recalculation of this store runs:
-     * the run takes the store's marker atomically, so two starts at once cannot both win.
+     * Whether the saved price adjustments differ from the ones being saved, in a way that
+     * changes how prices are worked out.
      */
-    public function queuePriceRecalculation(?CarbonInterface $since = null): bool
+    public function priceAdjustmentsChanged(): bool
+    {
+        /** @var ?StoreScraperStrategySetDto $originalStrategy */
+        $originalStrategy = $this->getOriginal('scrape_strategy');
+
+        return PriceAdjustmentsDto::fromArray(data_get($this->getOriginal('settings'), 'price_adjustments'))->toArray() !== $this->price_adjustments->toArray()
+            || filled($originalStrategy?->shipping?->value) !== $this->hasShippingStrategy();
+    }
+
+    /**
+     * Recalculate saved prices in the background, in batches, with the store's price
+     * adjustments: from a date (midnight) or from the start. Only prices saved before this
+     * call are touched, since later ones already use these settings.
+     *
+     * The store records the run as its current one, in the database. A run that is no
+     * longer current stops at its next batch: starting another run replaces it, and so
+     * does changing the price adjustments.
+     */
+    public function queuePriceRecalculation(?CarbonInterface $since = null): void
     {
         $runId = (string) Str::uuid();
 
-        if (! Cache::add(self::recalculatingCacheKey($this->getKey()), $runId, RecalculateStorePrices::LOCK_MINUTES * 60)) {
-            return false;
-        }
+        static::query()->whereKey($this->getKey())->update(['price_recalculation_run' => $runId]);
+        $this->forceFill(['price_recalculation_run' => $runId])->syncOriginalAttribute('price_recalculation_run');
 
         RecalculateStorePrices::dispatch(
             storeId: $this->getKey(),
             runId: $runId,
-            settings: $this->price_adjustments->toArray(),
-            readsPageShipping: $this->hasShippingStrategy(),
             upToId: (int) Price::query()->where('store_id', $this->getKey())->max('id'),
             since: $since?->toDateTimeString(),
         )->afterCommit();
-
-        return true;
     }
 
     /**
-     * Whether a background recalculation of this store's prices is still running. A
-     * second one could finish first and be overwritten, so it waits for this one.
+     * How long a price recalculation waits for a store's price lock, in seconds.
      */
-    public function isRecalculatingPrices(): bool
+    public static int $priceLockWait = 30;
+
+    public static function priceLockKey(int $storeId): string
     {
-        return Cache::has(self::recalculatingCacheKey($this->getKey()));
+        return 'store-prices:'.$storeId;
     }
 
-    public static function recalculatingCacheKey(int $storeId): string
+    /**
+     * Run $callback while holding these stores' price locks, which every recalculation of
+     * their saved prices takes, so a store batch and a listing recalculation never
+     * interleave. Waits up to $priceLockWait seconds for each lock; a batch holds one for a
+     * few seconds.
+     *
+     * @template T
+     *
+     * @param  array<int, int>  $storeIds
+     * @param  Closure(): T  $callback
+     * @return T
+     */
+    public static function withPriceLocks(array $storeIds, Closure $callback): mixed
     {
-        return 'store-prices-recalculating:'.$storeId;
+        $storeIds = array_values(array_unique(array_map('intval', $storeIds)));
+        sort($storeIds); // the same order everywhere, so two callers cannot deadlock
+
+        if ($storeIds === []) {
+            return $callback();
+        }
+
+        $first = array_shift($storeIds);
+
+        return Cache::lock(self::priceLockKey($first), RecalculateStorePrices::LOCK_SECONDS)
+            ->block(self::$priceLockWait, fn () => self::withPriceLocks($storeIds, $callback));
     }
 
     /**
@@ -436,6 +479,11 @@ class Store extends Model
      * from a date or from the start. Returns how many prices were recalculated.
      */
     public function recalculatePrices(?CarbonInterface $since = null): int
+    {
+        return self::withPriceLocks([$this->getKey()], fn (): int => $this->recalculatePricesNow($since));
+    }
+
+    protected function recalculatePricesNow(?CarbonInterface $since): int
     {
         $upToId = (int) Price::query()->where('store_id', $this->getKey())->max('id');
         $count = Price::query()
