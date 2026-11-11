@@ -42,6 +42,7 @@ class StorePriceAdjustmentsTest extends TestCase
 
         Notification::fake();
         RecalculateStorePrices::$batchSize = 1000;
+        RecalculateStorePrices::$productBatchSize = 50;
         Store::$priceLockWait = 30;
 
         $this->user = User::factory()->create();
@@ -395,6 +396,62 @@ HTML;
 
         $this->assertSame(1.0, (float) $first->product->fresh()->current_price, 'done before the failure, not redone');
         $this->assertSame(123.0, (float) $second->product->fresh()->current_price);
+    }
+
+    public function test_a_failed_cache_batch_is_retried_from_its_cursor(): void
+    {
+        RecalculateStorePrices::$productBatchSize = 1;
+        $store = $this->makeStore(['tax_percent' => 23]);
+        $urls = collect(range(1, 3))->map(function () use ($store) {
+            $url = $this->makeUrl($store);
+            $url->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $store->id]);
+
+            return $url;
+        });
+
+        // From here on, count each product's cache refreshes, and fail the second
+        // product's first one.
+        $refreshes = [];
+        $failed = false;
+        Product::updating(function (Product $product) use (&$refreshes, &$failed, $urls): void {
+            if ($product->isDirty('price_cache')) {
+                if ($product->id === $urls[1]->product_id && ! $failed) {
+                    $failed = true;
+                    throw new \RuntimeException('database went away');
+                }
+                $refreshes[$product->id] = ($refreshes[$product->id] ?? 0) + 1;
+            }
+        });
+
+        Queue::fake();
+        $store->queuePriceRecalculation();
+        $jobs = fn () => Queue::pushed(RecalculateStorePrices::class)->values();
+
+        $jobs()[0]->handle(); // prices
+        $jobs()[1]->handle(); // caches: the first product
+        $failing = $jobs()[2];
+        $this->assertSame(RecalculateStorePrices::STEP_CACHES, $failing->step);
+
+        try {
+            $failing->handle();
+            $this->fail('expected the batch to fail');
+        } catch (\RuntimeException) {
+        }
+
+        $this->assertTrue(Cache::lock(Store::priceLockKey($store->id), 1)->get(), 'a failed batch frees the lock');
+        Cache::lock(Store::priceLockKey($store->id))->forceRelease();
+
+        // The queue retries the same job, which carries its cursor; then the chain goes on.
+        // Bounded, so a cursor that does not move fails here instead of looping forever.
+        $failing->handle();
+        for ($i = 3; $i < 20 && ($job = $jobs()->get($i)); $i++) {
+            $job->handle();
+        }
+        $this->assertLessThan(20, $i, 'the chain ends');
+
+        $this->assertSame(1, $refreshes[$urls[0]->product_id], 'the product before the failure is not redone');
+        $this->assertSame(1, $refreshes[$urls[1]->product_id]);
+        $this->assertSame(1, $refreshes[$urls[2]->product_id]);
     }
 
     public function test_products_whose_url_moved_to_another_store_are_refreshed(): void
