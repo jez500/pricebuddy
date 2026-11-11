@@ -168,6 +168,19 @@ class StorePriceAdjustmentsFormTest extends TestCase
         $this->assertSame(23.0, $this->store->fresh()->price_adjustments->taxPercent);
     }
 
+    public function test_a_save_that_loses_the_race_keeps_the_settings_and_says_so(): void
+    {
+        // Another recalculation starts after the check before saving, while the store is written.
+        Store::updated(fn (Store $store) => Cache::add(Store::recalculatingCacheKey($store->id), 'another-run', 60));
+
+        $this->editStore(['settings.price_adjustments.tax_percent' => 23])
+            ->call('save')
+            ->assertNotified('Saved, but prices from this store are still being recalculated');
+
+        $this->assertSame(23.0, $this->store->fresh()->price_adjustments->taxPercent);
+        Queue::assertNothingPushed();
+    }
+
     public function test_the_recalculate_button_uses_the_saved_settings(): void
     {
         $this->store->update(['settings' => array_merge($this->store->settings, ['price_adjustments' => ['tax_percent' => 23]])]);

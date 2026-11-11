@@ -262,8 +262,9 @@ On Amazon, which shows the delivery cost to your location, this reads it:
 ```
 
 Use [Test](#testing-a-store) to see what the strategy finds. When past prices are
-recalculated, the shipping read from their pages is kept while the store has a shipping
-strategy, since a past page cannot be read again. Without one, the flat fee is used.
+recalculated, the shipping read from their pages is counted while the store has a
+shipping strategy. Without one, the flat fee is used, but the amounts are kept, since a
+past page cannot be read again: adding the strategy back counts them again.
 
 ## Cookies
 

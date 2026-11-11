@@ -334,18 +334,28 @@ class Store extends Model
      * Recalculate saved prices in the background, in batches, with the store's price
      * adjustments as they are now: from a date (midnight) or from the start. Only prices
      * saved before this call are touched, since later ones already use these settings.
+     *
+     * Returns false, and starts nothing, while another recalculation of this store runs:
+     * the run takes the store's marker atomically, so two starts at once cannot both win.
      */
-    public function queuePriceRecalculation(?CarbonInterface $since = null): void
+    public function queuePriceRecalculation(?CarbonInterface $since = null): bool
     {
-        Cache::put(self::recalculatingCacheKey($this->getKey()), true, RecalculateStorePrices::LOCK_MINUTES * 60);
+        $runId = (string) Str::uuid();
+
+        if (! Cache::add(self::recalculatingCacheKey($this->getKey()), $runId, RecalculateStorePrices::LOCK_MINUTES * 60)) {
+            return false;
+        }
 
         RecalculateStorePrices::dispatch(
             storeId: $this->getKey(),
+            runId: $runId,
             settings: $this->price_adjustments->toArray(),
             readsPageShipping: $this->hasShippingStrategy(),
             upToId: (int) Price::query()->where('store_id', $this->getKey())->max('id'),
             since: $since?->toDateTimeString(),
         )->afterCommit();
+
+        return true;
     }
 
     /**
@@ -387,16 +397,38 @@ class Store extends Model
     }
 
     /**
-     * Rebuild the price and insights caches of every product with a URL at this store.
+     * The products whose prices this store affects: those with a URL at the store now,
+     * and those with saved prices from it, whose URL may have moved to another store.
+     *
+     * @return Builder<Product>
      */
-    public function refreshProductCaches(): void
+    public function affectedProducts(): Builder
     {
-        Product::query()
-            ->whereIn('id', $this->urls()->select('product_id'))
-            ->each(function (Product $product): void {
-                $product->updatePriceCache();
-                $product->updateInsightsCache();
-            });
+        return Product::query()->whereIn('id', Url::query()
+            ->select('product_id')
+            ->where('store_id', $this->getKey())
+            ->orWhereIn('id', Price::query()->select('url_id')->where('store_id', $this->getKey())));
+    }
+
+    /**
+     * Rebuild the price and insights caches of the next batch of affected products, in id
+     * order after $afterId. Returns the last id done, or null when there are no more.
+     */
+    public function refreshProductCacheBatch(int $afterId, int $limit): ?int
+    {
+        $products = $this->affectedProducts()
+            ->where('id', '>', $afterId)
+            ->orderBy('id')
+            ->limit($limit)
+            ->get();
+
+        /** @var Product $product */
+        foreach ($products as $product) {
+            $product->updatePriceCache();
+            $product->updateInsightsCache();
+        }
+
+        return $products->count() < $limit ? null : (int) $products->last()?->getKey();
     }
 
     /**
@@ -418,7 +450,11 @@ class Store extends Model
             $afterId = $this->recalculatePriceBatch($this->price_adjustments, $this->hasShippingStrategy(), $afterId, $upToId, $since, 500);
         } while ($afterId !== null);
 
-        $this->refreshProductCaches();
+        $afterId = 0;
+
+        do {
+            $afterId = $this->refreshProductCacheBatch($afterId, 100);
+        } while ($afterId !== null);
 
         return $count;
     }

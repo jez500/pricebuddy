@@ -81,13 +81,15 @@ class PriceAdjustmentsDto implements Arrayable
 
     /**
      * The price the user pays for a page price. Shipping read from the page replaces the
-     * flat shipping fee when given. Ignored shipping is left out of the price but kept, so
-     * the price can be worked out again if the listing stops ignoring it.
+     * flat shipping fee when given and counted. Shipping read from the page is kept even
+     * when it is not counted, and ignored shipping is left out of the price but kept, so
+     * the price can be worked out again if the store or listing changes back.
      */
-    public function apply(float $pagePrice, ?float $pageShipping = null, bool $ignoreShipping = false): AdjustedPriceDto
+    public function apply(float $pagePrice, ?float $pageShipping = null, bool $ignoreShipping = false, bool $countPageShipping = true): AdjustedPriceDto
     {
         $factor = $this->taxFactor();
-        $shipping = round($pageShipping ?? $this->flatShippingFor($pagePrice * $factor), 2);
+        $fromPage = $countPageShipping ? $pageShipping : null;
+        $shipping = round($fromPage ?? $this->flatShippingFor($pagePrice * $factor), 2);
         $counted = $ignoreShipping ? 0.0 : $shipping;
 
         $total = round($this->taxOnShipping
@@ -106,16 +108,18 @@ class PriceAdjustmentsDto implements Arrayable
     }
 
     /**
-     * The price the user pays for a page price, or null when nothing is adjusted. Shipping
-     * read from the page only counts when the store reads it ($readsPageShipping).
+     * The price the user pays for a page price, or null when there is nothing to adjust or
+     * keep. Shipping read from the page only counts while the store reads it
+     * ($readsPageShipping), but is kept either way, since a past page cannot be read again.
+     * A page price of 0 is no price, so it is never adjusted.
      */
     public function adjust(float $pagePrice, ?float $pageShipping, bool $readsPageShipping, bool $ignoreShipping = false): ?AdjustedPriceDto
     {
-        if ($pagePrice <= 0 || ($this->isEmpty() && ! $readsPageShipping)) {
+        if ($pagePrice <= 0 || ($this->isEmpty() && ! $readsPageShipping && $pageShipping === null)) {
             return null;
         }
 
-        return $this->apply($pagePrice, $readsPageShipping ? $pageShipping : null, $ignoreShipping);
+        return $this->apply($pagePrice, $pageShipping, $ignoreShipping, countPageShipping: $readsPageShipping);
     }
 
     /**

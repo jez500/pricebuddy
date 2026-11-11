@@ -76,9 +76,9 @@ class Price extends Model
 
     /**
      * Work this price out again from its page price, with the given price adjustments.
-     * Shipping read from the page is kept while the store reads it, since a past page
-     * cannot be read again. Saved quietly: a recalculated price is not a new price and
-     * alerts nobody.
+     * Shipping read from the page is counted while the store reads it, and kept either
+     * way, since a past page cannot be read again. Saved quietly: a recalculated price is
+     * not a new price and alerts nobody.
      */
     public function recalculate(PriceAdjustmentsDto $settings, bool $readsPageShipping, bool $ignoreShipping = false): void
     {

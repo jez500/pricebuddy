@@ -82,7 +82,18 @@ class EditStore extends EditRecord
 
         /** @var Store $store */
         $store = $this->getRecord();
-        $store->queuePriceRecalculation(StoreResource::pastPricesSince($data));
+
+        // Another recalculation started between the check before saving and now: the
+        // settings are saved, and the button on this page applies them once it is done.
+        if (! $store->queuePriceRecalculation(StoreResource::pastPricesSince($data))) {
+            Notification::make()
+                ->title('Saved, but prices from this store are still being recalculated')
+                ->body('When that has finished, use "Recalculate prices" to apply the new settings to past prices.')
+                ->warning()
+                ->send();
+
+            return;
+        }
 
         Notification::make()
             ->title('Recalculating past prices')
@@ -285,13 +296,11 @@ class EditStore extends EditRecord
                 /** @var Store $store */
                 $store = $this->getRecord();
 
-                if ($store->isRecalculatingPrices()) {
+                if (! $store->queuePriceRecalculation(StoreResource::pastPricesSince($data))) {
                     self::notifyStillRecalculating();
 
                     return;
                 }
-
-                $store->queuePriceRecalculation(StoreResource::pastPricesSince($data));
 
                 Notification::make()
                     ->title('Recalculating prices')

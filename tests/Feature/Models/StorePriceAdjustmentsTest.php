@@ -293,7 +293,8 @@ HTML;
             $batches++;
         }
 
-        $this->assertSame(3, $batches, '2 + 2 + 1');
+        $steps = Queue::pushed(RecalculateStorePrices::class)->map(fn (RecalculateStorePrices $job) => $job->step)->all();
+        $this->assertSame(['prices', 'prices', 'prices', 'caches'], $steps, 'prices in 2 + 2 + 1, then the product caches');
         $prices->each(fn (Price $price) => $this->assertSame(123.0, (float) $price->fresh()->price));
         $this->assertSame(123.0, (float) $url->product->fresh()->current_price);
         $this->assertFalse($store->isRecalculatingPrices());
@@ -318,6 +319,81 @@ HTML;
         $this->assertSame(110.0, (float) $new->fresh()->price, 'a price saved after it started is left alone');
     }
 
+    public function test_only_one_of_two_starts_at_once_wins(): void
+    {
+        $store = $this->makeStore(['tax_percent' => 23]);
+        Queue::fake();
+
+        $this->assertTrue($store->queuePriceRecalculation());
+        $this->assertFalse($store->fresh()->queuePriceRecalculation());
+
+        Queue::assertPushed(RecalculateStorePrices::class, 1);
+    }
+
+    public function test_a_replaced_run_stops(): void
+    {
+        $store = $this->makeStore(['tax_percent' => 23]);
+        $price = $this->makeUrl($store)->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $store->id]);
+        Queue::fake();
+        $store->queuePriceRecalculation();
+
+        // Its marker expired while it waited in the queue, and another run took it.
+        Cache::put(Store::recalculatingCacheKey($store->id), 'another-run', 60);
+        Queue::pushed(RecalculateStorePrices::class)->first()->handle();
+
+        $this->assertSame(100.0, (float) $price->fresh()->price);
+        $this->assertSame('another-run', Cache::get(Store::recalculatingCacheKey($store->id)));
+        Queue::assertPushed(RecalculateStorePrices::class, 1);
+    }
+
+    public function test_a_run_whose_marker_expired_takes_it_back(): void
+    {
+        $store = $this->makeStore(['tax_percent' => 23]);
+        $price = $this->makeUrl($store)->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $store->id]);
+        Queue::fake();
+        $store->queuePriceRecalculation();
+        $first = Queue::pushed(RecalculateStorePrices::class)->first();
+
+        Cache::forget(Store::recalculatingCacheKey($store->id));
+        $first->handle();
+
+        $this->assertSame(123.0, (float) $price->fresh()->price);
+        $this->assertSame($first->runId, Cache::get(Store::recalculatingCacheKey($store->id)), 'held again until the chain ends');
+    }
+
+    public function test_product_caches_resume_from_their_cursor(): void
+    {
+        $store = $this->makeStore(['tax_percent' => 23]);
+        $first = $this->makeUrl($store);
+        $second = $this->makeUrl($store);
+        $first->prices()->create(['price' => 123, 'scraped_price' => 100, 'store_id' => $store->id]);
+        $second->prices()->create(['price' => 123, 'scraped_price' => 100, 'store_id' => $store->id]);
+        Product::query()->update(['current_price' => 1]);
+
+        // A retried cache batch carries the cursor of the products already done.
+        Cache::put(Store::recalculatingCacheKey($store->id), 'run', 60);
+        (new RecalculateStorePrices($store->id, 'run', [], false, 0, null, RecalculateStorePrices::STEP_CACHES, $first->product_id))->handle();
+
+        $this->assertSame(1.0, (float) $first->product->fresh()->current_price, 'done before the failure, not redone');
+        $this->assertSame(123.0, (float) $second->product->fresh()->current_price);
+        $this->assertNull(Cache::get(Store::recalculatingCacheKey($store->id)), 'released at the end');
+    }
+
+    public function test_products_whose_url_moved_to_another_store_are_refreshed(): void
+    {
+        $old = $this->makeStore();
+        $url = $this->makeUrl($old);
+        $price = $url->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $old->id]);
+        $url->update(['store_id' => $this->makeStore()->id]);
+        $url->product->updatePriceCache();
+
+        $old->update(['settings' => array_merge($old->settings, ['price_adjustments' => ['tax_percent' => 23]])]);
+        $old->fresh()->queuePriceRecalculation();
+
+        $this->assertSame(123.0, (float) $price->fresh()->price);
+        $this->assertSame(123.0, (float) $url->product->fresh()->current_price);
+    }
+
     public function test_a_failed_recalculation_unlocks_the_store(): void
     {
         $store = $this->makeStore(['tax_percent' => 23]);
@@ -330,7 +406,7 @@ HTML;
         $this->assertFalse($store->isRecalculatingPrices());
     }
 
-    public function test_recalculation_keeps_page_shipping_only_while_the_store_reads_it(): void
+    public function test_recalculation_counts_page_shipping_only_while_the_store_reads_it(): void
     {
         $store = $this->makeStore(['shipping_cost' => 5], shippingStrategy: true);
         $url = $this->makeUrl($store);
@@ -343,14 +419,38 @@ HTML;
         // (100 × 1.10) + 7.65 read from the page.
         $this->assertSame(117.65, (float) $price->fresh()->price);
 
-        // Without the shipping strategy, the flat fee applies.
+        // Without the shipping strategy, the flat fee applies, but the page's amount is kept.
         $strategy = $store->scrape_strategy->toArray();
+        $shippingStrategy = $strategy['shipping'];
         unset($strategy['shipping']);
         $store->update(['scrape_strategy' => $strategy]);
         $store->fresh()->recalculatePrices();
 
         $this->assertSame(115.0, (float) $price->fresh()->price);
-        $this->assertNull($price->fresh()->adjusted_price->pageShipping);
+        $this->assertSame(7.65, $price->fresh()->adjusted_price->pageShipping);
+
+        // Restoring the strategy counts it again.
+        $store->update(['scrape_strategy' => $strategy + ['shipping' => $shippingStrategy]]);
+        $store->fresh()->recalculatePrices();
+
+        $this->assertSame(117.65, (float) $price->fresh()->price);
+    }
+
+    public function test_page_shipping_is_kept_when_the_store_drops_all_adjustments(): void
+    {
+        $store = $this->makeStore(shippingStrategy: true);
+        $url = $this->makeUrl($store);
+        $this->mockPage('€100.00', '€7.65');
+        $price = $url->updatePrice();
+        $this->assertSame(107.65, (float) $price->fresh()->price);
+
+        $store->update(['scrape_strategy' => collect($store->scrape_strategy->toArray())->except('shipping')->all()]);
+        $store->fresh()->recalculatePrices();
+
+        // The page price, nothing to mark, but the amount is still there.
+        $this->assertSame(100.0, (float) $price->fresh()->price);
+        $this->assertFalse($price->fresh()->adjusted_price->isAdjusted());
+        $this->assertSame(7.65, $price->fresh()->getPageShipping());
     }
 
     public function test_recalculation_only_touches_the_stores_prices(): void
