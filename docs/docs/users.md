@@ -33,6 +33,88 @@ the user in the Users page, or via the [CLI](#assigning-a-role-via-the-cli).
 > [CLI command](#assigning-a-role-via-the-cli) applies roles directly and does
 > **not** enforce this, so take care not to demote your only Admin.
 
+## Single sign-on (OIDC)
+
+PriceBuddy can sign users in with any [OpenID Connect](https://openid.net/connect/)
+provider, for example Pocket ID, Authentik, Authelia, Keycloak, Entra ID or Google.
+It is off by default. When enabled, a **single sign-on** button is added to the
+login page. Password login keeps working alongside it.
+
+### Setup
+
+1. In your OIDC provider create a new client (sometimes called an application).
+2. Set its redirect (callback) URL to `{APP_URL}/login/oidc/callback`, for example
+   `https://pricebuddy.example.com/login/oidc/callback`. It must match exactly,
+   including `http` or `https`.
+3. Add the environment variables below to the `app` service and restart.
+
+```yaml
+services:
+    app:
+        environment:
+            OIDC_ENABLED: 'true'
+            OIDC_ISSUER_URL: https://id.example.com
+            OIDC_CLIENT_ID: your-client-id
+            OIDC_CLIENT_SECRET: your-client-secret
+```
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `OIDC_ENABLED` | `false` | Turns single sign-on on. |
+| `OIDC_ISSUER_URL` | | Base URL of your provider, without `/.well-known/openid-configuration`. Must be `https` (except for `localhost`). |
+| `OIDC_CLIENT_ID` | | Client ID from your provider. |
+| `OIDC_CLIENT_SECRET` | | Client secret from your provider. |
+| `OIDC_REDIRECT_URI` | `{APP_URL}/login/oidc/callback` | Only set this if the callback URL differs from the default, for example behind a reverse proxy. It must also be registered with your provider. |
+| `OIDC_LABEL` | `Single sign-on` | Text shown on the login button. |
+| `OIDC_AUTO_REGISTER` | `true` | Create a PriceBuddy user the first time someone signs in. Set to `false` to only allow users that already exist. |
+| `OIDC_LINK_BY_EMAIL` | `false` | Sign in as the existing PriceBuddy user with the same email address. Off by default, see [how users are matched](#how-users-are-matched). |
+| `OIDC_ADMIN_GROUP` | | Optional. Members of this group are **Admins**, see [roles from groups](#roles-from-groups). |
+| `OIDC_GROUPS_CLAIM` | `groups` | Name of the claim in the token that lists a user's groups. |
+| `OIDC_SCOPES` | `openid email profile` | Scopes to request. `groups` is added automatically when `OIDC_ADMIN_GROUP` is set, but only if you have not set `OIDC_SCOPES`. If you do set it, include the groups scope yourself. |
+
+The provider must return an email address (the `email` scope is requested). A sign
+in without one is refused.
+
+### How users are matched
+
+The first time someone signs in, PriceBuddy looks for a user with the same email
+(case insensitive).
+
+- **No matching user:** a new user is created with the **User** [role](#user-roles),
+  which an admin can change afterwards (or see [roles from groups](#roles-from-groups)).
+  Set `OIDC_AUTO_REGISTER` to `false` to refuse these instead.
+- **A matching user exists:** the login is refused by default. To sign in as that
+  existing user, set `OIDC_LINK_BY_EMAIL` to `true`. The two are then linked, so
+  later sign ins follow the provider account rather than the email. If your provider
+  sends an `email_verified` claim, the login is refused unless it is true.
+
+PriceBuddy does not store the access or refresh tokens your provider issues.
+
+### Roles from groups
+
+By default roles are managed in PriceBuddy, so new single sign-on users are **Users**
+and an admin promotes them. To manage roles in your provider instead, create a group
+there (for example `pricebuddy_admins`), add your admins to it, make sure the
+client can see the groups, and set `OIDC_ADMIN_GROUP` to the group name.
+
+- Members of the group are **Admins**, everyone else is a **User**.
+- The role is checked on every sign in, so removing someone from the group removes
+  their admin access the next time they sign in.
+- Group names must match exactly, including case.
+- If the token has no groups claim at all, roles are left unchanged and a warning
+  is logged. This usually means the provider is not sending groups to the client.
+- The last remaining Admin is never demoted, so a wrong group name can not lock
+  you out.
+
+::: warning
+Only enable `OIDC_LINK_BY_EMAIL` with a provider that verifies email addresses,
+such as one you run yourself. A provider that lets people register with any
+address would let them take over the matching PriceBuddy account. Providers that
+never send `email_verified` are allowed when linking is on, so that is your call
+to make. Likewise `OIDC_AUTO_REGISTER` gives anyone your provider lets in a
+PriceBuddy account, so only use it with a provider that holds people you trust.
+:::
+
 ## Products and tags are per user
 
 The current logged in user will only see their own products and tags. Stores are

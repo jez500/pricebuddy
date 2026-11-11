@@ -14,7 +14,9 @@ use App\Policies\UserPolicy;
 use App\Services\Helpers\NotificationsHelper;
 use App\Services\Helpers\QueueHelper;
 use App\Services\Helpers\SettingsHelper;
+use App\Services\Oidc\OidcClaims;
 use App\Services\Scrapers\Utf8WebScraperHttp;
+use ChrisReedIO\Socialment\Models\ConnectedAccount;
 use Filament\Facades\Filament;
 use Filament\Navigation\MenuItem;
 use Filament\Support\Facades\FilamentView;
@@ -31,11 +33,15 @@ class AppServiceProvider extends ServiceProvider
     {
         // Convert scraped pages to UTF-8 before they are cached (#203).
         $this->app->bind(WebScraperHttp::class, Utf8WebScraperHttp::class);
+
+        // Claims from the current OIDC login, shared between provider and role sync.
+        $this->app->scoped(OidcClaims::class);
     }
 
     public function boot(): void
     {
         $this->registerPolicies();
+        $this->doNotStoreOidcTokens();
         $this->registerFilamentSettings();
         $this->setConfigFromAppSettings();
         $this->registerAbout();
@@ -119,6 +125,18 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::define('viewApiDocs', function (?User $user) {
             return ! is_null($user);
+        });
+    }
+
+    /**
+     * Socialment saves the provider's access and refresh tokens in plain text.
+     * PriceBuddy never calls the provider after login, so don't keep them.
+     */
+    protected function doNotStoreOidcTokens(): void
+    {
+        ConnectedAccount::saving(function (ConnectedAccount $account): void {
+            $account->setAttribute('token', '');
+            $account->setAttribute('refresh_token', null);
         });
     }
 }
