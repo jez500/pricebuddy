@@ -4,6 +4,7 @@ namespace Tests\Feature\Services\Oidc;
 
 use App\Enums\Role;
 use App\Models\User;
+use App\Services\Oidc\OidcClaims;
 use App\Services\Oidc\OidcUserResolver;
 use ChrisReedIO\Socialment\Exceptions\AbortedLoginException;
 use ChrisReedIO\Socialment\Models\ConnectedAccount;
@@ -89,6 +90,62 @@ class OidcUserResolverTest extends TestCase
         $this->expectException(AbortedLoginException::class);
 
         $this->resolve($this->account('taken@example.com'));
+    }
+
+    /**
+     * @return array<string, array{mixed}>
+     */
+    public static function verifiedValues(): array
+    {
+        return ['boolean true' => [true], 'string true' => ['true']];
+    }
+
+    /**
+     * @return array<string, array{mixed}>
+     */
+    public static function unverifiedValues(): array
+    {
+        return [
+            'boolean false' => [false],
+            'string false' => ['false'],
+            'number' => [1],
+            'garbage' => ['yes please'],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('verifiedValues')]
+    public function test_links_when_the_issuer_says_the_email_is_verified(mixed $verified): void
+    {
+        $existing = User::factory()->create(['email' => 'known@example.com']);
+        resolve(OidcClaims::class)->set(['email_verified' => $verified]);
+
+        $this->assertTrue($this->resolve($this->account('known@example.com'))->is($existing));
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('unverifiedValues')]
+    public function test_refuses_to_link_when_the_email_is_not_reported_as_verified(mixed $verified): void
+    {
+        User::factory()->create(['email' => 'known@example.com']);
+        resolve(OidcClaims::class)->set(['email_verified' => $verified]);
+
+        $this->expectException(AbortedLoginException::class);
+
+        $this->resolve($this->account('known@example.com'));
+    }
+
+    public function test_links_when_the_issuer_does_not_send_email_verified(): void
+    {
+        $existing = User::factory()->create(['email' => 'known@example.com']);
+        resolve(OidcClaims::class)->set(['email' => 'known@example.com']);
+
+        $this->assertTrue($this->resolve($this->account('known@example.com'))->is($existing));
+    }
+
+    public function test_unverified_email_does_not_stop_a_brand_new_user(): void
+    {
+        resolve(OidcClaims::class)->set(['email_verified' => false]);
+
+        $this->assertTrue($this->resolve($this->account())->exists);
     }
 
     public function test_refuses_unknown_users_when_auto_register_is_disabled(): void

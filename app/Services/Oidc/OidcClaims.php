@@ -27,6 +27,14 @@ class OidcClaims
     }
 
     /**
+     * Raw value of a claim, with its original type (string, bool, array...).
+     */
+    public function value(string $claim): mixed
+    {
+        return Arr::get($this->claims, $claim);
+    }
+
+    /**
      * Values of a claim as a list of strings. Providers send groups either as
      * an array or as a delimited string.
      *

@@ -22,4 +22,9 @@ class OidcLoginPageTest extends TestCase
     {
         $this->assertSame([], config('oidc.connections'));
     }
+
+    public function test_linking_existing_users_by_email_is_off_by_default(): void
+    {
+        $this->assertFalse(config('oidc.link_by_email'));
+    }
 }

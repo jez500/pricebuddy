@@ -50,9 +50,10 @@ return [
     'auto_register' => (bool) env('OIDC_AUTO_REGISTER', true),
 
     // Let an OIDC login sign in as an existing PriceBuddy user with the same
-    // email. Only enable if your issuer verifies email addresses, otherwise
-    // anyone who can claim an email at the issuer can take over that account.
-    'link_by_email' => (bool) env('OIDC_LINK_BY_EMAIL', true),
+    // email. Off by default because it trusts the issuer to have verified the
+    // address. When on, a login is refused if the issuer reports the email as
+    // not verified (email_verified claim).
+    'link_by_email' => (bool) env('OIDC_LINK_BY_EMAIL', false),
 
     // Optional. Members of this group in the issuer are Admins, everyone else is
     // a User, checked on every login. Leave empty to manage roles in PriceBuddy.
