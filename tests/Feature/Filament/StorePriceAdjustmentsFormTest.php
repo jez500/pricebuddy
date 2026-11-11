@@ -8,6 +8,7 @@ use App\Jobs\RecalculateStorePrices;
 use App\Models\Store;
 use App\Models\Url;
 use App\Models\User;
+use Filament\Notifications\Notification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -80,7 +81,8 @@ class StorePriceAdjustmentsFormTest extends TestCase
     {
         $this->editStore(['settings.price_adjustments.tax_percent' => 23])
             ->call('save')
-            ->assertHasNoFormErrors();
+            ->assertHasNoFormErrors()
+            ->assertNotified('Recalculating 0 prices, usually a few seconds.');
 
         Queue::assertPushed(RecalculateStorePrices::class, fn (RecalculateStorePrices $job): bool => $job->storeId === $this->store->id
             && $job->since === null
@@ -150,61 +152,58 @@ class StorePriceAdjustmentsFormTest extends TestCase
         Queue::assertNothingPushed();
     }
 
-    public function test_saving_during_a_recalculation_replaces_it(): void
+    public function test_changed_adjustments_are_not_saved_during_a_recalculation(): void
     {
-        Store::query()->whereKey($this->store->id)->update(['price_recalculation_run' => 'older-run']);
+        $this->freezeSecond();
+        $this->store->queuePriceRecalculation();
+        $this->travel(4)->seconds();
 
         $this->editStore(['settings.price_adjustments.tax_percent' => 23])
             ->call('save')
-            ->assertHasNoFormErrors();
+            ->assertNotified(Notification::make()->title('Not saved')->body('Still recalculating (started 4 s ago). Try again in a moment.')->warning())
+            ->assertFormSet(['settings.price_adjustments.tax_percent' => 23]);
 
-        $run = $this->store->fresh()->price_recalculation_run;
-        $this->assertNotSame('older-run', $run);
-        Queue::assertPushed(RecalculateStorePrices::class, fn (RecalculateStorePrices $job): bool => $job->runId === $run);
-    }
-
-    public function test_new_prices_only_stops_a_running_recalculation(): void
-    {
-        $url = Url::factory()->for($this->store)->create();
-        $price = $url->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $this->store->id]);
-        $this->store->update(['settings' => array_merge($this->store->settings, ['price_adjustments' => ['tax_percent' => 23]])]);
-        $this->store->queuePriceRecalculation();
-        $run = Queue::pushed(RecalculateStorePrices::class)->first();
-
-        $this->editStore(['settings.price_adjustments.tax_percent' => 10, 'price_adjustments_apply' => 'new'])
-            ->call('save')
-            ->assertHasNoFormErrors();
-
-        $run->handle();
-
-        $this->assertSame(100.0, (float) $price->fresh()->price);
-        $this->assertNull($this->store->fresh()->price_recalculation_run);
+        $this->assertTrue($this->store->fresh()->price_adjustments->isEmpty());
         Queue::assertPushed(RecalculateStorePrices::class, 1);
     }
 
-    public function test_the_recalculate_dialog_says_when_a_run_is_under_way(): void
+    public function test_other_changes_are_saved_during_a_recalculation(): void
     {
-        Livewire::test(EditStore::class, ['record' => $this->store->getKey()])
-            ->mountAction('recalculatePrices')
-            ->assertDontSee('A recalculation is still under way');
+        $this->store->queuePriceRecalculation();
 
-        Store::query()->whereKey($this->store->id)->update(['price_recalculation_run' => 'running']);
+        $this->editStore(['name' => 'Renamed'])
+            ->call('save')
+            ->assertHasNoFormErrors()
+            ->assertNotNotified('Not saved');
+
+        $this->assertSame('Renamed', $this->store->fresh()->name);
+    }
+
+    public function test_the_recalculate_button_is_refused_during_a_recalculation(): void
+    {
+        $this->freezeSecond();
+        $this->store->queuePriceRecalculation();
+        $this->travel(12)->minutes();
 
         Livewire::test(EditStore::class, ['record' => $this->store->getKey()])
-            ->mountAction('recalculatePrices')
-            ->assertSee('A recalculation is still under way: this one replaces it, so choose a range that covers both.');
+            ->callAction('recalculatePrices', data: ['price_adjustments_apply' => 'all'])
+            ->assertNotified(Notification::make()->title('Prices not recalculated')->body('Still recalculating, no progress for 12 min. Is the queue worker running?')->warning());
+
+        Queue::assertPushed(RecalculateStorePrices::class, 1);
     }
 
     public function test_the_recalculate_button_starts_a_run_with_the_chosen_scope(): void
     {
-        Store::query()->whereKey($this->store->id)->update(['price_recalculation_run' => 'older-run']);
+        $url = Url::factory()->for($this->store)->create();
+        $url->prices()->create(['price' => 100, 'store_id' => $this->store->id, 'created_at' => '2026-10-31 23:59:59']);
+        $url->prices()->create(['price' => 100, 'store_id' => $this->store->id, 'created_at' => '2026-11-01 00:00:00']);
 
         Livewire::test(EditStore::class, ['record' => $this->store->getKey()])
             ->callAction('recalculatePrices', data: ['price_adjustments_apply' => 'since', 'price_adjustments_since' => '2026-11-01'])
-            ->assertHasNoActionErrors();
+            ->assertHasNoActionErrors()
+            ->assertNotified('Recalculating 1 price, usually a few seconds.');
 
         $run = $this->store->fresh()->price_recalculation_run;
-        $this->assertNotSame('older-run', $run, 'a running one is replaced');
         Queue::assertPushed(RecalculateStorePrices::class, fn (RecalculateStorePrices $job): bool => $job->runId === $run
             && $job->since === '2026-11-01 00:00:00');
     }

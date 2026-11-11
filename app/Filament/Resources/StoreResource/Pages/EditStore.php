@@ -4,17 +4,21 @@ namespace App\Filament\Resources\StoreResource\Pages;
 
 use App\Enums\ScraperService;
 use App\Exceptions\AiProviderException;
+use App\Exceptions\PriceRecalculationRunningException;
 use App\Filament\Resources\StoreResource;
 use App\Models\Store;
 use App\Services\AiConfigHealer;
 use App\Services\AiExtractionService;
 use App\Services\Helpers\IntegrationHelper;
 use App\Services\ScrapeUrl;
+use Carbon\CarbonInterface;
 use Filament\Actions;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Enums\MaxWidth;
+use Filament\Support\Exceptions\Halt;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -48,9 +52,23 @@ class EditStore extends EditRecord
     }
 
     /**
+     * The price adjustments cannot change while the store's prices are being recalculated:
+     * the save is refused, and the form keeps what was typed.
+     */
+    protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        try {
+            return parent::handleRecordUpdate($record, $data);
+        } catch (PriceRecalculationRunningException $e) {
+            Notification::make()->title('Not saved')->body($e->getMessage())->warning()->send();
+
+            throw new Halt;
+        }
+    }
+
+    /**
      * Changed price adjustments apply to new prices. Unless "New prices only" was chosen,
-     * past prices are recalculated too, in the background. Either way, a recalculation
-     * still running with the old settings stops (see Store::booted()).
+     * past prices are recalculated too, in the background.
      */
     protected function afterSave(): void
     {
@@ -64,15 +82,21 @@ class EditStore extends EditRecord
             return;
         }
 
+        $this->startPriceRecalculation(StoreResource::pastPricesSince($data));
+    }
+
+    protected function startPriceRecalculation(?CarbonInterface $since): void
+    {
         /** @var Store $store */
         $store = $this->getRecord();
-        $store->queuePriceRecalculation(StoreResource::pastPricesSince($data));
 
-        Notification::make()
-            ->title('Recalculating past prices')
-            ->body('Prices from this store are being recalculated with the new price adjustments.')
-            ->info()
-            ->send();
+        if (! $store->queuePriceRecalculation($since)) {
+            Notification::make()->title('Prices not recalculated')->body($store->priceRecalculationStatus())->warning()->send();
+
+            return;
+        }
+
+        Notification::make()->title($store->priceRecalculationEstimate($since))->info()->send();
     }
 
     /**
@@ -244,8 +268,7 @@ class EditStore extends EditRecord
 
     /**
      * Recalculate saved prices with the store's saved price adjustments. For a
-     * recalculation that stopped, or after changing settings with "New prices only". A
-     * recalculation still running is replaced.
+     * recalculation that stopped, or after changing settings with "New prices only".
      */
     protected function getRecalculatePricesAction(): Actions\Action
     {
@@ -254,29 +277,10 @@ class EditStore extends EditRecord
             ->color('gray')
             ->icon('heroicon-o-calculator')
             ->modalHeading('Recalculate prices')
-            ->modalDescription(function (): string {
-                /** @var Store $store */
-                $store = $this->getRecord();
-
-                return 'Work out saved prices from this store again, from their page price, with the saved price adjustments. Save any changes first.'
-                    .($store->isRecalculatingPrices()
-                        ? ' A recalculation is still under way: this one replaces it, so choose a range that covers both.'
-                        : '');
-            })
+            ->modalDescription('Work out saved prices from this store again, from their page price, with the saved price adjustments. Save any changes first.')
             ->modalSubmitActionLabel('Recalculate')
             ->form(StoreResource::pastPricesFormFields())
-            ->action(function (array $data): void {
-                /** @var Store $store */
-                $store = $this->getRecord();
-
-                $store->queuePriceRecalculation(StoreResource::pastPricesSince($data));
-
-                Notification::make()
-                    ->title('Recalculating prices')
-                    ->body('Prices from this store are being recalculated in the background.')
-                    ->info()
-                    ->send();
-            });
+            ->action(fn (array $data) => $this->startPriceRecalculation(StoreResource::pastPricesSince($data)));
     }
 
     protected function getHeaderActions(): array

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\StoreResource\Api\Handlers;
 
+use App\Exceptions\PriceRecalculationRunningException;
 use App\Filament\Resources\StoreResource;
 use App\Filament\Resources\StoreResource\Api\Requests\UpdateStoreRequest;
 use Dedoc\Scramble\Attributes\Group;
@@ -49,7 +50,11 @@ class UpdateHandler extends Handlers
         // user_id records who created the store. An edit does not change it.
         $model->fill($request->except('user_id'));
 
-        $model->save();
+        try {
+            $model->save();
+        } catch (PriceRecalculationRunningException) {
+            return response()->json(['message' => 'Prices for this store are being recalculated. Try again shortly.'], 409);
+        }
 
         return static::sendSuccessResponse($model, 'Successfully Update Resource');
     }

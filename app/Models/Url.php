@@ -573,16 +573,13 @@ class Url extends Model
             ->reorder()
             ->with('store')
             ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
-            ->chunkById(500, function (Collection $prices) use (&$count): void {
-                /** @var Price $price */
-                foreach ($prices as $price) {
-                    $store = $price->store ?? $this->store;
-
-                    if ($store) {
-                        $price->recalculate($store->price_adjustments, $store->hasShippingStrategy(), (bool) $this->ignore_shipping);
-                        $count++;
-                    }
-                }
+            ->chunkById(1000, function (Collection $prices) use (&$count): void {
+                /** @var Collection<int, Price> $prices */
+                $count += Price::saveRecalculated(
+                    $prices,
+                    fn (Price $price): ?Store => $price->store ?? $this->store,
+                    fn (): bool => (bool) $this->ignore_shipping,
+                );
             });
 
         $this->product?->updatePriceCache();

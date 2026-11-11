@@ -3,9 +3,9 @@
 namespace App\Models;
 
 use App\Dto\AdjustedPriceDto;
-use App\Dto\PriceAdjustmentsDto;
 use App\Events\PriceCreatedEvent;
 use Carbon\Carbon;
+use Closure;
 use Database\Factories\UrlFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -75,23 +75,47 @@ class Price extends Model
     }
 
     /**
-     * Work this price out again from its page price, with the given price adjustments.
-     * Shipping read from the page is counted while the store reads it, and kept either
-     * way, since a past page cannot be read again. Saved quietly: a recalculated price is
-     * not a new price and alerts nobody.
+     * Work these prices out again from their page price, with their store's price
+     * adjustments, and save them in one statement. Shipping read from the page is counted
+     * while the store reads it, and kept either way, since a past page cannot be read
+     * again. No events: a recalculated price is not a new price and alerts nobody. Returns
+     * how many were saved: a price with no store is left as it is.
+     *
+     * @param  iterable<Price>  $prices
+     * @param  Closure(Price): ?Store  $storeFor  the store whose settings apply
+     * @param  Closure(Price): bool  $ignoresShipping  whether its listing ignores shipping
      */
-    public function recalculate(PriceAdjustmentsDto $settings, bool $readsPageShipping, bool $ignoreShipping = false): void
+    public static function saveRecalculated(iterable $prices, Closure $storeFor, Closure $ignoresShipping): int
     {
-        $pagePrice = (float) ($this->scraped_price ?? $this->price);
-        $adjusted = $settings->adjust($pagePrice, $this->getPageShipping(), $readsPageShipping, $ignoreShipping);
-        $total = $adjusted->total ?? $pagePrice;
+        $rows = [];
 
-        $this->forceFill([
-            'price' => $total,
-            'unit_price' => $total / ($this->price_factor ?: 1),
-            'scraped_price' => $pagePrice,
-            'price_adjustments' => $adjusted?->toStorageArray(),
-        ])->saveQuietly();
+        foreach ($prices as $price) {
+            $store = $storeFor($price);
+
+            if (! $store) {
+                continue;
+            }
+
+            $pagePrice = (float) ($price->scraped_price ?? $price->price);
+            $adjusted = $store->price_adjustments->adjust($pagePrice, $price->getPageShipping(), $store->hasShippingStrategy(), $ignoresShipping($price));
+            $total = $adjusted->total ?? $pagePrice;
+
+            $rows[] = [
+                'id' => $price->getKey(),
+                'url_id' => $price->url_id,
+                'store_id' => $price->store_id,
+                'price' => $total,
+                'unit_price' => $total / ($price->price_factor ?: 1),
+                'scraped_price' => $pagePrice,
+                'price_adjustments' => $adjusted ? json_encode($adjusted->toStorageArray()) : null,
+            ];
+        }
+
+        if ($rows !== []) {
+            static::query()->upsert($rows, ['id'], ['price', 'unit_price', 'scraped_price', 'price_adjustments']);
+        }
+
+        return count($rows);
     }
 
     /***************************************************

@@ -53,8 +53,7 @@ class IgnoreShippingFormTest extends TestCase
 
         $this->older = $this->url->prices()->create(['price' => 105, 'scraped_price' => 100, 'store_id' => $store->id, 'created_at' => now()->subDays(5)]);
         $this->newer = $this->url->prices()->create(['price' => 105, 'scraped_price' => 100, 'store_id' => $store->id, 'created_at' => now()->subDay()]);
-        $this->older->recalculate($store->price_adjustments, false);
-        $this->newer->recalculate($store->price_adjustments, false);
+        Price::saveRecalculated([$this->older, $this->newer], fn (): Store => $store, fn (): bool => false);
     }
 
     /**
@@ -151,10 +150,12 @@ class IgnoreShippingFormTest extends TestCase
 
     public function test_a_failed_recalculation_keeps_the_old_setting_and_prices(): void
     {
-        // Fail half way, after one price was already recalculated.
-        $updates = 0;
-        DB::listen(function ($query) use (&$updates): void {
-            if (str_starts_with($query->sql, 'update `prices`') && ++$updates === 2) {
+        // Fail after the prices were written, when the product's caches are saved.
+        $written = false;
+        DB::listen(function ($query) use (&$written): void {
+            $written = $written || str_starts_with($query->sql, 'insert into `prices`');
+
+            if ($written && str_starts_with($query->sql, 'update `products`')) {
                 throw new \RuntimeException('database went away');
             }
         });

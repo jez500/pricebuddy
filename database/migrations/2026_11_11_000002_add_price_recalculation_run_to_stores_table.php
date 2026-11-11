@@ -13,6 +13,8 @@ return new class extends Migration
     {
         Schema::table('stores', function (Blueprint $table) {
             $table->string('price_recalculation_run', 36)->nullable();
+            $table->timestamp('price_recalculation_started_at')->nullable();
+            $table->timestamp('price_recalculation_progress_at')->nullable();
         });
     }
 
@@ -22,7 +24,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('stores', function (Blueprint $table) {
-            $table->dropColumn('price_recalculation_run');
+            $table->dropColumn(['price_recalculation_run', 'price_recalculation_started_at', 'price_recalculation_progress_at']);
         });
     }
 };

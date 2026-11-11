@@ -95,4 +95,21 @@ class StorePriceAdjustmentsApiTest extends TestCase
         $this->assertSame(23.0, $store->fresh()->price_adjustments->taxPercent);
         Queue::assertNothingPushed();
     }
+
+    public function test_update_is_refused_while_prices_are_recalculated(): void
+    {
+        $store = Store::factory()->create();
+        $store->queuePriceRecalculation();
+
+        $this->putJson("/api/stores/{$store->id}", [
+            'settings' => array_merge($store->settings, ['price_adjustments' => ['tax_percent' => 23]]),
+        ])
+            ->assertConflict()
+            ->assertExactJson(['message' => 'Prices for this store are being recalculated. Try again shortly.']);
+
+        $this->assertTrue($store->fresh()->price_adjustments->isEmpty());
+
+        $this->putJson("/api/stores/{$store->id}", ['name' => 'Renamed'])->assertSuccessful();
+        $this->assertSame('Renamed', $store->fresh()->name);
+    }
 }

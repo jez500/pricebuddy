@@ -236,19 +236,35 @@ apply to before saving:
 The recalculation runs in the background, in batches, so the queue worker must be
 running. It uses the settings you saved, sends no alerts, and leaves alone prices saved
 after it started, which already use those settings. Then it rebuilds the cached prices
-and insights of the products involved. Changing the price adjustments again, with any
-choice, stops a recalculation that is still running, and starting another one replaces
-it, so the latest settings always win. If a recalculation stops with an error (it is
-logged), each product's cached prices catch up at its next scheduled price check.
+and insights of the products involved. If it stops with an error (it is logged), each
+product's cached prices catch up at its next scheduled price check.
+
+After saving, a notice says roughly how long it takes, if nothing else is queued ahead of
+it. A product checked every hour for a year has about 8,760 prices. Measured on a machine
+limited to 2 CPU cores, with MySQL 5.7 and the database queue (slower hardware takes
+longer):
+
+| Products | Saved prices | Time |
+| --- | --- | --- |
+| 1 | 2,000 | 0.8 s |
+| 1 | 6,200 | 1.3 s |
+| 1 | 10,000 | 1.9 s |
+| 10 | 87,600 | 14 s |
+
+While a recalculation is under way, the store's price adjustments and shipping strategy
+cannot be changed. Saving them shows how long it has been running and keeps what you
+typed, so you can save again a moment later. Other store settings save as usual. After
+10 minutes with no progress, the notice asks whether the queue worker is running, and
+after 30 minutes the recalculation is taken as abandoned: saving goes ahead, and a new
+one can start.
 
 To recalculate later, use **Recalculate prices** at the top of the store page. It works
 out saved prices again with the saved settings, for all past prices or since a date.
 Use it if a recalculation stopped with an error, or after changing settings with "New
-prices only". If one is still under way, the dialog says so: the new one replaces it,
-so choose a range that covers both.
+prices only". It cannot start while another one is under way.
 
-Changing a store's price adjustments through the API applies them to new prices only,
-and also stops a recalculation that is still running.
+Changing a store's price adjustments through the API applies them to new prices only.
+While a recalculation is under way, the change is refused with `409 Conflict`.
 
 ### Shipping strategy
 
