@@ -235,14 +235,17 @@ apply to before saving:
 
 The recalculation runs in the background, in batches, so the queue worker must be
 running. It uses the settings you saved, sends no alerts, and leaves alone prices saved
-after it started, which already use those settings. Changing the price adjustments
-again, with any choice, stops a recalculation that is still running, and starting
-another one replaces it, so the latest settings always win.
+after it started, which already use those settings. Then it rebuilds the cached prices
+and insights of the products involved. Changing the price adjustments again, with any
+choice, stops a recalculation that is still running, and starting another one replaces
+it, so the latest settings always win. If a recalculation stops with an error (it is
+logged), each product's cached prices catch up at its next scheduled price check.
 
 To recalculate later, use **Recalculate prices** at the top of the store page. It works
 out saved prices again with the saved settings, for all past prices or since a date.
-Use it if a recalculation stopped with an error (it is logged), or after changing
-settings with "New prices only".
+Use it if a recalculation stopped with an error, or after changing settings with "New
+prices only". If one is still under way, the dialog says so: the new one replaces it,
+so choose a range that covers both.
 
 Changing a store's price adjustments through the API applies them to new prices only,
 and also stops a recalculation that is still running.

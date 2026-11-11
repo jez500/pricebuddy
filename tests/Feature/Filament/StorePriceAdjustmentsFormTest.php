@@ -6,6 +6,7 @@ use App\Filament\Resources\StoreResource\Pages\EditStore;
 use App\Filament\Resources\StoreResource\Pages\ListStores;
 use App\Jobs\RecalculateStorePrices;
 use App\Models\Store;
+use App\Models\Url;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -164,15 +165,34 @@ class StorePriceAdjustmentsFormTest extends TestCase
 
     public function test_new_prices_only_stops_a_running_recalculation(): void
     {
-        Store::query()->whereKey($this->store->id)->update(['price_recalculation_run' => 'older-run']);
+        $url = Url::factory()->for($this->store)->create();
+        $price = $url->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $this->store->id]);
+        $this->store->update(['settings' => array_merge($this->store->settings, ['price_adjustments' => ['tax_percent' => 23]])]);
+        $this->store->queuePriceRecalculation();
+        $run = Queue::pushed(RecalculateStorePrices::class)->first();
 
-        $this->editStore(['settings.price_adjustments.tax_percent' => 23, 'price_adjustments_apply' => 'new'])
+        $this->editStore(['settings.price_adjustments.tax_percent' => 10, 'price_adjustments_apply' => 'new'])
             ->call('save')
             ->assertHasNoFormErrors();
 
-        $this->assertSame(23.0, $this->store->fresh()->price_adjustments->taxPercent);
+        $run->handle();
+
+        $this->assertSame(100.0, (float) $price->fresh()->price);
         $this->assertNull($this->store->fresh()->price_recalculation_run);
-        Queue::assertNothingPushed();
+        Queue::assertPushed(RecalculateStorePrices::class, 1);
+    }
+
+    public function test_the_recalculate_dialog_says_when_a_run_is_under_way(): void
+    {
+        Livewire::test(EditStore::class, ['record' => $this->store->getKey()])
+            ->mountAction('recalculatePrices')
+            ->assertDontSee('A recalculation is still under way');
+
+        Store::query()->whereKey($this->store->id)->update(['price_recalculation_run' => 'running']);
+
+        Livewire::test(EditStore::class, ['record' => $this->store->getKey()])
+            ->mountAction('recalculatePrices')
+            ->assertSee('A recalculation is still under way: this one replaces it, so choose a range that covers both.');
     }
 
     public function test_the_recalculate_button_starts_a_run_with_the_chosen_scope(): void

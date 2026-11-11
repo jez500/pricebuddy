@@ -86,15 +86,6 @@ class Store extends Model
             $store->user_id ??= auth()->id() ?? self::defaultCreatorId();
         });
 
-        // Changed price adjustments stop a recalculation that is still running, whichever
-        // way they were saved: its remaining batches would use settings that no longer
-        // apply, and could overwrite prices already worked out with the new ones.
-        static::updating(function (Store $store) {
-            if ($store->priceAdjustmentsChanged()) {
-                $store->price_recalculation_run = null;
-            }
-        });
-
         static::deleted(function (Store $store) {
             // Get all products before deleting URLs (since products() relationship uses URLs).
             $products = Product::whereIn('id', function ($query) use ($store) {
@@ -342,26 +333,13 @@ class Store extends Model
     }
 
     /**
-     * Whether the saved price adjustments differ from the ones being saved, in a way that
-     * changes how prices are worked out.
-     */
-    public function priceAdjustmentsChanged(): bool
-    {
-        /** @var ?StoreScraperStrategySetDto $originalStrategy */
-        $originalStrategy = $this->getOriginal('scrape_strategy');
-
-        return PriceAdjustmentsDto::fromArray(data_get($this->getOriginal('settings'), 'price_adjustments'))->toArray() !== $this->price_adjustments->toArray()
-            || filled($originalStrategy?->shipping?->value) !== $this->hasShippingStrategy();
-    }
-
-    /**
      * Recalculate saved prices in the background, in batches, with the store's price
-     * adjustments: from a date (midnight) or from the start. Only prices saved before this
-     * call are touched, since later ones already use these settings.
+     * adjustments as they are now: from a date (midnight) or from the start.
      *
-     * The store records the run as its current one, in the database. A run that is no
-     * longer current stops at its next batch: starting another run replaces it, and so
-     * does changing the price adjustments.
+     * The store records the run as its current one, in the database, and the run carries
+     * the settings it started with. Starting another run replaces it. If the settings
+     * change while it runs, it stops recalculating, rebuilds the caches of the products
+     * it changed, and ends.
      */
     public function queuePriceRecalculation(?CarbonInterface $since = null): void
     {
@@ -373,9 +351,37 @@ class Store extends Model
         RecalculateStorePrices::dispatch(
             storeId: $this->getKey(),
             runId: $runId,
-            upToId: (int) Price::query()->where('store_id', $this->getKey())->max('id'),
+            settings: $this->price_adjustments->toArray(),
+            readsPageShipping: $this->hasShippingStrategy(),
             since: $since?->toDateTimeString(),
         )->afterCommit();
+    }
+
+    /**
+     * Whether a background recalculation of this store's prices is under way.
+     */
+    public function isRecalculatingPrices(): bool
+    {
+        return static::query()->whereKey($this->getKey())->whereNotNull('price_recalculation_run')->exists();
+    }
+
+    /**
+     * Whether these are the store's price adjustments now, as a run carries them.
+     *
+     * @param  array<string, mixed>  $settings
+     */
+    public function usesPriceAdjustments(array $settings, bool $readsPageShipping): bool
+    {
+        return PriceAdjustmentsDto::fromArray($settings)->toArray() === $this->price_adjustments->toArray()
+            && $readsPageShipping === $this->hasShippingStrategy();
+    }
+
+    /**
+     * End a run, if it is still the store's current one.
+     */
+    public static function endPriceRecalculation(int $storeId, string $runId): void
+    {
+        static::query()->whereKey($storeId)->where('price_recalculation_run', $runId)->update(['price_recalculation_run' => null]);
     }
 
     /**

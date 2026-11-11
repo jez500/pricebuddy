@@ -500,7 +500,9 @@ class Url extends Model
         $priceFactor = $this->price_factor ?: 1;
 
         // The price saved is the price the user pays, so alerts, history and insights
-        // all use it. The page price is kept beside it.
+        // all use it. The page price is kept beside it. The store is read again: a scrape
+        // takes seconds, and its price adjustments may have changed meanwhile.
+        $this->load('store');
         $adjusted = $this->store?->adjustPrice($priceFloat, $this->getPageShipping($scrapeResult), (bool) $this->ignore_shipping);
         $finalPrice = $adjusted->total ?? $priceFloat;
 

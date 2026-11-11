@@ -254,7 +254,15 @@ class EditStore extends EditRecord
             ->color('gray')
             ->icon('heroicon-o-calculator')
             ->modalHeading('Recalculate prices')
-            ->modalDescription('Work out saved prices from this store again, from their page price, with the saved price adjustments. Save any changes first.')
+            ->modalDescription(function (): string {
+                /** @var Store $store */
+                $store = $this->getRecord();
+
+                return 'Work out saved prices from this store again, from their page price, with the saved price adjustments. Save any changes first.'
+                    .($store->isRecalculatingPrices()
+                        ? ' A recalculation is still under way: this one replaces it, so choose a range that covers both.'
+                        : '');
+            })
             ->modalSubmitActionLabel('Recalculate')
             ->form(StoreResource::pastPricesFormFields())
             ->action(function (array $data): void {
