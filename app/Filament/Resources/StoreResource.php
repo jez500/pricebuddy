@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Dto\PriceAdjustmentsDto;
 use App\Enums\AiFeature;
 use App\Enums\Icons;
 use App\Enums\ScraperService;
@@ -20,9 +21,12 @@ use App\Services\Helpers\IntegrationHelper;
 use Filament\Forms;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action as FormAction;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\View;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
@@ -131,6 +135,10 @@ class StoreResource extends Resource
                             ->hidden(fn (Get $get): bool => $get('availability.type') === ScraperStrategyType::SchemaOrg->value),
                     ])->description('Optional: a selector that matches product availability.')
                         ->collapsed(fn (Get $get): bool => ($get('availability.value') ?? '') === ''),
+                    Section::make('Shipping strategy')->schema([
+                        Forms\Components\Group::make(self::makeStrategyInput('shipping', required: false, allowSchemaOrg: false))->columns(2),
+                    ])->description('Optional: a selector that matches the shipping cost, added by the price adjustments below. A value with no number in it, such as "FREE", is free shipping. When nothing is found, the flat shipping fee is used.')
+                        ->collapsed(fn (Get $get): bool => ($get('shipping.value') ?? '') === ''),
                 ])
                     ->label('Scrape Strategy')
                     ->statePath('scrape_strategy'),
@@ -141,6 +149,8 @@ class StoreResource extends Resource
                     ->description(__('Override region and locale settings for this store'))
                     ->columns(2)
                     ->schema(AppSettingsPage::getLocaleFormFields('settings.locale_settings')),
+
+                self::getPriceAdjustmentsSection(),
 
                 Section::make('Cookies')->schema([
                     TextInput::make('cookies')
@@ -154,6 +164,82 @@ class StoreResource extends Resource
                 ])->description('Additional notes regarding this store and how to scrape its content'),
             ])
             ->columns(1);
+    }
+
+    /**
+     * Turns the page price into the price the user pays: swap the tax the page includes
+     * for the tax the user pays, and add shipping. Saving changed settings can apply them
+     * to past prices too.
+     */
+    protected static function getPriceAdjustmentsSection(): Section
+    {
+        return Section::make('Price adjustments')
+            ->description(__('Optional: save the price you pay instead of the page price, with tax and shipping added. Applies to every user\'s prices from this store.'))
+            ->schema([
+                TextInput::make('settings.price_adjustments.tax_included_percent')
+                    ->label('Page price includes tax (%)')
+                    ->numeric()
+                    ->minValue(0)
+                    ->maxValue(100)
+                    ->placeholder('0')
+                    ->hintIcon(Icons::Help->value, 'The tax already in the price on the page, e.g. 19 on a German store')
+                    ->live(onBlur: true),
+                TextInput::make('settings.price_adjustments.tax_percent')
+                    ->label('Tax you pay (%)')
+                    ->numeric()
+                    ->minValue(0)
+                    ->maxValue(100)
+                    ->placeholder('0')
+                    ->hintIcon(Icons::Help->value, 'The tax you pay at checkout, e.g. 23 with delivery to Portugal. Leave both at 0 when the page shows the tax you pay')
+                    ->live(onBlur: true),
+                TextInput::make('settings.price_adjustments.shipping_cost')
+                    ->label('Flat shipping fee')
+                    ->numeric()
+                    ->minValue(0)
+                    ->placeholder('0')
+                    ->hintIcon(Icons::Help->value, 'In the store currency. Used when there is no shipping strategy, or when it finds nothing')
+                    ->live(onBlur: true),
+                Toggle::make('settings.price_adjustments.tax_on_shipping')
+                    ->label('Apply tax to shipping')
+                    ->helperText('Off: shipping is added as entered. On: shipping gets the same tax adjustment as the page price.')
+                    ->inline(false)
+                    ->live(),
+                Radio::make('price_adjustments_apply')
+                    ->label('Apply the new settings to')
+                    ->options([
+                        'all' => 'All past prices',
+                        'since' => 'Prices since a date',
+                        'new' => 'New prices only',
+                    ])
+                    ->afterStateHydrated(fn (Radio $component, ?string $state) => $component->state($state ?? 'all'))
+                    ->live()
+                    ->dehydrated(false)
+                    ->visible(fn (Get $get, ?Store $record): bool => self::priceAdjustmentsChanged($get, $record))
+                    ->columnSpanFull(),
+                DatePicker::make('price_adjustments_since')
+                    ->label('Since')
+                    ->maxDate(now())
+                    ->required()
+                    ->dehydrated(false)
+                    ->visible(fn (Get $get, ?Store $record): bool => $get('price_adjustments_apply') === 'since'
+                        && self::priceAdjustmentsChanged($get, $record)),
+            ])
+            ->columns(2)
+            ->collapsed(fn (Get $get): bool => PriceAdjustmentsDto::fromArray((array) $get('settings.price_adjustments'))->isEmpty());
+    }
+
+    /**
+     * Whether the form's price adjustments differ from the saved ones, so saving changes
+     * how prices from this store are worked out.
+     */
+    public static function priceAdjustmentsChanged(Get $get, ?Store $record): bool
+    {
+        if (! $record?->exists) {
+            return false;
+        }
+
+        return PriceAdjustmentsDto::fromArray((array) $get('settings.price_adjustments'))->toArray() !== $record->price_adjustments->toArray()
+            || filled($get('scrape_strategy.shipping.value')) !== $record->hasShippingStrategy();
     }
 
     public static function testForm(Form $form, Store $store): Form

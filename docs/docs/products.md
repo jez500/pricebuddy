@@ -43,6 +43,14 @@ PriceBuddy will then show:
 * The unit price as the main comparison
 * The normal retail price underneath
 
+## Prices with tax and shipping
+
+When a store has [price adjustments](/stores.html#price-adjustments), its prices are the
+price you pay, with tax and shipping added, rather than the price on its page. They are
+marked with `*`: hover over or tap the `*` to see what the price is made of. Target
+prices, alerts, history and insights all use the price you pay. With a price factor,
+the unit price includes the tax and shipping too.
+
 ## Check frequency &amp; pausing
 
 By default every product is checked on the global
@@ -102,6 +110,10 @@ the product without having to constantly check the price yourself.
 
 Unavailable items do not trigger price alerts until they have a valid current
 price again.
+
+When the store has [price adjustments](/stores.html#price-adjustments), the alert
+compares the price you pay with your target, and a second line shows what that price
+is made of, such as `(page €324.80 + €10.92 tax + €7.65 shipping)`.
 
 Notifications require the following settings:
 

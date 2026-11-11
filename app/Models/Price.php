@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Dto\AdjustedPriceDto;
 use App\Events\PriceCreatedEvent;
 use Carbon\Carbon;
 use Database\Factories\UrlFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +19,9 @@ use Illuminate\Database\Eloquent\Relations\HasOneThrough;
  * @property ?float $price
  * @property ?float $unit_price
  * @property float $price_factor
+ * @property ?float $scraped_price
+ * @property ?array $price_adjustments
+ * @property ?AdjustedPriceDto $adjusted_price
  * @property Carbon $created_at
  */
 class Price extends Model
@@ -29,6 +34,7 @@ class Price extends Model
     protected $casts = [
         'created_at' => 'datetime',
         'notified' => 'boolean',
+        'price_adjustments' => 'array',
     ];
 
     public static function booted(): void
@@ -39,6 +45,34 @@ class Price extends Model
             // Dispatch event.
             PriceCreatedEvent::dispatch($price);
         });
+    }
+
+    /***************************************************
+     * Attributes.
+     **************************************************/
+
+    /**
+     * The parts that add up to this price, when the store adjusted the page price.
+     */
+    public function adjustedPrice(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): ?AdjustedPriceDto => AdjustedPriceDto::fromStorage(
+                $this->price_adjustments,
+                (float) ($this->scraped_price ?? $this->price),
+                (float) $this->price,
+            ),
+        )->withoutObjectCaching(); // a recalculation changes the columns under it
+    }
+
+    /**
+     * The shipping read from the store's page for this price, if any.
+     */
+    public function getPageShipping(): ?float
+    {
+        $adjusted = $this->adjusted_price;
+
+        return $adjusted?->shippingFromPage ? $adjusted->shipping : null;
     }
 
     /***************************************************

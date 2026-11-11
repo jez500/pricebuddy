@@ -3,10 +3,13 @@
 namespace App\Models;
 
 use App\Casts\StoreScraperStrategySetCast;
+use App\Dto\AdjustedPriceDto;
+use App\Dto\PriceAdjustmentsDto;
 use App\Dto\StoreScraperStrategySetDto;
 use App\Enums\Role;
 use App\Enums\ScraperService;
 use App\Services\Helpers\CurrencyHelper;
+use Carbon\CarbonInterface;
 use Database\Factories\StoreFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -36,6 +39,7 @@ use Spatie\Sluggable\SlugOptions;
  * @property string|null $ai_provider_id
  * @property bool $ai_self_healing_disabled
  * @property bool $missing_price_out_of_stock
+ * @property PriceAdjustmentsDto $price_adjustments
  * @property string $locale
  * @property string $currency
  * @property Collection $urls
@@ -237,6 +241,13 @@ class Store extends Model
         );
     }
 
+    public function priceAdjustments(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): PriceAdjustmentsDto => PriceAdjustmentsDto::fromArray(data_get($this->settings, 'price_adjustments')),
+        )->withoutObjectCaching(); // `settings` changes under it
+    }
+
     public function scraperOptions(): Attribute
     {
         return Attribute::make(
@@ -283,6 +294,78 @@ class Store extends Model
         return collect($this->domains)
             ->pluck('domain')
             ->contains($domain);
+    }
+
+    public function hasShippingStrategy(): bool
+    {
+        return filled($this->scrape_strategy->shipping?->value);
+    }
+
+    /**
+     * Whether prices from this store are adjusted before they are saved: tax, a flat
+     * shipping fee, or shipping read from the page.
+     */
+    public function hasPriceAdjustments(): bool
+    {
+        return ! $this->price_adjustments->isEmpty() || $this->hasShippingStrategy();
+    }
+
+    /**
+     * The price the user pays for a page price, or null when the store adjusts nothing.
+     * Shipping read from the page only counts while the store has a shipping strategy.
+     */
+    public function adjustPrice(float $pagePrice, ?float $pageShipping = null): ?AdjustedPriceDto
+    {
+        if ($pagePrice <= 0 || ! $this->hasPriceAdjustments()) {
+            return null;
+        }
+
+        return $this->price_adjustments->apply($pagePrice, $this->hasShippingStrategy() ? $pageShipping : null);
+    }
+
+    /**
+     * Recalculate saved prices with the store's current adjustments, from their page
+     * price. Shipping read from the page is kept while the store still has a shipping
+     * strategy, since a past page cannot be read again. Returns how many prices were
+     * recalculated.
+     */
+    public function recalculatePrices(?CarbonInterface $since = null): int
+    {
+        $count = 0;
+        $productIds = [];
+
+        Price::query()
+            ->where('store_id', $this->getKey())
+            ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
+            ->with('url:id,product_id')
+            ->chunkById(500, function (Collection $prices) use (&$count, &$productIds): void {
+                /** @var Price $price */
+                foreach ($prices as $price) {
+                    $pagePrice = (float) ($price->scraped_price ?? $price->price);
+                    $previous = $price->adjusted_price;
+                    $adjusted = $this->adjustPrice($pagePrice, $previous?->shippingFromPage ? $previous->shipping : null);
+                    $total = $adjusted->total ?? $pagePrice;
+
+                    $price->forceFill([
+                        'price' => $total,
+                        'unit_price' => $total / ($price->price_factor ?: 1),
+                        'scraped_price' => $pagePrice,
+                        'price_adjustments' => $adjusted?->toStorageArray(),
+                    ])->saveQuietly();
+
+                    $count++;
+                    $productIds[] = $price->url?->product_id;
+                }
+            });
+
+        Product::query()
+            ->whereIn('id', array_unique(array_filter($productIds)))
+            ->each(function (Product $product): void {
+                $product->updatePriceCache();
+                $product->updateInsightsCache();
+            });
+
+        return $count;
     }
 
     public function getAiHealFailedAt(): ?Carbon

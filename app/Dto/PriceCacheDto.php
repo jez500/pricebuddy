@@ -43,6 +43,12 @@ class PriceCacheDto
 
     private StockStatus $stockStatus;
 
+    /** @var array{page: float, tax: float, shipping: float}|null */
+    private ?array $priceBreakdown;
+
+    /**
+     * @param  array{page: float, tax: float, shipping: float}|null  $priceBreakdown  set when the store adjusted the page price
+     */
     public function __construct(
         float $price,
         ?int $storeId = null,
@@ -58,6 +64,7 @@ class PriceCacheDto
         float $priceFactor = 1,
         ?string $unitOfMeasure = self::DEFAULT_UNIT_OF_MEASURE,
         StockStatus|string|null $availability = null,
+        ?array $priceBreakdown = null,
     ) {
         $this->storeId = $storeId;
         $this->storeName = $storeName;
@@ -75,6 +82,7 @@ class PriceCacheDto
         $this->stockStatus = $availability instanceof StockStatus
             ? $availability
             : StockStatus::fromScrapedValue($availability);
+        $this->priceBreakdown = $priceBreakdown;
     }
 
     // Getters
@@ -156,6 +164,24 @@ class PriceCacheDto
     public function hasPriceFactor(): bool
     {
         return $this->getPriceFactor() > 1;
+    }
+
+    /**
+     * "€324.80 + €10.92 tax + €7.65 shipping", or null when the price is the page price.
+     */
+    public function getPriceBreakdownText(): ?string
+    {
+        if ($this->priceBreakdown === null) {
+            return null;
+        }
+
+        return AdjustedPriceDto::describeParts(
+            (float) ($this->priceBreakdown['page'] ?? 0),
+            (float) ($this->priceBreakdown['tax'] ?? 0),
+            (float) ($this->priceBreakdown['shipping'] ?? 0),
+            $this->locale,
+            $this->currency,
+        );
     }
 
     public function hasPriceHistory(): bool
@@ -268,6 +294,7 @@ class PriceCacheDto
             $data['price_factor'] ?? 1,
             $data['unit_of_measure'] ?? null,
             $data['availability'] ?? null,
+            $data['price_breakdown'] ?? null,
         );
     }
 
@@ -295,6 +322,7 @@ class PriceCacheDto
             'currency' => $this->currency,
             'unit_of_measure' => $this->getUnitOfMeasure(),
             'availability' => $this->stockStatus === StockStatus::InStock ? null : $this->stockStatus->value,
+            'price_breakdown' => $this->priceBreakdown,
         ];
     }
 }

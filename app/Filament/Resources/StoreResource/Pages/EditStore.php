@@ -5,6 +5,7 @@ namespace App\Filament\Resources\StoreResource\Pages;
 use App\Enums\ScraperService;
 use App\Exceptions\AiProviderException;
 use App\Filament\Resources\StoreResource;
+use App\Jobs\RecalculateStorePrices;
 use App\Models\Store;
 use App\Services\AiConfigHealer;
 use App\Services\AiExtractionService;
@@ -34,6 +35,58 @@ class EditStore extends EditRecord
 
     /** @var array<string, mixed>|null */
     public ?array $healPreview = null;
+
+    /**
+     * The store's price adjustments before this save, to tell whether saving changed them.
+     *
+     * @var array<int, mixed>|null
+     */
+    protected ?array $priceAdjustmentsBeforeSave = null;
+
+    protected function beforeSave(): void
+    {
+        $this->priceAdjustmentsBeforeSave = $this->getPriceAdjustmentsState();
+    }
+
+    /**
+     * Changed price adjustments apply to new prices. Unless "New prices only" was chosen,
+     * past prices are recalculated too, in the background.
+     */
+    protected function afterSave(): void
+    {
+        if ($this->getPriceAdjustmentsState() === $this->priceAdjustmentsBeforeSave) {
+            return;
+        }
+
+        $apply = data_get($this->data, 'price_adjustments_apply') ?? 'all';
+
+        if ($apply === 'new') {
+            return;
+        }
+
+        $since = $apply === 'since' ? data_get($this->data, 'price_adjustments_since') : null;
+
+        // After the save commits, so the job never reads the old settings.
+        RecalculateStorePrices::dispatch($this->getRecord()->getKey(), filled($since) ? (string) $since : null)
+            ->afterCommit();
+
+        Notification::make()
+            ->title('Recalculating past prices')
+            ->body('Prices from this store are being recalculated with the new price adjustments.')
+            ->info()
+            ->send();
+    }
+
+    /**
+     * @return array<int, mixed>
+     */
+    protected function getPriceAdjustmentsState(): array
+    {
+        /** @var Store $store */
+        $store = $this->getRecord();
+
+        return [$store->price_adjustments->toArray(), $store->hasShippingStrategy()];
+    }
 
     public function runScrape(string $url, ?string $scraper = null): void
     {

@@ -18,6 +18,7 @@ class StoreScraperStrategySetDto implements Arrayable, JsonSerializable
         public ?StandardStrategyDto $image = null,
         public ?StandardStrategyDto $description = null,
         public ?AvailabilityStrategyDto $availability = null,
+        public ?StandardStrategyDto $shipping = null,
     ) {}
 
     /**
@@ -33,6 +34,7 @@ class StoreScraperStrategySetDto implements Arrayable, JsonSerializable
             image: StandardStrategyDto::fromArray(self::slot($data, 'image')),
             description: StandardStrategyDto::fromArray(self::slot($data, 'description')),
             availability: AvailabilityStrategyDto::fromArray(self::slot($data, 'availability')),
+            shipping: StandardStrategyDto::fromArray(self::slot($data, 'shipping')),
         );
     }
 
@@ -52,7 +54,7 @@ class StoreScraperStrategySetDto implements Arrayable, JsonSerializable
     {
         $out = [];
 
-        foreach (['title', 'price', 'image', 'description', 'availability'] as $key) {
+        foreach (['title', 'price', 'image', 'description', 'availability', 'shipping'] as $key) {
             if ($this->{$key} !== null) {
                 $out[$key] = $this->{$key}->toArray();
             }

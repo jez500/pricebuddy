@@ -91,6 +91,7 @@ class ScrapeUrl
         'price',
         'image',
         'availability',
+        'shipping',
     ];
 
     public bool $sendUiNotifications = true;

@@ -8,6 +8,7 @@
         'currency' => 'Currency',
         'image' => 'Image',
         'availability' => 'Availability',
+        'shipping' => 'Shipping',
         'description' => 'Description',
     ];
 

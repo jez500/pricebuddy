@@ -68,7 +68,12 @@
                 </div>
             </div>
             <div class="md:text-right">
-                <div class="text-2xl font-extrabold text-gray-900 dark:text-white">{{ $money($insights->bestPrice) }}</div>
+                @php
+                    // The listing behind the best price, to mark it when its store adjusts the page price.
+                    $bestCache = $record->getPriceCache()->first(fn (\App\Dto\PriceCacheDto $cache): bool => $cache->getStoreName() === $insights->bestStore
+                        && abs($cache->getPrice() - (float) $insights->bestPrice) < 0.005);
+                @endphp
+                <div class="text-2xl font-extrabold text-gray-900 dark:text-white">{{ $money($insights->bestPrice) }}<x-price-breakdown-marker :text="$bestCache?->getPriceBreakdownText()" /></div>
                 <div class="text-sm text-gray-500 dark:text-gray-400">{{ __('best at :store', ['store' => $insights->bestStore ?? '—']) }}</div>
                 @if ($score->verdictKey !== 'unknown')
                     <span class="inline-block mt-2 text-xs font-bold px-2.5 py-1 rounded-full"

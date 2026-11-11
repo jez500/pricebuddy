@@ -42,7 +42,30 @@ class CreateStoreRequest extends FormRequest
             'settings.locale_settings.locale' => 'nullable|string',
             'settings.locale_settings.currency' => 'nullable|string',
             'notes' => 'nullable|string',
-        ], self::getStrategyRules());
+        ], self::getStrategyRules(), self::getPriceAdjustmentRules());
+    }
+
+    /**
+     * The optional price adjustments and shipping strategy, shared with UpdateStoreRequest.
+     * A shipping strategy cannot use schema_org.
+     *
+     * @return array<string, mixed>
+     */
+    public static function getPriceAdjustmentRules(): array
+    {
+        $shippingTypes = array_diff(ScraperStrategyType::values(), [ScraperStrategyType::SchemaOrg->value]);
+
+        return [
+            'settings.price_adjustments' => 'sometimes|array',
+            'settings.price_adjustments.tax_included_percent' => 'nullable|numeric|min:0|max:100',
+            'settings.price_adjustments.tax_percent' => 'nullable|numeric|min:0|max:100',
+            'settings.price_adjustments.shipping_cost' => 'nullable|numeric|min:0',
+            'settings.price_adjustments.tax_on_shipping' => 'nullable|boolean',
+            'scrape_strategy.shipping.type' => 'sometimes|in:'.implode(',', $shippingTypes),
+            'scrape_strategy.shipping.value' => [new ScrapeStrategyValue],
+            'scrape_strategy.shipping.prepend' => 'nullable|string',
+            'scrape_strategy.shipping.append' => 'nullable|string',
+        ];
     }
 
     public static function getStrategyRules(): array

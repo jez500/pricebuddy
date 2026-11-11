@@ -358,6 +358,27 @@ identically, so any strategy that meta-extraction accepts can be saved as-is.
 A stored `schema_org` strategy round-trips without a `value` key at all — the API returns
 `{"type": "schema_org"}`, which is valid input to all three endpoints.
 
+### Price adjustments
+
+A store's [price adjustments](/stores.html#price-adjustments) are in
+`settings.price_adjustments`, and its shipping strategy is the optional `shipping` slot of
+`scrape_strategy`:
+
+| Field | Rules |
+| --- | --- |
+| `settings.price_adjustments.tax_included_percent` | Number from 0 to 100 |
+| `settings.price_adjustments.tax_percent` | Number from 0 to 100 |
+| `settings.price_adjustments.shipping_cost` | Number, 0 or more, in the store's currency |
+| `settings.price_adjustments.tax_on_shipping` | Boolean |
+| `scrape_strategy.shipping.type` | `selector`, `xpath`, `regex` or `json` (not `schema_org`) |
+
+`POST /api/stores` and `PUT /api/stores/{id}` accept them. A change made through the API
+applies to new prices only: saved prices are not recalculated.
+
+Each price is the price you pay. In a product's `price_cache`, an entry from a store with
+adjustments has a `price_breakdown` of `{"page": …, "tax": …, "shipping": …}`, the parts
+that add up to its price. It is `null` when the price is the page price.
+
 ### Currency & locale
 
 Every store in `GET /api/stores` and `GET /api/stores/{id}` carries a `currency` (ISO 4217, e.g.

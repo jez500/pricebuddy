@@ -33,7 +33,7 @@
                         @if ($latestPrice)
                             @if ($latestPrice->hasVisiblePrice())
                                 <span class="text-3xl font-semibold leading-none">
-                                    {{ $latestPrice->getUnitPriceFormatted() }}
+                                    {{ $latestPrice->getUnitPriceFormatted() }}<x-price-breakdown-marker :text="$latestPrice->getPriceBreakdownText()" />
                                 </span>
 
                             @else

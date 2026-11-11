@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Dto\PriceAdjustmentsDto;
 use App\Enums\StockStatus;
 use App\Events\AvailabilityChangedEvent;
 use App\Services\AiConfigHealer;
@@ -20,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Uri;
 
@@ -493,12 +495,48 @@ class Url extends Model
 
         $priceFactor = $this->price_factor ?: 1;
 
+        // The price saved is the price the user pays, so alerts, history and insights
+        // all use it. The page price is kept beside it.
+        $adjusted = $this->store?->adjustPrice($priceFloat, $this->getPageShipping($scrapeResult));
+        $finalPrice = $adjusted->total ?? $priceFloat;
+
         return $this->prices()->create([
-            'price' => $priceFloat,
-            'unit_price' => $priceFloat / $priceFactor,
+            'price' => $finalPrice,
+            'scraped_price' => $priceFloat,
+            'unit_price' => $finalPrice / $priceFactor,
             'price_factor' => $priceFactor,
+            'price_adjustments' => $adjusted?->toStorageArray(),
             'store_id' => $this->store_id,
         ]);
+    }
+
+    /**
+     * The shipping the store's shipping strategy read from the page. Null when the store
+     * has no shipping strategy or there is no scrape to read, and when the strategy found
+     * nothing: the flat shipping fee is used instead, with a warning in the log.
+     *
+     * @param  array<string, mixed>|null  $scrapeResult
+     */
+    protected function getPageShipping(?array $scrapeResult): ?float
+    {
+        $store = $this->store;
+
+        if ($scrapeResult === null || ! $store?->hasShippingStrategy()) {
+            return null;
+        }
+
+        $scraped = data_get($scrapeResult, 'shipping');
+        $shipping = PriceAdjustmentsDto::parseShipping(is_scalar($scraped) ? (string) $scraped : null, $store->locale, $store->currency);
+
+        if ($shipping === null) {
+            // @phpstan-ignore-next-line - withContext is valid.
+            Log::channel('db')->withContext(['url' => $this->url])->warning(
+                'Shipping not found on the page, used the flat shipping fee',
+                ['store_id' => $store->getKey(), 'scraped_shipping' => $scraped],
+            );
+        }
+
+        return $shipping;
     }
 
     public function syncStoredPricesForCurrentFactor(): void
