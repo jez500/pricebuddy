@@ -24,9 +24,21 @@ class StockAlertNotification extends Notification
 {
     protected ?Product $product;
 
+    protected bool $isTest = false;
+
     public function __construct(protected Url $url)
     {
         $this->product = $url->product;
+    }
+
+    /**
+     * Mark as a test so the title makes it clear the stock status did not change.
+     */
+    public function asTest(): static
+    {
+        $this->isTest = true;
+
+        return $this;
     }
 
     /**
@@ -122,7 +134,7 @@ class StockAlertNotification extends Notification
 
     protected function getTitle(): string
     {
-        return 'Back in stock: '.$this->url->product_name_short;
+        return ($this->isTest ? 'Test: ' : '').'Back in stock: '.$this->url->product_name_short;
     }
 
     protected function getSummary(): string

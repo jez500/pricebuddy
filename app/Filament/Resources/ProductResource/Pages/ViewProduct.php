@@ -42,6 +42,7 @@ class ViewProduct extends ViewRecord
         return [
             ProductResource\Actions\AddUrlAction::make(),
             ProductResource\Actions\FetchAction::make(),
+            ProductResource\Actions\TestNotificationAction::make(),
             BaseAction::make('edit_product')->icon(Icons::Edit->value)
                 ->label(__('Edit'))
                 ->resourceName('product')
