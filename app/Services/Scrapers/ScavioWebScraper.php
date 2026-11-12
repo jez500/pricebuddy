@@ -59,7 +59,8 @@ class ScavioWebScraper extends AbstractWebScraper
         parent::__construct();
 
         // Product lookups take longer than a plain page fetch.
-        $this->scraperRequestTimeout = (int) config('services.scavio.timeout', 90);
+        $timeout = (int) config('services.scavio.timeout', 90);
+        $this->scraperRequestTimeout = $timeout > 0 ? $timeout : 90;
     }
 
     public static function isConfigured(): bool

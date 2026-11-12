@@ -106,6 +106,29 @@ class StoreSelfHealUiTest extends TestCase
         $this->assertSame('http', data_get($store->fresh()->settings, 'scraper_service'));
     }
 
+    public function test_preview_self_heal_is_refused_for_scavio_stores(): void
+    {
+        $store = Store::factory()->create(['settings' => ['scraper_service' => 'scavio']]);
+
+        $this->mock(AiConfigHealer::class, fn ($m) => $m->shouldNotReceive('previewForUrl'));
+
+        Livewire::test(EditStore::class, ['record' => $store->getKey()])
+            ->call('previewSelfHeal', 'https://www.amazon.com/dp/B0DYB9TNB4')
+            ->assertNotified()
+            ->assertSet('healPreview', null);
+    }
+
+    public function test_apply_self_heal_keeps_a_scavio_store_unchanged(): void
+    {
+        $store = Store::factory()->create(['settings' => ['scraper_service' => 'scavio']]);
+
+        Livewire::test(EditStore::class, ['record' => $store->getKey()])
+            ->set('healPreview', $this->preview())
+            ->call('applySelfHeal')
+            ->assertSet('data.settings.scraper_service', 'scavio')
+            ->assertSet('healPreview', null);
+    }
+
     public function test_discard_self_heal_clears_preview(): void
     {
         $store = Store::factory()->create();

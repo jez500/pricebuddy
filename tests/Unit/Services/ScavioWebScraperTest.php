@@ -226,4 +226,13 @@ class ScavioWebScraperTest extends TestCase
 
         $this->assertSame(120, (new ScavioWebScraper)->from(self::AMAZON_URL)->getRequestTimeout());
     }
+
+    public function test_an_invalid_timeout_falls_back_to_the_default(): void
+    {
+        foreach ([0, -5, 'soon'] as $timeout) {
+            config(['services.scavio.timeout' => $timeout]);
+
+            $this->assertSame(90, (new ScavioWebScraper)->getRequestTimeout());
+        }
+    }
 }

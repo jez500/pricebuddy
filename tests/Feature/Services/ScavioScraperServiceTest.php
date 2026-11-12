@@ -4,7 +4,10 @@ namespace Tests\Feature\Services;
 
 use App\Enums\ScraperService;
 use App\Enums\StockStatus;
+use App\Models\Product;
 use App\Models\Store;
+use App\Models\Url;
+use App\Services\Scrapers\ScavioWebScraper;
 use App\Services\ScrapeUrl;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -30,7 +33,7 @@ class ScavioScraperServiceTest extends TestCase
         return json_decode((string) file_get_contents(base_path('tests/Fixtures/Scavio/'.$name.'.json')), true);
     }
 
-    protected function scavioStore(array $strategy = []): Store
+    protected function scavioStore(array $strategy = [], array $settings = []): Store
     {
         return Store::factory()->create([
             'domains' => [['domain' => 'amazon.com'], ['domain' => 'www.amazon.com']],
@@ -40,7 +43,7 @@ class ScavioScraperServiceTest extends TestCase
                 'image' => ['type' => 'schema_org', 'value' => null],
                 'availability' => ['type' => 'schema_org', 'value' => null],
             ], $strategy),
-            'settings' => ['scraper_service' => ScraperService::Scavio->value],
+            'settings' => array_merge(['scraper_service' => ScraperService::Scavio->value], $settings),
         ]);
     }
 
@@ -52,11 +55,37 @@ class ScavioScraperServiceTest extends TestCase
         $scrape = ScrapeUrl::new(self::AMAZON_URL)->scrape();
 
         $this->assertSame('Lexar 1TB PLAY PRO micro SD Express Card, 900MB/s Read, 4K, V30, UHS-I', $scrape['title']);
-        $this->assertSame('429.99', $scrape['price']);
+        $this->assertSame(429.99, $scrape['price']);
         $this->assertSame('https://m.media-amazon.com/images/I/61z50jYMXkL._AC_SL1500_.jpg', $scrape['image']);
         $this->assertSame(StockStatus::InStock, ScrapeUrl::resolveStockStatus($scrape, $store->scrape_strategy->availability));
         Http::assertSentCount(1);
         Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'amazon.com/dp'));
+    }
+
+    public function test_price_is_saved_as_returned_in_a_comma_decimal_locale(): void
+    {
+        $store = $this->scavioStore([], ['locale_settings' => ['locale' => 'de_DE', 'currency' => 'EUR']]);
+        Http::fake(['api.scavio.dev/*' => Http::response($this->fixture('amazon-product'))]);
+        $url = Url::factory()->createOne([
+            'url' => self::AMAZON_URL,
+            'product_id' => Product::factory()->create()->id,
+            'store_id' => $store->id,
+        ]);
+
+        $price = $url->updatePrice();
+
+        $this->assertEquals(429.99, $price->price);
+    }
+
+    public function test_scrape_url_keeps_the_scavio_request_timeout(): void
+    {
+        config(['services.scavio.timeout' => 120]);
+
+        $scrapeUrl = ScrapeUrl::new(self::AMAZON_URL)->setRequestTimeout(30)->setScraper(ScraperService::Scavio->value);
+        $scraper = (fn () => $this->webScraper)->call($scrapeUrl);
+
+        $this->assertInstanceOf(ScavioWebScraper::class, $scraper);
+        $this->assertSame(120, $scraper->getRequestTimeout());
     }
 
     public function test_json_strategies_read_the_raw_response(): void
@@ -66,7 +95,7 @@ class ScavioScraperServiceTest extends TestCase
 
         $scrape = ScrapeUrl::new(self::AMAZON_URL)->scrape();
 
-        $this->assertSame('429.99', $scrape['price']);
+        $this->assertSame(429.99, $scrape['price']);
     }
 
     public function test_unavailable_product_is_out_of_stock_not_an_error(): void
