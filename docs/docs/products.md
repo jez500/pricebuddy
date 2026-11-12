@@ -126,6 +126,20 @@ A notification method configured, eg email smtp settings.
 
 The user has enabled notification methods they want.
 
+#### Testing your notification setup
+
+Use the **Test notification** button in the header of a product page to check that
+alerts actually reach you, without waiting for a real price change. Choose a price
+alert or a back-in-stock alert and PriceBuddy sends a sample (titled "Test: ...")
+for that product to you through every notification method that is enabled globally
+and in your account settings.
+
+The result lists the methods the test was sent through. If a method fails (for
+example an SMTP host that is not configured), the error it returned is shown so you
+can fix the settings. If nothing is sent, no notification method is enabled for you.
+The test does not change any prices or stock status, and is not added to the
+notification history.
+
 #### Notification history
 
 Every alert that gets sent (price drops, target prices, back-in-stock and scrape

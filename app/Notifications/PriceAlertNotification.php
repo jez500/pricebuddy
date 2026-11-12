@@ -24,6 +24,8 @@ class PriceAlertNotification extends Notification
 
     protected ?Product $product;
 
+    protected bool $isTest = false;
+
     /**
      * Create a new notification instance.
      *
@@ -33,6 +35,16 @@ class PriceAlertNotification extends Notification
     public function __construct(protected Url $url, protected ?float $previousPrice = null, protected ?Price $price = null)
     {
         $this->product = $url->product;
+    }
+
+    /**
+     * Mark as a test so the title makes it clear no real price change happened.
+     */
+    public function asTest(): static
+    {
+        $this->isTest = true;
+
+        return $this;
     }
 
     /**
@@ -144,7 +156,7 @@ class PriceAlertNotification extends Notification
 
     protected function getTitle(): string
     {
-        return 'Price '.$this->getChangeType().': '.$this->url->product_name_short.' ('.$this->getPriceFormatted().')';
+        return ($this->isTest ? 'Test: ' : '').'Price '.$this->getChangeType().': '.$this->url->product_name_short.' ('.$this->getPriceFormatted().')';
     }
 
     protected function getSummary(): string

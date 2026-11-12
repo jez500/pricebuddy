@@ -4,8 +4,10 @@ namespace App\Services\Helpers;
 
 use App\Enums\NotificationMethods;
 use App\Models\User;
+use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
+use Throwable;
 
 class NotificationsHelper
 {
@@ -63,6 +65,35 @@ class NotificationsHelper
         return self::getEnabled()
             ->filter(fn ($service, $serviceName) => self::getUserEnabled($user, $serviceName))
             ->pluck('channel');
+    }
+
+    /**
+     * Send a notification through each external channel the user will really receive alerts on.
+     *
+     * Mirrors the channels used for a real alert (globally enabled and enabled by the user), but
+     * skips the in-app database channel. Each channel is sent separately so one failing does not
+     * stop the rest.
+     *
+     * @return array<string, ?string> Service name => error message, null when sent.
+     */
+    public static function sendTest(User $user, Notification $notification): array
+    {
+        $results = [];
+
+        foreach (self::getEnabled() as $serviceName => $service) {
+            if ($serviceName === NotificationMethods::Database->value || ! self::getUserEnabled($user, $serviceName)) {
+                continue;
+            }
+
+            try {
+                $user->notifyNow($notification, [$service['channel']]);
+                $results[$serviceName] = null;
+            } catch (Throwable $e) {
+                $results[$serviceName] = $e->getMessage();
+            }
+        }
+
+        return $results;
     }
 
     public static function getSettings(string|NotificationMethods $service): array
