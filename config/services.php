@@ -39,4 +39,9 @@ return [
         'token' => env('PUSHOVER_APP_TOKEN'),
     ],
 
+    'scavio' => [
+        'key' => env('SCAVIO_API_KEY'),
+        'timeout' => (int) env('SCAVIO_TIMEOUT', 90),
+    ],
+
 ];

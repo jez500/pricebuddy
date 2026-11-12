@@ -88,7 +88,7 @@ class ProductSourceResource extends Resource
                     ->label('Extraction strategy')
                     ->statePath('extraction_strategy'),
 
-                self::getScraperSettings(),
+                self::getScraperSettings(withScavio: false),
 
                 Forms\Components\Section::make('Notes')->schema([
                     Forms\Components\RichEditor::make('notes')

@@ -225,8 +225,10 @@ class Store extends Model
 
     public function aiSelfHealingDisabled(): Attribute
     {
+        // Healing rewrites selectors for the page HTML, which a Scavio store never reads.
         return Attribute::make(
-            get: fn (): bool => (bool) data_get($this->settings, 'ai_self_healing_disabled', false),
+            get: fn (): bool => (bool) data_get($this->settings, 'ai_self_healing_disabled', false)
+                || $this->scraper_service === ScraperService::Scavio->value,
         );
     }
 

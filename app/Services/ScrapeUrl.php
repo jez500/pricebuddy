@@ -9,6 +9,7 @@ use App\Enums\ScraperStrategyType;
 use App\Enums\StockStatus;
 use App\Models\Store;
 use App\Services\Helpers\SettingsHelper;
+use App\Services\Scrapers\ScavioWebScraper;
 use App\Settings\AppSettings;
 use Exception;
 use Filament\Notifications\Notification;
@@ -133,7 +134,9 @@ class ScrapeUrl
     public function setScraper(string $scraper): self
     {
         $this->scraperService = $scraper;
-        $scraper = WebScraper::make($this->scraperService)
+        $scraper = ($this->scraperService === ScraperService::Scavio->value
+            ? resolve(ScavioWebScraper::class)
+            : WebScraper::make($this->scraperService))
             ->setConnectTimeout($this->getConnectTimeout())
             ->setRequestTimeout($this->getRequestTimeout());
 
@@ -167,6 +170,11 @@ class ScrapeUrl
             if ($output === false) {
                 $attempt = $this->maxAttempts;
                 $output = [];
+            }
+
+            // Every Scavio call is billed, so a failed one is not repeated.
+            if ($this->scraperService === ScraperService::Scavio->value) {
+                break;
             }
 
             if (! empty($output['title'])) {

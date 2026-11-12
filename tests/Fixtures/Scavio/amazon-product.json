@@ -1,0 +1,107 @@
+{
+    "data": {
+        "asin": "B0DYB9TNB4",
+        "title": "Lexar 1TB PLAY PRO micro SD Express Card, 900MB/s Read, 4K, V30, UHS-I",
+        "brand": "Lexar",
+        "url": "https://www.amazon.com/dp/B0DYB9TNB4",
+        "description": "Gear up for Nintendo Switch 2 gaming with next-gen speed. Read speeds up to 900MB/s and write speeds up to 600MB/s cut load times and download waits, so you get to playing faster. Up to 1TB of storage means room for your full AAA library — no swapping cards, no uninstalling. It's backwards-compatible with the original Nintendo Switch and comes backed by a limited lifetime warranty and includes free lifetime access to the Lexar Recovery Tool.",
+        "features": [
+            "ONE CARD FOR NINTENDO SWITCH 2 AND NINTENDO SWITCH: Upgrade your Nintendo Switch 2 without leaving your original Nintendo Switch behind. Get microSD Express performance on Switch 2 and backward-compatibility with the original Switch.",
+            "GET INTO YOUR GAMES FASTER: PCIe-powered microSD Express technology delivers read speeds up to 900MB/s — 4x faster than typical UHS-I cards — so games load faster and get you into the action sooner."
+        ],
+        "price": 429.99,
+        "list_price": null,
+        "currency": "USD",
+        "rating": 4.6,
+        "reviews_count": 1487,
+        "is_prime": true,
+        "is_sponsored": false,
+        "has_buy_box": true,
+        "availability": "Only 3 left in stock - order soon.",
+        "max_quantity": 3,
+        "sold_by": "North To South (Serial Number Recorded)",
+        "other_sellers_count": 3,
+        "sales_volume": "300+ bought in past month",
+        "climate_pledge_friendly": false,
+        "image": "https://m.media-amazon.com/images/I/61z50jYMXkL._AC_SX300_SY300_QL70_FMwebp_.jpg",
+        "images": [
+            "https://m.media-amazon.com/images/I/61z50jYMXkL._AC_SL1500_.jpg",
+            "https://m.media-amazon.com/images/I/71WWpf1fVuL._AC_SL1500_.jpg",
+            "https://m.media-amazon.com/images/I/81czJEGSepL._AC_SL1500_.jpg"
+        ],
+        "videos": [],
+        "best_sellers_rank": [
+            {
+                "category": "Micro SD Memory Cards",
+                "rank": 91
+            }
+        ],
+        "categories": [
+            {
+                "name": "Electronics",
+                "url": "https://www.amazon.com/electronics-store/b/ref=dp_bc_1?ie=UTF8&node=172282",
+                "node": "172282"
+            },
+            {
+                "name": "Computers & Accessories",
+                "url": "https://www.amazon.com/computer-pc-hardware-accessories-add-ons/b/ref=dp_bc_2?ie=UTF8&node=541966",
+                "node": "541966"
+            }
+        ],
+        "specifications": {
+            "ASIN": "B0DYB9TNB4",
+            "Additional Features": "Dust Proof, Lightweight",
+            "Brand": "Lexar",
+            "Color": "Black",
+            "Compatible Devices": "Camera, Gaming Console, Nintendo Switch 1, Nintendo Switch 2, Steam Deck"
+        },
+        "variants": [
+            {
+                "asin": "B0DYBW1MNC",
+                "dimensions": {
+                    "*": "PLAY PRO EXPRESS (900 MB/s)",
+                    "Capacity": "512GB",
+                    "Style": "Memory Card"
+                },
+                "is_selected": false,
+                "is_available": true
+            },
+            {
+                "asin": "B0F8L3Q1PY",
+                "dimensions": {
+                    "*": "MicroSD Express Reader",
+                    "Capacity": "Reader",
+                    "Style": "Card Reader"
+                },
+                "is_selected": false,
+                "is_available": true
+            }
+        ],
+        "shipping": {
+            "is_prime": true,
+            "zipcode": "10001",
+            "options": [
+                {
+                    "type": "free",
+                    "price": 0,
+                    "is_prime": false,
+                    "delivery_date": "Tuesday, November 10",
+                    "order_deadline_hours": null,
+                    "order_deadline_minutes": null
+                },
+                {
+                    "type": "free",
+                    "price": 0,
+                    "is_prime": true,
+                    "delivery_date": "Saturday, November 7",
+                    "order_deadline_hours": 6,
+                    "order_deadline_minutes": 38
+                }
+            ]
+        },
+        "reviews": []
+    },
+    "response_time": 18851,
+    "credits_used": 1,
+    "credits_remaining": 0
+}

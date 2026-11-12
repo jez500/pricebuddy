@@ -47,6 +47,30 @@ class ScraperServiceTest extends TestCase
         $this->assertSame(Color::Pink, ScraperService::Api->getColor());
     }
 
+    public function test_scavio_label_description_and_color()
+    {
+        $this->assertSame('Scavio API', ScraperService::Scavio->getLabel());
+        $this->assertStringContainsString('SCAVIO_API_KEY', ScraperService::Scavio->getDescription());
+        $this->assertSame(Color::Emerald, ScraperService::Scavio->getColor());
+    }
+
+    public function test_options_hide_scavio_until_a_key_is_set()
+    {
+        config(['services.scavio.key' => null]);
+        $this->assertSame(['http', 'api'], array_keys(ScraperService::options()));
+
+        config(['services.scavio.key' => 'test-key']);
+        $this->assertSame(['http', 'api', 'scavio'], array_keys(ScraperService::options()));
+        $this->assertSame('Scavio API', ScraperService::options()['scavio']);
+    }
+
+    public function test_options_can_exclude_scavio()
+    {
+        config(['services.scavio.key' => 'test-key']);
+
+        $this->assertSame(['http', 'api'], array_keys(ScraperService::options(withScavio: false)));
+    }
+
     public function test_all_enum_cases_have_string_values()
     {
         $cases = ScraperService::cases();

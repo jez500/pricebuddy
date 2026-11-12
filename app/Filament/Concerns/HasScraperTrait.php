@@ -54,14 +54,15 @@ trait HasScraperTrait
         ];
     }
 
-    protected static function getScraperSettings(): Section
+    protected static function getScraperSettings(bool $withScavio = true): Section
     {
         return Section::make('Scraper service')->schema([
             Radio::make('settings.scraper_service')
-                ->options(ScraperService::class)
+                ->options(fn (): array => ScraperService::options($withScavio))
                 ->descriptions([
                     ScraperService::Http->value => 'Faster and less resource intensive. Use this for JSON strategy',
                     ScraperService::Api->value => 'Slower but good for scraping JavaScript rendered pages',
+                    ScraperService::Scavio->value => 'Reads Amazon and Walmart products from the Scavio API instead of the page. Each check uses API credits. Use Schema.org strategies',
                 ])
                 ->reactive()
                 ->default(ScraperService::Http),

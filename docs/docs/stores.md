@@ -196,7 +196,8 @@ or other session-based preference before they reveal the real product data.
 ## Scraper service
 
 This is what PriceBuddy uses get the HTML of the product page. There are two
-services available:
+services available, plus an optional third one for some large stores
+([Scavio API](#scavio-api-optional)):
 
 ### Curl based HTTP request (HTTP)
 
@@ -224,6 +225,76 @@ is interchangeable with [Scrapper](https://github.com/amerkurev/scrapper) and wa
 
 If you are using Scrapper, it provides its own web interface for testing and debugging, if you're using
 the default `docker-compose.yml` you can access this at `http://localhost:3000`. 
+
+### Scavio API (optional)
+
+For Amazon and Walmart, PriceBuddy can read the product from the
+[Scavio API](https://scavio.dev) instead of fetching the page. You get the
+listing's own title, price, image and stock status as structured data, so
+there are no selectors to maintain and no prices from related or sponsored
+items picked up by mistake. On Amazon the price is the featured (buy box)
+offer. It is a paid service with free starter credits, and it is off unless
+you add a key.
+
+Supported product URLs:
+
+* **Amazon** product pages (`/dp/<ASIN>`, `/gp/product/<ASIN>`) on these
+  marketplaces: amazon.com, .ca, .com.mx, .com.br, .co.uk, .de, .fr, .it,
+  .es, .nl, .com.be, .se, .pl, .com.tr, .ae, .sa, .eg, .in, .co.jp, .cn,
+  .sg and .com.au. The marketplace is taken from the domain.
+* **Walmart** product pages on walmart.com (`/ip/<name>/<item id>`).
+
+Each check is one API call and uses 1 credit. Answers are cached for the
+scrape cache time like any other scrape, so a repeat check inside that window
+does not call the API again. **Test** on the store page always makes a fresh
+call. A failed check is not repeated straight away (**Max scrape attempts**
+does not apply), but the delayed retries set by **Max scrape attempts (incl.
+retries)** still run, and each of those is a new API call.
+
+To enable it:
+
+1. Get an API key at [scavio.dev](https://scavio.dev) and add it to your `.env`
+   file, then restart PriceBuddy:
+
+   ```dotenv
+   SCAVIO_API_KEY=your-key
+   ```
+
+2. Edit the store (for example **Amazon US**), choose **Scavio API** under
+   **Scraper service**, and set the title, price, image and availability
+   strategies to **Schema.org**. PriceBuddy presents the API response as a
+   schema.org product, so these work for every supported store.
+3. Use **Test** with a product URL to check the result.
+
+The option only appears once `SCAVIO_API_KEY` is set. Without a key nothing
+changes. Optional settings: `SCAVIO_TIMEOUT` (seconds, default 90).
+
+The scraped body is the API's JSON response, so you can also use **JSON Path**
+strategies on any field of it, for example `data.price`, `data.list_price` or
+`data.availability`. A store to import for Walmart (import needs a value for
+title and price, so it uses JSON paths):
+
+```json
+{
+    "name": "Walmart US",
+    "domains": [{"domain": "walmart.com"}, {"domain": "www.walmart.com"}],
+    "scrape_strategy": {
+        "title": {"type": "json", "value": "data.title"},
+        "price": {"type": "json", "value": "data.price"},
+        "image": {"type": "json", "value": "data.image"},
+        "availability": {"type": "schema_org", "value": null}
+    },
+    "settings": {
+        "scraper_service": "scavio",
+        "locale_settings": {"locale": "en_US", "currency": "USD"}
+    }
+}
+```
+
+Stock status: Walmart reports out of stock directly. Amazon returns no price
+when nobody is selling the item, which PriceBuddy records as out of stock.
+AI self-healing does not run on stores that use the Scavio API, since there are
+no page selectors to repair.
 
 ## Auto store creation
 
