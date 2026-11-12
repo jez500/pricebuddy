@@ -42,6 +42,10 @@ A cheap listing is useless if it is out of stock. PriceBuddy tracks in stock, pr
 
 PriceBuddy can calculate price per unit, so a 10-pack and a 3-pack can be compared fairly.
 
+### Compare what you would really pay
+
+Stores can add your tax and their shipping to the price on the page, so a store abroad or one with a delivery fee is compared at its checkout price. Shipping can be a flat fee, free from an amount, or read from the page.
+
 ### Use AI only when it helps
 
 Bring your own OpenAI, Anthropic, Gemini or local Ollama provider. PriceBuddy can use AI to recover missing data from a page or help repair scraping rules. It is optional and off by default.

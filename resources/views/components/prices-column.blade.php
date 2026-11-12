@@ -42,7 +42,11 @@
 
                     <div class="{{ $color }}" @if ($idx > 0) style="{{ Filament\Support\get_color_css_variables(Color::Gray, shades: [300, 500, 400, 600, 800]) }}" @endif>
                         <strong class="text-[1.2em] font-bold">
-                            {{ $cache->hasVisiblePrice() ? $cache->getUnitPriceFormatted() : __('Unavailable') }}
+                            @if ($cache->hasVisiblePrice())
+                                {{ $cache->getUnitPriceFormatted() }}<x-price-breakdown-marker :text="$cache->getPriceBreakdownText()" />
+                            @else
+                                {{ __('Unavailable') }}
+                            @endif
                         </strong>
                         @if ($cache->hasVisiblePrice() && $cache->hasPriceFactor())
                             <span class="text-xs text-inherit">

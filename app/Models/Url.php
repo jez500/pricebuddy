@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Dto\PriceAdjustmentsDto;
 use App\Enums\StockStatus;
 use App\Events\AvailabilityChangedEvent;
 use App\Services\AiConfigHealer;
@@ -11,6 +12,7 @@ use App\Services\Helpers\AffiliateHelper;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\ScrapeUrl;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Database\Factories\UrlFactory;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -20,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Uri;
 
@@ -29,6 +32,7 @@ use Illuminate\Support\Uri;
  * @property ?string $url
  * @property ?string $url_normalized
  * @property float $price_factor
+ * @property bool $ignore_shipping
  * @property string $product_name_short
  * @property string $store_name
  * @property string $buy_url
@@ -69,6 +73,7 @@ class Url extends Model
             'updated_at' => 'datetime',
             'created_at' => 'datetime',
             'availability' => StockStatus::class,
+            'ignore_shipping' => 'boolean',
         ];
     }
 
@@ -322,7 +327,7 @@ class Url extends Model
         return null;
     }
 
-    public static function createFromUrl(string $url, ?int $productId = null, ?int $userId = null, bool $createStore = true, float $priceFactor = 1): Url|false
+    public static function createFromUrl(string $url, ?int $productId = null, ?int $userId = null, bool $createStore = true, float $priceFactor = 1, bool $ignoreShipping = false): Url|false
     {
         $userId = $userId ?? auth()->id();
 
@@ -359,6 +364,7 @@ class Url extends Model
             'store_id' => $store->getKey(),
             'product_id' => $productId,
             'price_factor' => $priceFactor,
+            'ignore_shipping' => $ignoreShipping,
         ]);
 
         $urlModel->updatePrice(data_get($scrape, 'price'), $scrape);
@@ -493,12 +499,93 @@ class Url extends Model
 
         $priceFactor = $this->price_factor ?: 1;
 
+        // The price saved is the price the user pays, so alerts, history and insights
+        // all use it. The page price is kept beside it. The store is read again: a scrape
+        // takes seconds, and its price adjustments may have changed meanwhile.
+        $this->load('store');
+        $adjusted = $this->store?->adjustPrice($priceFloat, $this->getPageShipping($scrapeResult), (bool) $this->ignore_shipping);
+        $finalPrice = $adjusted->total ?? $priceFloat;
+
         return $this->prices()->create([
-            'price' => $priceFloat,
-            'unit_price' => $priceFloat / $priceFactor,
+            'price' => $finalPrice,
+            'scraped_price' => $priceFloat,
+            'unit_price' => $finalPrice / $priceFactor,
             'price_factor' => $priceFactor,
+            'price_adjustments' => $adjusted?->toStorageArray(),
             'store_id' => $this->store_id,
         ]);
+    }
+
+    /**
+     * The shipping the store's shipping strategy read from the page. Null when the store
+     * has no shipping strategy or there is no scrape to read, and when the strategy found
+     * nothing: the flat shipping fee is used instead, with a warning in the log unless
+     * this listing ignores shipping. Read even then, so it can be counted again later.
+     *
+     * @param  array<string, mixed>|null  $scrapeResult
+     */
+    protected function getPageShipping(?array $scrapeResult): ?float
+    {
+        $store = $this->store;
+
+        if ($scrapeResult === null || ! $store?->hasShippingStrategy()) {
+            return null;
+        }
+
+        $scraped = data_get($scrapeResult, 'shipping');
+        $shipping = PriceAdjustmentsDto::parseShipping(is_scalar($scraped) ? (string) $scraped : null, $store->locale, $store->currency);
+
+        if ($shipping === null && ! $this->ignore_shipping) {
+            // @phpstan-ignore-next-line - withContext is valid.
+            Log::channel('db')->withContext(['url' => $this->url])->warning(
+                'Shipping not found on the page, used the flat shipping fee',
+                ['store_id' => $store->getKey(), 'scraped_shipping' => $scraped],
+            );
+        }
+
+        return $shipping;
+    }
+
+    /**
+     * Recalculate this listing's saved prices with their store's price adjustments and
+     * this listing's "ignore shipping", from a date or from the start. Each price uses its
+     * own store: a listing whose URL moved to another store keeps the earlier store's
+     * prices. Returns how many prices were recalculated.
+     */
+    public function recalculatePrices(?CarbonInterface $since = null): int
+    {
+        $storeIds = $this->prices()
+            ->reorder()
+            ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
+            ->distinct()
+            ->pluck('store_id')
+            ->all();
+
+        // The same locks as a store's batches, so the two never interleave.
+        return Store::withPriceLocks($storeIds, fn (): int => $this->recalculatePricesNow($since));
+    }
+
+    protected function recalculatePricesNow(?CarbonInterface $since): int
+    {
+        $count = 0;
+
+        $this->prices()
+            ->reorder()
+            ->with('store')
+            ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
+            ->chunkById(1000, function (Collection $prices) use (&$count): void {
+                /** @var Collection<int, Price> $prices */
+                $count += Price::saveRecalculated(
+                    $prices,
+                    fn (Price $price): ?Store => $price->store ?? $this->store,
+                    fn (): bool => (bool) $this->ignore_shipping,
+                );
+            });
+
+        $this->product?->updatePriceCache();
+        $this->product?->updateInsightsCache();
+
+        return $count;
     }
 
     public function syncStoredPricesForCurrentFactor(): void

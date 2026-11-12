@@ -1,12 +1,15 @@
 @php
-$export = json_encode(collect($record->toArray())
+$export = collect($record->toArray())
     ->only([
         'name',
         'slug',
         'domains',
         'scrape_strategy',
         'settings',
-    ])->toArray(), JSON_PRETTY_PRINT) ;
+    ])->toArray();
+// Price adjustments are the tax and shipping of whoever buys, not part of the store.
+\Illuminate\Support\Arr::forget($export, 'settings.price_adjustments');
+$export = json_encode($export, JSON_PRETTY_PRINT);
 @endphp
 <div>
     <div x-data="{ tab: 'export' }">

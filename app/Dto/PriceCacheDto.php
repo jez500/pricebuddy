@@ -43,6 +43,12 @@ class PriceCacheDto
 
     private StockStatus $stockStatus;
 
+    /** @var array{page: float, tax: float, shipping: float, shipping_not_counted?: bool}|null */
+    private ?array $priceBreakdown;
+
+    /**
+     * @param  array{page: float, tax: float, shipping: float, shipping_not_counted?: bool}|null  $priceBreakdown  set when the store adjusted the page price
+     */
     public function __construct(
         float $price,
         ?int $storeId = null,
@@ -58,6 +64,7 @@ class PriceCacheDto
         float $priceFactor = 1,
         ?string $unitOfMeasure = self::DEFAULT_UNIT_OF_MEASURE,
         StockStatus|string|null $availability = null,
+        ?array $priceBreakdown = null,
     ) {
         $this->storeId = $storeId;
         $this->storeName = $storeName;
@@ -75,6 +82,7 @@ class PriceCacheDto
         $this->stockStatus = $availability instanceof StockStatus
             ? $availability
             : StockStatus::fromScrapedValue($availability);
+        $this->priceBreakdown = $priceBreakdown;
     }
 
     // Getters
@@ -156,6 +164,38 @@ class PriceCacheDto
     public function hasPriceFactor(): bool
     {
         return $this->getPriceFactor() > 1;
+    }
+
+    /**
+     * "€324.80 + €10.92 tax + €7.65 shipping", or null when the price is the page price.
+     * With a price factor the shown price is per unit, so the breakdown ends with the
+     * pack price it adds up to: "€30.00 + €6.00 shipping = €36.00 for 3 tablets".
+     */
+    public function getPriceBreakdownText(): ?string
+    {
+        if ($this->priceBreakdown === null) {
+            return null;
+        }
+
+        $page = (float) ($this->priceBreakdown['page'] ?? 0);
+        $tax = (float) ($this->priceBreakdown['tax'] ?? 0);
+        $shipping = (float) ($this->priceBreakdown['shipping'] ?? 0);
+
+        $text = AdjustedPriceDto::describeParts($page, $tax, $shipping, $this->locale, $this->currency);
+
+        if ($this->hasPriceFactor()) {
+            $text .= ' = '.__(':price for :count :units', [
+                'price' => CurrencyHelper::toString($page + $tax + $shipping, locale: $this->locale, iso: $this->currency),
+                'count' => (float) $this->getPriceFactor(),
+                'units' => $this->getUnitOfMeasurePlural(),
+            ]);
+        }
+
+        if ($this->priceBreakdown['shipping_not_counted'] ?? false) {
+            $text .= ' · '.__('shipping not counted');
+        }
+
+        return $text;
     }
 
     public function hasPriceHistory(): bool
@@ -268,6 +308,7 @@ class PriceCacheDto
             $data['price_factor'] ?? 1,
             $data['unit_of_measure'] ?? null,
             $data['availability'] ?? null,
+            $data['price_breakdown'] ?? null,
         );
     }
 
@@ -295,6 +336,7 @@ class PriceCacheDto
             'currency' => $this->currency,
             'unit_of_measure' => $this->getUnitOfMeasure(),
             'availability' => $this->stockStatus === StockStatus::InStock ? null : $this->stockStatus->value,
+            'price_breakdown' => $this->priceBreakdown,
         ];
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ProductResource\Widgets;
 
+use App\Filament\Concerns\HasIgnoreShippingFields;
 use App\Models\Product;
 use App\Models\Url;
 use App\Rules\StoreUrl;
@@ -17,6 +18,8 @@ use Illuminate\Validation\ValidationException;
 
 class UrlsTableWidget extends BaseWidget
 {
+    use HasIgnoreShippingFields;
+
     public Model|Product|null $record = null;
 
     public function table(Table $table): Table
@@ -40,6 +43,12 @@ class UrlsTableWidget extends BaseWidget
                             ->formatStateUsing(fn (string $state): HtmlString => new HtmlString('<a href="'.$state.'" title="'.$state.'" target="_blank">'.Str::limit($state, 80).'</a>')
                             ),
                     ]),
+                    Tables\Columns\TextColumn::make('ignore_shipping')
+                        ->label('Shipping')
+                        ->getStateUsing(fn (Url $record): ?string => $record->ignore_shipping ? __('No shipping') : null)
+                        ->grow(false)
+                        ->badge()
+                        ->color('gray'),
                     Tables\Columns\TextColumn::make('price_factor')
                         ->label('Price Factor')
                         ->grow(false)
@@ -50,7 +59,7 @@ class UrlsTableWidget extends BaseWidget
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
-                    ->form([
+                    ->form(fn (Url $record): array => [
                         TextInput::make('url')
                             ->label('URL')
                             ->required()
@@ -61,8 +70,12 @@ class UrlsTableWidget extends BaseWidget
                             ->default(1)
                             ->minValue(0.01)
                             ->required(),
+                        ...self::makeIgnoreShippingFields($record),
                     ])
+                    ->databaseTransaction()
                     ->using(function (Url $record, array $data): Url {
+                        $wasIgnoringShipping = self::prepareIgnoreShipping($record, $data);
+
                         // Validate/apply the URL change first so a failed change leaves
                         // nothing persisted (changeUrl fails closed) before price_factor.
                         if (trim($data['url']) !== $record->url && ! $record->changeUrl($data['url'])) {
@@ -73,6 +86,8 @@ class UrlsTableWidget extends BaseWidget
 
                         $record->price_factor = (float) $data['price_factor'];
                         $record->save();
+
+                        self::saveIgnoreShipping($record, $data, $wasIgnoringShipping);
 
                         return $record;
                     })

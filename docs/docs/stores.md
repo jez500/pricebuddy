@@ -184,6 +184,108 @@ currency. If you change the currency, saved prices keep their numbers and are no
 converted. Use this to correct a store that has the wrong currency. Do not use it
 when a store changes the currency it sells in, because old and new prices then mix.
 
+## Price adjustments
+
+The price on a store's page is not always the price you pay. A store in another
+country may show its own country's tax and add yours at checkout, and many stores
+add shipping. Price adjustments make PriceBuddy save the price you pay instead, so
+target prices, alerts, history and insights all compare what you would really pay.
+
+* **Page price includes tax (%)** - The tax already in the price on the page.
+* **Tax you pay (%)** - The tax you pay at checkout.
+* **Flat shipping fee** - Added to every price, in the store's currency. It is used
+  when the store has no [shipping strategy](#shipping-strategy), or when that strategy
+  finds nothing on the page.
+* **Free shipping from** - The flat shipping fee is free when the price after tax
+  reaches this amount, for stores with "free shipping from €50" offers. An item at
+  exactly the amount ships free. Leave it at 0 for no threshold. Shipping read from
+  the page is used as it is, since the page already says when an item ships free.
+* **Apply tax to shipping** - Off: shipping is added as entered. On: shipping gets the
+  same tax adjustment as the page price, such as import VAT charged on the goods and
+  the delivery.
+
+The two tax fields swap one tax for the other. Examples:
+
+* A German store showing 19% VAT, delivering to Portugal where you pay 23%: `19` and
+  `23`. A page price of €324.80 becomes €335.72.
+* A store showing prices without tax, where you pay 23%: `0` and `23`.
+* Removing a 23% tax, for example when buying as a business: `23` and `0`.
+
+Leave everything at 0 when the page shows the price you pay. Stores are shared, so
+the adjustments apply to every user's prices from the store.
+
+Each product's listings can still [ignore shipping](/products.html#ignore-shipping), for
+the stores where you usually combine orders.
+
+PriceBuddy keeps the page price next to the price you pay. Wherever a price is not the
+page price, it is marked with `*`, and hovering over or tapping the `*` shows what it is
+made of, such as `€324.80 + €10.92 tax + €7.65 shipping`. Price alerts include the same
+breakdown on a line of their own.
+
+### Applying changes to past prices
+
+When you change a store's price adjustments, choose which prices the new settings
+apply to before saving:
+
+* **All past prices** - Every saved price from the store is recalculated from its page
+  price. Use this when you first set up a store.
+* **Prices since a date** - Only prices saved on or after that day are recalculated.
+  Use this when a tax rate changed on a known date.
+* **New prices only** - Saved prices stay as they are.
+
+The recalculation runs in the background, in batches, so the queue worker must be
+running. It uses the settings you saved, sends no alerts, and leaves alone prices saved
+after it started, which already use those settings. Then it rebuilds the cached prices
+and insights of the products involved. If it stops with an error (it is logged), each
+product's cached prices catch up at its next scheduled price check.
+
+After saving, a notice says roughly how long it takes, if nothing else is queued ahead of
+it. A product checked every hour for a year has about 8,760 prices. Measured on a machine
+limited to 2 CPU cores, with MySQL 5.7 and the database queue (slower hardware takes
+longer):
+
+| Products | Saved prices | Time |
+| --- | --- | --- |
+| 1 | 2,000 | 0.8 s |
+| 1 | 6,200 | 1.3 s |
+| 1 | 10,000 | 1.9 s |
+| 10 | 87,600 | 14 s |
+
+While a recalculation is under way, the store's price adjustments and shipping strategy
+cannot be changed. Saving them shows how long it has been running and keeps what you
+typed, so you can save again a moment later. Other store settings save as usual. After
+10 minutes with no progress, the notice asks whether the queue worker is running, and
+after 30 minutes the recalculation is taken as abandoned: saving goes ahead, and a new
+one can start.
+
+To recalculate later, use **Recalculate prices** at the top of the store page. It works
+out saved prices again with the saved settings, for all past prices or since a date.
+Use it if a recalculation stopped with an error, or after changing settings with "New
+prices only". It cannot start while another one is under way.
+
+Changing a store's price adjustments through the API applies them to new prices only.
+While a recalculation is under way, the change is refused with `409 Conflict`.
+
+### Shipping strategy
+
+A shipping strategy reads the shipping cost from the product page, for stores where it
+depends on the item. It works like the other strategies, except that it cannot use
+Schema.org. A value with a number in it is the shipping cost, a value without one, such
+as `FREE`, is free shipping, and when the strategy finds nothing the flat shipping fee is
+used and a warning is logged. Point the strategy at the shipping cost only: a text such
+as "Free delivery over €35" would read as €35.
+
+On Amazon, which shows the delivery cost to your location, this reads it:
+
+```
+#mir-layout-DELIVERY_BLOCK [data-csa-c-delivery-price]|data-csa-c-delivery-price
+```
+
+Use [Test](#testing-a-store) to see what the strategy finds. When past prices are
+recalculated, the shipping read from their pages is counted while the store has a
+shipping strategy. Without one, the flat fee is used, but the amounts are kept, since a
+past page cannot be read again: adding the strategy back counts them again.
+
 ## Cookies
 
 Some stores only show the correct product page or price when a cookie is sent
@@ -241,7 +343,7 @@ more custom strategies.
 
 When editing a store, use **Test** to try a product URL and see exactly what the
 current strategies extract. Results are shown in a comparison table (title,
-price, image, availability and more) so you can confirm each field before
+price, image, availability, shipping and more) so you can confirm each field before
 saving. You can switch the [scraper service](#scraper-service) and re-test, and —
 if an [AI provider](/settings.html#ai-providers) is configured — use **Compare
 with AI** to see what AI extracts from the same page alongside the scraped
@@ -283,3 +385,7 @@ feature enabled.
 If you create a store and want to share it with others, you can export the store as
 JSON by clicking the "Share" button. You can then give this JSON to others and they
 can import it into their PriceBuddy instance.
+
+The export leaves out the store's [price adjustments](#price-adjustments), because tax
+and shipping depend on where the buyer lives. An import ignores them too. The shipping
+strategy is part of the export.

@@ -24,6 +24,9 @@
 <tr>
 <td align="center">
 <div class="text-biggest product-price-value">{{ $newPrice }}</div>
+@if (! empty($priceBreakdown))
+<p class="product-subtext">{{ $priceBreakdown }}</p>
+@endif
 </td>
 </tr>
 </table>

@@ -29,6 +29,8 @@ class AddProductUrlsRequest extends FormRequest
             // line does not block the rest of the list.
             'urls.*' => 'string|max:2048',
             'price_factor' => 'sometimes|numeric|min:0.01',
+            // Only matters at stores that add shipping (see store price adjustments).
+            'ignore_shipping' => 'sometimes|boolean',
         ];
     }
 }

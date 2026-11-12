@@ -89,9 +89,12 @@ class NotificationHistoryResource extends Resource
                             ->weight(FontWeight::Bold)
                             ->getStateUsing(fn (Notification $record) => data_get($record->data, 'title'))
                             ->wrap(),
+                        // HTML, like the notifications panel shows it: a price alert's
+                        // breakdown is on its own line.
                         TextColumn::make('body')
                             ->color('gray')
                             ->getStateUsing(fn (Notification $record) => data_get($record->data, 'body'))
+                            ->html()
                             ->wrap(),
                     ]),
 

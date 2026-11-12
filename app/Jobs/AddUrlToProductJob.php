@@ -24,12 +24,21 @@ class AddUrlToProductJob implements ShouldQueue
 
     public $timeout = 300;
 
+    /**
+     * Not promoted: a job queued by an older version has no value for it, and only a
+     * property default fills that in when the job is unserialized.
+     */
+    public bool $ignoreShipping = false;
+
     public function __construct(
         public int $productId,
         public string $url,
         public int $userId,
         public float $priceFactor = 1,
-    ) {}
+        bool $ignoreShipping = false,
+    ) {
+        $this->ignoreShipping = $ignoreShipping;
+    }
 
     public function handle(): void
     {
@@ -47,6 +56,7 @@ class AddUrlToProductJob implements ShouldQueue
                 productId: $product->getKey(),
                 userId: $user->getKey(),
                 priceFactor: $this->priceFactor,
+                ignoreShipping: $this->ignoreShipping,
             );
         } catch (Exception $e) {
             logger()->warning('Failed to add URL to product: '.$e->getMessage(), [

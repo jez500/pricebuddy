@@ -61,7 +61,7 @@ class PriceAlertNotification extends Notification
     {
         return DatabaseNotification::make()
             ->title($this->getTitle())
-            ->body($this->getSummary())
+            ->body($this->getDatabaseBody())
             ->status('success')
             ->actions([
                 Action::make('view')
@@ -91,6 +91,7 @@ class PriceAlertNotification extends Notification
             'productName' => Str::limit(($this->product->title ?? 'Unknown product'), 100),
             'imgUrl' => $this->product?->image,
             'newPrice' => $this->getPriceFormatted(),
+            'priceBreakdown' => $this->getPriceBreakdown(),
             'averagePrice' => data_get($this->product?->price_aggregates, 'avg', '$0.00'),
         ];
     }
@@ -160,7 +161,41 @@ class PriceAlertNotification extends Notification
             ).')';
         }
 
+        if ($breakdown = $this->getPriceBreakdown()) {
+            $summary .= "\n".$breakdown;
+        }
+
         return $summary;
+    }
+
+    /**
+     * The bell and the notification history show the body as HTML, where a newline is
+     * only a space, so the breakdown's line break is a <br>.
+     */
+    protected function getDatabaseBody(): string
+    {
+        $summary = $this->getSummary();
+
+        return $this->getPriceBreakdown() === null ? $summary : nl2br(e($summary), false);
+    }
+
+    /**
+     * "(page €324.80 + €10.92 tax + €7.65 shipping)" when the store adjusted the page price.
+     */
+    protected function getPriceBreakdown(): ?string
+    {
+        // The same price as getPriceFormatted(): a threshold alert shows the latest one.
+        /** @var ?Price $price */
+        $price = $this->price ?? $this->url->latestPrice()->first();
+        $adjusted = $price?->adjusted_price;
+
+        if (! $adjusted?->isAdjusted()) {
+            return null;
+        }
+
+        return __('(page :breakdown)', [
+            'breakdown' => $adjusted->describe($this->url->store?->locale, $this->url->store?->currency),
+        ]);
     }
 
     /**

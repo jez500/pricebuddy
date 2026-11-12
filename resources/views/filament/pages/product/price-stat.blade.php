@@ -60,7 +60,11 @@
             <div
                 class="fi-wi-stats-overview-stat-value {{ $firstCardValueStyle }}"
             >
-                {{ $priceCache->hasVisiblePrice() ? $getValue() : __('Unavailable') }}
+                @if ($priceCache->hasVisiblePrice())
+                    {{ $getValue() }}<x-price-breakdown-marker :text="$priceCache->getPriceBreakdownText()" />
+                @else
+                    {{ __('Unavailable') }}
+                @endif
             </div>
         </div>
 

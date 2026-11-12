@@ -18,7 +18,7 @@ use Illuminate\Support\HtmlString;
 
 trait HasScraperTrait
 {
-    protected static function makeStrategyInput(string $key, ?string $default = null, bool $required = true): array
+    protected static function makeStrategyInput(string $key, ?string $default = null, bool $required = true, bool $allowSchemaOrg = true): array
     {
         $typeField = Select::make($key.'.type')
             ->label('Type')
@@ -36,6 +36,15 @@ trait HasScraperTrait
         if ($required) {
             $typeField = $typeField->required();
             $valueField = $valueField->required();
+        }
+
+        if (! $allowSchemaOrg) {
+            $types = collect(ScraperStrategyType::cases())
+                ->reject(fn (ScraperStrategyType $type): bool => $type === ScraperStrategyType::SchemaOrg);
+
+            $typeField = $typeField
+                ->options($types->mapWithKeys(fn (ScraperStrategyType $type): array => [$type->value => $type->getLabel()])->all())
+                ->in($types->map(fn (ScraperStrategyType $type): string => $type->value)->all());
         }
 
         $valueField = $valueField->hidden(fn (Get $get) => ! ScraperStrategyType::needsValue($get($key.'.type')));

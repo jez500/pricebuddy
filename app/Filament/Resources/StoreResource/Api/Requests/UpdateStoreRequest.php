@@ -25,7 +25,7 @@ class UpdateStoreRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        return array_merge([
             'name' => 'sometimes|string|max:255',
             'slug' => 'sometimes|string|max:255|unique:stores,slug,'.$this->route('id'),
             'initials' => 'sometimes|string|max:2',
@@ -47,6 +47,6 @@ class UpdateStoreRequest extends FormRequest
             'scrape_strategy.title.type' => 'sometimes|in:'.implode(',', ScraperStrategyType::values()),
             'scrape_strategy.title.value' => [new ScrapeStrategyValue],
             'notes' => 'sometimes|string',
-        ];
+        ], CreateStoreRequest::getPriceAdjustmentRules());
     }
 }

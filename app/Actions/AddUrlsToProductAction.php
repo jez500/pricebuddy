@@ -24,7 +24,7 @@ class AddUrlsToProductAction
      * @param  string|array<int, string>  $urls  a list of URLs, or text with one URL per line
      * @return array{queued: array<int, string>, skipped: array<int, array{url: string, reason: string}>}
      */
-    public function __invoke(Product $product, string|array $urls, int $userId, float $priceFactor = 1): array
+    public function __invoke(Product $product, string|array $urls, int $userId, float $priceFactor = 1, bool $ignoreShipping = false): array
     {
         $existing = $product->urls()->pluck('url_normalized')->filter()->flip();
         $seen = [];
@@ -47,7 +47,7 @@ class AddUrlsToProductAction
         }
 
         foreach ($queued as $url) {
-            AddUrlToProductJob::dispatch($product->getKey(), $url, $userId, $priceFactor);
+            AddUrlToProductJob::dispatch($product->getKey(), $url, $userId, $priceFactor, $ignoreShipping);
         }
 
         return ['queued' => $queued, 'skipped' => $skipped];

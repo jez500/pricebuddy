@@ -588,6 +588,9 @@ class Product extends Model
                     'currency' => $store->currency,
                     'unit_of_measure' => $this->unit_of_measure,
                     'availability' => $url->getAvailabilityStatus()?->value,
+                    'price_breakdown' => ($adjusted = $lastScrapedPrice?->adjusted_price)?->isAdjusted()
+                        ? $adjusted->toBreakdownArray()
+                        : null,
                 ];
             })
             ->sort(function ($left, $right): int {
@@ -799,6 +802,18 @@ class Product extends Model
 
         $previous = $price->url?->previousPrice($price);
 
-        return $previous !== null && round((float) $previous->price, 2) !== round((float) $price->price, 2);
+        if ($previous === null) {
+            return false;
+        }
+
+        // The page price and the shipping read from the page are the same, so the price
+        // only moved because the store's price adjustments were changed.
+        if ($previous->scraped_price !== null && $price->scraped_price !== null
+            && round((float) $previous->scraped_price, 2) === round((float) $price->scraped_price, 2)
+            && $previous->getPageShipping() === $price->getPageShipping()) {
+            return false;
+        }
+
+        return round((float) $previous->price, 2) !== round((float) $price->price, 2);
     }
 }

@@ -9,6 +9,7 @@ use App\Rules\ImportStore;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use Illuminate\Support\Arr;
 
 class ImportStoreAction extends Action
 {
@@ -49,6 +50,9 @@ class ImportStoreAction extends Action
         $this->action(function (array $data): void {
             $attributes = json_decode(data_get($data, 'json'), true);
             $editAfterSave = data_get($data, 'edit_after_save', false);
+
+            // Price adjustments are the tax and shipping of whoever buys, not part of the store.
+            Arr::forget($attributes, 'settings.price_adjustments');
 
             if ($store = (new CreateStoreAction)($attributes)) {
                 $this->success();
