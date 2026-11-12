@@ -376,8 +376,8 @@ A store's [price adjustments](/stores.html#price-adjustments) are in
 
 `POST /api/stores` and `PUT /api/stores/{id}` accept them. A change made through the API
 applies to new prices only: saved prices are not recalculated. While the store's saved prices
-are being recalculated (started from the store page), a `PUT` that changes them returns `409`
-with `{"message": "Prices for this store are being recalculated. Try again shortly."}`. Other
+are being recalculated (started from the store page), a `PUT` that changes the price
+adjustments or the shipping strategy returns `409` with `{"message": "Prices for this store are being recalculated. Try again shortly."}`. Other
 changes are saved as usual.
 
 Each price is the price you pay. In a product's `price_cache`, an entry from a store with

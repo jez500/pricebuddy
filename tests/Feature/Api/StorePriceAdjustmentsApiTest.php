@@ -96,6 +96,19 @@ class StorePriceAdjustmentsApiTest extends TestCase
         Queue::assertNothingPushed();
     }
 
+    public function test_a_new_shipping_selector_is_refused_while_prices_are_recalculated(): void
+    {
+        $store = Store::factory()->create();
+        $strategy = array_merge($store->scrape_strategy->toArray(), ['shipping' => ['type' => 'selector', 'value' => '.shipping']]);
+        $store->update(['scrape_strategy' => $strategy]);
+        $store->queuePriceRecalculation();
+
+        $strategy['shipping']['value'] = '#delivery|data-price';
+        $this->putJson("/api/stores/{$store->id}", ['scrape_strategy' => $strategy])->assertConflict();
+
+        $this->assertSame('.shipping', $store->fresh()->scrape_strategy->shipping->value);
+    }
+
     public function test_update_is_refused_while_prices_are_recalculated(): void
     {
         $store = Store::factory()->create();

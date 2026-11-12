@@ -409,6 +409,39 @@ HTML;
         $this->assertTrue($store->fresh()->hasShippingStrategy(), 'a shipping strategy is a price adjustment too');
     }
 
+    public function test_a_store_loaded_before_the_adjustments_changed_does_not_put_the_old_ones_back(): void
+    {
+        $store = $this->makeStore(['tax_percent' => 10], shippingStrategy: true);
+        $price = $this->makeUrl($store)->prices()->create(['price' => 100, 'scraped_price' => 100, 'store_id' => $store->id]);
+        // A scrape loads the store, then heals it with AI for a while.
+        $healing = Store::find($store->id);
+
+        $store = $store->fresh();
+        $strategy = $store->scrape_strategy->toArray();
+        $strategy['shipping']['value'] = '#delivery|data-price';
+        $store->update([
+            'settings' => array_merge($store->settings, ['price_adjustments' => ['tax_percent' => 23]]),
+            'scrape_strategy' => $strategy,
+        ]);
+        Queue::fake();
+        $store->queuePriceRecalculation();
+
+        // The heal saves the whole settings and scrape strategy it loaded.
+        $healed = $healing->scrape_strategy->toArray();
+        $healed['price'] = ['type' => 'selector', 'value' => '.new-price'];
+        $healing->scrape_strategy = $healed;
+        $healing->markAiHealFailed();
+
+        $store = $store->fresh();
+        $this->assertSame(23.0, $store->price_adjustments->taxPercent);
+        $this->assertSame('#delivery|data-price', $store->scrape_strategy->shipping->value);
+        $this->assertSame('.new-price', $store->scrape_strategy->price->value, 'the rest of the heal is saved');
+        $this->assertNotNull($store->getAiHealFailedAt());
+
+        $this->runQueuedChain($store->price_recalculation_run);
+        $this->assertSame(123.0, (float) $price->fresh()->price);
+    }
+
     public function test_other_store_changes_leave_a_run_going(): void
     {
         $store = $this->makeStore(['tax_percent' => 23]);

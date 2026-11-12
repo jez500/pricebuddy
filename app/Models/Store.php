@@ -98,20 +98,27 @@ class Store extends Model
             $store->user_id ??= auth()->id() ?? self::defaultCreatorId();
         });
 
-        // The price adjustments cannot change while a recalculation is under way. Read from
-        // the database, not this instance, which may be older than the run, and locked until
-        // the save is written (see save()), so a run cannot start in between. A save ends an
-        // abandoned run.
+        // The price adjustments cannot change while a recalculation is under way. Checked
+        // against the store row, locked until the save is written (see save()), since this
+        // instance may be older than the run or than the saved adjustments.
         static::updating(function (Store $store) {
-            if (! $store->priceAdjustmentsChanged()) {
+            if (! $store->isDirty(['settings', 'scrape_strategy'])) {
                 return;
             }
 
-            /** @var ?Store $saved */
-            $saved = static::query()->whereKey($store->getKey())->lockForUpdate()
-                ->first(['id', 'price_recalculation_run', 'price_recalculation_progress_at']);
+            /** @var Store $saved */
+            $saved = static::query()->whereKey($store->getKey())->lockForUpdate()->firstOrFail();
 
-            if ($saved?->price_recalculation_run === null) {
+            // A save that leaves them as it loaded them keeps the saved ones, so a store
+            // loaded before they changed cannot put the old ones back.
+            if (! $store->priceAdjustmentsChanged()) {
+                $store->keepPriceAdjustments($saved);
+
+                return;
+            }
+
+            if (self::priceSettings($store->settings, $store->scrape_strategy) === self::priceSettings($saved->settings, $saved->scrape_strategy)
+                || $saved->price_recalculation_run === null) {
                 return;
             }
 
@@ -389,16 +396,55 @@ class Store extends Model
     protected const float SECONDS_PER_PRODUCT = 0.3;
 
     /**
-     * Whether the saved price adjustments differ from the ones being saved, in a way that
-     * changes how prices are worked out.
+     * What decides how prices are worked out: the price adjustments and the shipping
+     * strategy.
+     *
+     * @return array{0: array<string, mixed>, 1: ?array<string, mixed>}
+     */
+    protected static function priceSettings(mixed $settings, ?StoreScraperStrategySetDto $strategy): array
+    {
+        return [
+            PriceAdjustmentsDto::fromArray(data_get($settings, 'price_adjustments'))->toArray(),
+            filled($strategy?->shipping?->value) ? $strategy->shipping->toArray() : null,
+        ];
+    }
+
+    /**
+     * Whether this save changes the price adjustments or the shipping strategy from the
+     * ones it loaded.
      */
     public function priceAdjustmentsChanged(): bool
     {
         /** @var ?StoreScraperStrategySetDto $originalStrategy */
         $originalStrategy = $this->getOriginal('scrape_strategy');
 
-        return PriceAdjustmentsDto::fromArray(data_get($this->getOriginal('settings'), 'price_adjustments'))->toArray() !== $this->price_adjustments->toArray()
-            || filled($originalStrategy?->shipping?->value) !== $this->hasShippingStrategy();
+        return self::priceSettings($this->getOriginal('settings'), $originalStrategy) !== self::priceSettings($this->settings, $this->scrape_strategy);
+    }
+
+    /**
+     * Save the price adjustments and shipping strategy as $saved has them.
+     */
+    protected function keepPriceAdjustments(Store $saved): void
+    {
+        if ($this->isDirty('settings')) {
+            $settings = Arr::except((array) $this->settings, 'price_adjustments');
+
+            if (Arr::has((array) $saved->settings, 'price_adjustments')) {
+                $settings['price_adjustments'] = $saved->settings['price_adjustments'];
+            }
+
+            $this->settings = $settings;
+        }
+
+        if ($this->isDirty('scrape_strategy')) {
+            $strategy = Arr::except($this->scrape_strategy->toArray(), 'shipping');
+
+            if ($saved->scrape_strategy->shipping !== null) {
+                $strategy['shipping'] = $saved->scrape_strategy->shipping->toArray();
+            }
+
+            $this->scrape_strategy = StoreScraperStrategySetDto::fromArray($strategy);
+        }
     }
 
     /**
@@ -528,12 +574,12 @@ class Store extends Model
     }
 
     /**
-     * Saved in a transaction when the price adjustments change, so the store's row stays
-     * locked from the check in booted() until the save is written.
+     * Saved in a transaction when the settings or scrape strategy change, so the store's
+     * row stays locked from the check in booted() until the save is written.
      */
     public function save(array $options = []): bool
     {
-        if (! $this->exists || ! $this->priceAdjustmentsChanged()) {
+        if (! $this->exists || ! $this->isDirty(['settings', 'scrape_strategy'])) {
             return parent::save($options);
         }
 
