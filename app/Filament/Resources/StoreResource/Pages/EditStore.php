@@ -123,6 +123,12 @@ class EditStore extends EditRecord
     {
         $this->authorizeAccess();
 
+        if ($this->usesScavio()) {
+            Notification::make()->title('AI healing does not apply to the Scavio API: it reads no page selectors')->warning()->send();
+
+            return;
+        }
+
         // Default to the URL that was actually scraped (set by runScrape), so a heal
         // triggered after clicking a product shortcut works even though that path does
         // not fill the test_url form field.
@@ -153,7 +159,9 @@ class EditStore extends EditRecord
     {
         $this->authorizeAccess();
 
-        if (blank($this->healPreview)) {
+        if (blank($this->healPreview) || $this->usesScavio()) {
+            $this->healPreview = null;
+
             return;
         }
 
@@ -168,6 +176,11 @@ class EditStore extends EditRecord
         $this->healPreview = null;
 
         Notification::make()->title('Applied to the form — review the fields and Save')->success()->send();
+    }
+
+    protected function usesScavio(): bool
+    {
+        return $this->buildUnsavedStore()->scraper_service === ScraperService::Scavio->value;
     }
 
     public function discardSelfHeal(): void

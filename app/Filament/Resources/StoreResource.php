@@ -228,7 +228,7 @@ class StoreResource extends Resource
 
                         Select::make('test_scraper')
                             ->label('Change scraper')
-                            ->options(ScraperService::class)
+                            ->options(fn (): array => ScraperService::options())
                             ->selectablePlaceholder(false)
                             ->afterStateHydrated(fn (Select $component, EditStore $livewire) => $component->state(
                                 $component->getState()

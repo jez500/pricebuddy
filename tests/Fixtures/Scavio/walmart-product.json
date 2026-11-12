@@ -1,0 +1,127 @@
+{
+    "data": {
+        "id": "13544111159",
+        "sku": "13544111159",
+        "title": "JLab Studio 2 Wireless Headphones - Black; Lab Quality Sound",
+        "url": "https://www.walmart.com/ip/JLAB-STUDIO2-WIRELESS-HEADPHONE-BLACK/13544111159",
+        "image": "https://i5.walmartimages.com/seo/JLAB-STUDIO2-WIRELESS-HEADPHONE-BLACK_b9591cb4-f96c-4470-9a56-4c12504b819b.8bd1a92f3e7175d3df742b1dc01b759e.jpeg",
+        "images": [
+            "https://i5.walmartimages.com/seo/JLAB-STUDIO2-WIRELESS-HEADPHONE-BLACK_b9591cb4-f96c-4470-9a56-4c12504b819b.8bd1a92f3e7175d3df742b1dc01b759e.jpeg",
+            "https://i5.walmartimages.com/asr/0761e8be-d5d1-41b9-a180-816f113f0694.e84e81ddf22560416f1cfbf5cdc650cf.jpeg",
+            "https://i5.walmartimages.com/asr/e57f01f0-ffd5-46b2-b1a4-54715d36ecde.b8d16371f0d8237d01109537aec656cd.jpeg"
+        ],
+        "price": 31.87,
+        "price_strikethrough": null,
+        "currency": "USD",
+        "rating": 4.5,
+        "rating_count": 1515,
+        "seller_id": "F55CDC31AB754BB68FE0B39041159D63",
+        "seller_catalog_id": "0",
+        "seller_name": "Walmart.com",
+        "seller_display_name": "Walmart.com",
+        "seller_type": "INTERNAL",
+        "is_marketplace_seller": false,
+        "seller_url": null,
+        "gtin": "810119073150",
+        "out_of_stock": false,
+        "fulfillment": {
+            "delivery": true,
+            "pickup": true,
+            "shipping": true,
+            "free_shipping": false,
+            "delivery_information": null,
+            "pickup_information": "Pickup, today at Lake Charles Nelson Rd Supercenter",
+            "shipping_information": "Delivery from store",
+            "fulfilled_by": "Walmart.com",
+            "aisle": "K1",
+            "available_nearby": false,
+            "out_of_stock": false
+        },
+        "specifications": [
+            {
+                "key": "Battery life",
+                "value": "45 h"
+            },
+            {
+                "key": "Headphone style",
+                "value": "On-Ear"
+            },
+            {
+                "key": "Wireless",
+                "value": "Y"
+            },
+            {
+                "key": "Wireless technology",
+                "value": "Bluetooth"
+            },
+            {
+                "key": "Features",
+                "value": "Built-in Microphone"
+            }
+        ],
+        "variants": [
+            {
+                "product_id": "13544111159",
+                "price": {
+                    "currency": "USD",
+                    "price": 31.87
+                },
+                "currency": "USD",
+                "selected_options": [
+                    {
+                        "key": "Actual Color",
+                        "value": "Back"
+                    }
+                ],
+                "state": "IN_STOCK"
+            },
+            {
+                "product_id": "15714556693",
+                "price": {
+                    "currency": "USD",
+                    "price": 29.88
+                },
+                "currency": "USD",
+                "selected_options": [
+                    {
+                        "key": "Actual Color",
+                        "value": "Coral"
+                    }
+                ],
+                "state": "IN_STOCK"
+            }
+        ],
+        "brand": "JLab",
+        "model": "HBSTUD2RBLK93",
+        "manufacturer_product_id": "HBSTUD2RBLK93",
+        "product_type": "Headphones",
+        "short_description": "Experience studio-quality sound with the Studio 2 Wireless Headphones. These sleek on-ear headphones seamlessly blend innovation and pure audio clarity, bringing your music to life with customizable EQ4 sound modes. Whether you're diving into your morning playlist or sharing your favorite tracks through LabShare Technology, embrace the freedom of 45+ hours of playtime while the luxurious Cloud Foam™ earcups cradle you in comfort. Stay effortlessly connected with Bluetooth Multipoint technology and crystal-clear calls, while the JLab App transforms every listening moment into something extraordinary.",
+        "long_description": "<ul>  <li>Immersive Lab Quality Sound: Enjoy exceptional sound quality via 40mm drivers, bringing deep bass and clarity to your music. With 45+ hours of playtime, enjoy uninterrupted music sessions or",
+        "availability_status": "IN_STOCK",
+        "category_path": [
+            {
+                "name": "Electronics",
+                "url": "https://www.walmart.com/cp/electronics/3944"
+            },
+            {
+                "name": "Audio",
+                "url": "https://www.walmart.com/cp/audio/133251"
+            },
+            {
+                "name": "Headphones",
+                "url": "https://www.walmart.com/cp/headphones/1095191"
+            }
+        ],
+        "offer_count": 2,
+        "location": {
+            "city": "Lake Charles",
+            "state": "LA",
+            "store_id": "1204",
+            "zipcode": "70605"
+        }
+    },
+    "response_time": 38034,
+    "fetched_at": "2026-11-05T10:52:17.647Z",
+    "credits_used": 1,
+    "credits_remaining": 0
+}

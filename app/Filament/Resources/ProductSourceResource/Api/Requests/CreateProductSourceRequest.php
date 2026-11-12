@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ProductSourceResource\Api\Requests;
 
 use App\Enums\ProductSourceStatus;
 use App\Enums\ProductSourceType;
+use App\Enums\ScraperService;
 use App\Rules\ContainsSearchTermPlaceholder;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -41,6 +42,8 @@ class CreateProductSourceRequest extends FormRequest
             'extraction_strategy.product_url.type' => 'required|string',
             'extraction_strategy.product_url.value' => 'required|string',
             'settings' => 'nullable|array',
+            // Product sources fetch search pages, which the Scavio API does not serve.
+            'settings.scraper_service' => 'nullable|string|not_in:'.ScraperService::Scavio->value,
             'status' => 'sometimes|in:'.implode(',', array_column(ProductSourceStatus::cases(), 'value')),
             'notes' => 'nullable|string',
         ];

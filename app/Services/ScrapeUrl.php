@@ -9,6 +9,7 @@ use App\Enums\ScraperStrategyType;
 use App\Enums\StockStatus;
 use App\Models\Store;
 use App\Services\Helpers\SettingsHelper;
+use App\Services\Scrapers\ScavioWebScraper;
 use App\Settings\AppSettings;
 use Exception;
 use Filament\Notifications\Notification;
@@ -133,9 +134,17 @@ class ScrapeUrl
     public function setScraper(string $scraper): self
     {
         $this->scraperService = $scraper;
-        $scraper = WebScraper::make($this->scraperService)
-            ->setConnectTimeout($this->getConnectTimeout())
-            ->setRequestTimeout($this->getRequestTimeout());
+
+        if ($this->scraperService === ScraperService::Scavio->value) {
+            // Keeps its own request timeout (services.scavio.timeout): product
+            // lookups can take longer than the page fetch default.
+            $scraper = resolve(ScavioWebScraper::class)
+                ->setConnectTimeout($this->getConnectTimeout());
+        } else {
+            $scraper = WebScraper::make($this->scraperService)
+                ->setConnectTimeout($this->getConnectTimeout())
+                ->setRequestTimeout($this->getRequestTimeout());
+        }
 
         if ($this->scraperService === ScraperService::Api->value) {
             /** @var WebScraperApi $scraper */
@@ -167,6 +176,11 @@ class ScrapeUrl
             if ($output === false) {
                 $attempt = $this->maxAttempts;
                 $output = [];
+            }
+
+            // Every Scavio call is billed, so a failed one is not repeated.
+            if ($this->scraperService === ScraperService::Scavio->value) {
+                break;
             }
 
             if (! empty($output['title'])) {
@@ -246,6 +260,15 @@ class ScrapeUrl
                 $output[$key] = $slot instanceof StandardStrategyDto
                     ? $this->scrapeOption($page, $slot, $key)
                     : null;
+            }
+
+            // The Scavio API returns plain numbers ("429.99"). Pass them on as
+            // numbers, so a store locale such as de_DE does not read the dot as a
+            // thousands separator when the price is saved.
+            if ($this->scraperService === ScraperService::Scavio->value
+                && is_string($output['price'] ?? null)
+                && preg_match('/^\d+(\.\d+)?$/', $output['price']) === 1) {
+                $output['price'] = (float) $output['price'];
             }
 
             $output['body'] = $page->getBody();

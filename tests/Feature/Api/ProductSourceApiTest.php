@@ -438,4 +438,22 @@ class ProductSourceApiTest extends TestCase
 
         $response->assertUnauthorized();
     }
+
+    public function test_product_source_cannot_use_the_scavio_scraper_service(): void
+    {
+        $response = $this->postJson('/api/product-sources', [
+            'name' => 'Test Source',
+            'type' => ProductSourceType::DealsSite->value,
+            'search_url' => 'https://example.com/search?q=:search_term',
+            'extraction_strategy' => [
+                'list_container' => ['type' => 'selector', 'value' => '.item'],
+                'product_title' => ['type' => 'selector', 'value' => 'h2'],
+                'product_url' => ['type' => 'selector', 'value' => 'a|href'],
+            ],
+            'settings' => ['scraper_service' => 'scavio'],
+        ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['settings.scraper_service']);
+    }
 }
