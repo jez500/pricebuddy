@@ -8,6 +8,7 @@ use App\Enums\StockStatus;
 use App\Enums\Trend;
 use App\Events\NotifyPriceChangeEvent;
 use App\Filament\Actions\BaseAction;
+use App\Services\CurrencyConverter;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\SettingsHelper;
 use App\Services\Insights\ProductInsights;
@@ -308,6 +309,12 @@ class Product extends Model
      */
     public function scopeLowestPriceInDays(EloquentBuilder $query, int $days = 7): EloquentBuilder
     {
+        // Converted prices only exist in the price cache, so compare there rather
+        // than against the raw prices table, which mixes currencies.
+        if (CurrencyConverter::new()->isEnabled()) {
+            return $query->whereKey(self::idsWithLowestPriceInDays($days));
+        }
+
         return $query->whereHas('prices', function ($priceQuery) use ($days) {
             $priceQuery
                 ->where('prices.created_at', '>=', Carbon::now()->subDays($days)->startOfDay())
@@ -315,6 +322,30 @@ class Product extends Model
                 ->where('prices.price', '>', 0)
                 ->whereColumn('current_price', '<', 'prices.price');
         });
+    }
+
+    /**
+     * Products whose current price is below a price they had in the $days before today,
+     * read from the (converted) daily history in the price cache. Mirrors the SQL in
+     * scopeLowestPriceInDays().
+     *
+     * @return array<int, int>
+     */
+    protected static function idsWithLowestPriceInDays(int $days): array
+    {
+        $from = Carbon::now()->subDays($days)->startOfDay()->toDateString();
+        $today = Carbon::now()->startOfDay()->toDateString();
+
+        return self::query()
+            ->where('current_price', '>', 0)
+            ->get(['id', 'current_price', 'price_cache'])
+            ->filter(fn (Product $product): bool => collect($product->price_cache)
+                ->contains(fn (array $cache): bool => collect($cache['history'] ?? [])
+                    ->contains(fn ($price, $date): bool => $date >= $from
+                        && $date < $today
+                        && (float) $price > 0
+                        && (float) $product->current_price < (float) $price)))
+            ->modelKeys();
     }
 
     /***************************************************
@@ -534,7 +565,10 @@ class Product extends Model
      */
     public function buildPriceCache(): Collection
     {
-        $history = $this->getPriceHistory();
+        // Raw history in each store's own currency. Converted per URL below, so the
+        // cache can keep the original price next to the converted one.
+        $history = $this->getPriceHistory(convert: false);
+        $converter = CurrencyConverter::new();
 
         // Include out-of-stock URLs that have no price history (e.g. price 0).
         /** @var EloquentCollection<int, Url> $outOfStockUrls */
@@ -552,11 +586,14 @@ class Product extends Model
             ->filter(function (Url $url): bool {
                 return $url->store !== null;
             })
-            ->map(function (Url $url) use ($history): array {
-                /** @var Collection $urlHistory */
-                $urlHistory = $history->get($url->getKey(), collect());
+            ->map(function (Url $url) use ($history, $converter): array {
+                /** @var Collection $rawHistory */
+                $rawHistory = $history->get($url->getKey(), collect());
                 /** @var Store $store */
                 $store = $url->store;
+
+                $convert = $converter->shouldConvert($store->currency);
+                $urlHistory = $convert ? $converter->convertHistory($rawHistory, $store->currency) : $rawHistory;
 
                 // Get last scraped price.
                 /** @var ?Price $lastScrapedPrice */
@@ -572,8 +609,11 @@ class Product extends Model
                         $urlHistory->values()->min(),
                     );
 
+                $rawPrice = $rawHistory->isEmpty() ? 0 : $rawHistory->last();
+                $rawUnitPrice = $lastScrapedPrice->unit_price ?? $rawPrice;
+
                 // Build output suitable for dto.
-                return [
+                $cache = [
                     'store_id' => $store->getKey(),
                     'store_name' => $store->name,
                     'url_id' => $url->getKey(),
@@ -589,6 +629,24 @@ class Product extends Model
                     'unit_of_measure' => $this->unit_of_measure,
                     'availability' => $url->getAvailabilityStatus()?->value,
                 ];
+
+                if (! $convert) {
+                    return $cache;
+                }
+
+                // Rate of the latest price, for showing how the price was converted.
+                $rateDate = $rawHistory->keys()->last() ?? $lastScrapedTimestamp;
+
+                return array_merge($cache, [
+                    'unit_price' => $converter->convert((float) $rawUnitPrice, $store->currency, $lastScrapedTimestamp ?? $rateDate),
+                    'locale' => $converter->targetLocale(),
+                    'currency' => $converter->targetCurrency(),
+                    'original_price' => $rawPrice,
+                    'original_unit_price' => $rawUnitPrice,
+                    'original_locale' => $store->locale,
+                    'original_currency' => $store->currency,
+                    'exchange_rate' => $converter->rate($store->currency, $rateDate),
+                ]);
             })
             ->sort(function ($left, $right): int {
                 $leftStatus = StockStatus::fromScrapedValue($left['availability'] ?? null)->getSortOrder();
@@ -704,17 +762,23 @@ class Product extends Model
     }
 
     /**
-     * Get the price history for this product.
+     * Get the price history for this product, keyed by URL id then Y-m-d.
+     *
+     * When currency conversion is on, each URL's history is converted into the
+     * default currency using each day's rate. Pass $convert false for the prices
+     * in each store's own currency.
      */
-    public function getPriceHistory(string $column = 'price'): Collection
+    public function getPriceHistory(string $column = 'price', bool $convert = true): Collection
     {
         $priceColumn = $column === 'unit_price' ? 'unit_price' : 'price';
 
-        return $this->getAllPricesQuery()
+        $prices = $this->getAllPricesQuery()
             ->whereDate('prices.created_at', '>=', now()->subYear())
             ->where('prices.price', '>', 0)
             ->orderBy('prices.created_at')
-            ->get()
+            ->get();
+
+        $history = $prices
             ->groupBy('url_id')
             ->mapWithKeys(function ($prices, int $storeId) use ($priceColumn) {
                 // All price entries for the store.
@@ -731,6 +795,24 @@ class Product extends Model
 
                 return [$storeId => $storeHistory->sortKeys()];
             });
+
+        $converter = CurrencyConverter::new();
+
+        if (! $convert || ! $converter->isEnabled() || $history->isEmpty()) {
+            return $history;
+        }
+
+        $currencies = Store::query()
+            ->whereIn('id', $prices->pluck('store_id')->unique()->filter())
+            ->get()
+            ->mapWithKeys(fn (Store $store): array => [$store->getKey() => $store->currency]);
+
+        $storeIds = $prices->pluck('store_id', 'url_id');
+
+        return $history->map(fn (Collection $urlHistory, int $urlId): Collection => $converter->convertHistory(
+            $urlHistory,
+            $currencies->get($storeIds->get($urlId))
+        ));
     }
 
     /**
@@ -760,7 +842,9 @@ class Product extends Model
 
     public function shouldNotifyOnPrice(Price $price): bool
     {
-        $priceValue = (float) $price->price;
+        // Compare in the default currency, as the target is entered in it.
+        $converter = CurrencyConverter::new();
+        $priceValue = $converter->convertPrice($price);
 
         // Check if price is less than notify price.
         if (! empty($this->notify_price) && $priceValue <= (float) $this->notify_price) {
@@ -771,7 +855,7 @@ class Product extends Model
             // Get first price.
             /** @var ?Price $firstPriceModel */
             $firstPriceModel = $this->prices()->oldest('prices.created_at')->first();
-            $firstPrice = $firstPriceModel?->price;
+            $firstPrice = $firstPriceModel ? $converter->convertPrice($firstPriceModel) : null;
 
             // No first price, can't calculate percent.
             if (is_null($firstPrice)) {

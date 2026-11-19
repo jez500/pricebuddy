@@ -35,6 +35,7 @@
                                 <span class="text-3xl font-semibold leading-none">
                                     {{ $latestPrice->getUnitPriceFormatted() }}
                                 </span>
+                                <x-original-price :cache="$latestPrice" class="ml-1" />
 
                             @else
                                 <span class="text-lg font-semibold text-gray-500 dark:text-gray-400">

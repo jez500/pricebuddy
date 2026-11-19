@@ -62,6 +62,7 @@
             >
                 {{ $priceCache->hasVisiblePrice() ? $getValue() : __('Unavailable') }}
             </div>
+            <x-original-price :cache="$priceCache" class="block text-sm mt-1" />
         </div>
 
         <div class="flex items-center gap-x-2 justify-start">

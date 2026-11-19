@@ -4,7 +4,11 @@
 
     /** @var App\Models\Product $record */
     $insights = \App\Services\Insights\ProductInsights::for($record);
-    $currency = $record->urls->first()?->store?->currency ?? 'USD';
+    $converter = \App\Services\CurrencyConverter::new();
+    // Insights are built from converted prices when currency conversion is on.
+    $currency = $converter->isEnabled()
+        ? $converter->targetCurrency()
+        : ($record->urls->first()?->store?->currency ?? 'USD');
     $money = fn ($value) => Number::currency((float) $value, in: $currency);
     // Filament palette name behind each verdict, so the hero is tinted by the answer
     // rather than always reading as a good one. Referenced through Filament's CSS

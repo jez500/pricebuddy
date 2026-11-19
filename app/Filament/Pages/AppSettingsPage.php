@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Enums\AiFeature;
 use App\Enums\AiProvider;
+use App\Enums\ExchangeRateProvider;
 use App\Enums\Icons;
 use App\Enums\IntegratedServices;
 use App\Enums\NotificationMethods;
@@ -12,23 +13,31 @@ use App\Filament\Actions\Notifications\TestDiscordAction;
 use App\Filament\Actions\Notifications\TestGotifyAction;
 use App\Filament\Actions\Notifications\TestTelegramAction;
 use App\Filament\Traits\FormHelperTrait;
+use App\Jobs\RegeneratePriceCache;
+use App\Jobs\UpdateCurrencyConversionJob;
 use App\Models\UrlResearch;
 use App\Rules\ValidCron;
 use App\Services\AiService;
+use App\Services\CurrencyConverter;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\Helpers\IntegrationHelper;
 use App\Services\Helpers\LocaleHelper;
 use App\Services\Helpers\ScheduleHelper;
+use App\Services\Helpers\SettingsHelper;
 use App\Services\OllamaService;
 use App\Services\SearchService;
 use App\Settings\AppSettings;
+use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Group;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Tabs;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Notifications\Notification;
@@ -72,10 +81,90 @@ class AppSettingsPage extends SettingsPage
 
     public function save(): void
     {
+        $conversionBefore = $this->currencyConversionState();
+
         parent::save();
 
         Cache::flush();
         Once::flush();
+        SettingsHelper::$settings = null;
+
+        // Changed conversion settings (or the default currency they convert into)
+        // change every displayed price, so fetch rates and rebuild the price caches.
+        if ($conversionBefore !== $this->currencyConversionState()) {
+            UpdateCurrencyConversionJob::dispatch();
+
+            Notification::make()
+                ->title(__('Currency conversion updated'))
+                ->body(__('Prices are being recalculated in the background.'))
+                ->success()
+                ->send();
+        }
+    }
+
+    /**
+     * The saved settings that decide how prices are converted.
+     *
+     * @return array<string, mixed>
+     */
+    protected function currencyConversionState(): array
+    {
+        // Read the settings as saved, not a copy cached earlier in the request.
+        SettingsHelper::$settings = null;
+        $converter = CurrencyConverter::new();
+
+        if (! $converter->isEnabled()) {
+            return ['enabled' => false];
+        }
+
+        $provider = $converter->provider();
+        $manualRates = $provider->isRemote() ? [] : $converter->manualRates();
+        ksort($manualRates);
+
+        return [
+            'provider' => $provider->value,
+            'currency' => $converter->targetCurrency(),
+            'manual_rates' => $manualRates,
+        ];
+    }
+
+    /**
+     * Download exchange rates now with the saved settings, then rebuild the price caches.
+     */
+    public function fetchExchangeRates(): void
+    {
+        $converter = CurrencyConverter::new();
+
+        if (! $converter->isEnabled() || ! $converter->provider()->isRemote()) {
+            Notification::make()->title(__('Save your settings first.'))->warning()->send();
+
+            return;
+        }
+
+        $results = $converter->syncRates();
+        $errors = collect($results)->filter(fn (array $result): bool => $result['error'] !== null);
+
+        if ($results === []) {
+            Notification::make()->title(__('No store uses a currency other than :currency.', ['currency' => $converter->targetCurrency()]))->info()->send();
+
+            return;
+        }
+
+        if (collect($results)->sum('added') > 0) {
+            RegeneratePriceCache::dispatch();
+        }
+
+        $summary = collect($results)
+            ->map(fn (array $result, string $currency): string => $result['error'] === null
+                ? __(':currency: :count new rates', ['currency' => $currency, 'count' => $result['added']])
+                : $currency.': '.$result['error'])
+            ->implode('<br>');
+
+        Notification::make()
+            ->title($errors->isEmpty() ? __('Exchange rates updated') : __('Some exchange rates could not be fetched'))
+            ->body(new HtmlString($summary))
+            ->status($errors->isEmpty() ? 'success' : 'warning')
+            ->send();
     }
 
     /**
@@ -202,6 +291,12 @@ class AppSettingsPage extends SettingsPage
                             $this->getNtfySettings(),
                         ]),
 
+                    Tabs\Tab::make('Currency')
+                        ->icon('heroicon-o-currency-dollar')
+                        ->schema([
+                            $this->getCurrencyConversionSection(),
+                        ]),
+
                     Tabs\Tab::make('AI')
                         ->icon('heroicon-o-sparkles')
                         ->schema([
@@ -262,6 +357,71 @@ class AppSettingsPage extends SettingsPage
         return Group::make([
             self::makeSettingsHeading('Locale', __('Default region and locale settings')),
             Group::make(self::getLocaleFormFields('default_locale_settings'))->columns(2),
+        ]);
+    }
+
+    protected function getCurrencyConversionSection(): Group
+    {
+        $target = CurrencyHelper::getCurrency();
+
+        return Group::make([
+            self::makeSettingsHeading('Currency conversion', __(
+                'Convert prices from stores that use another currency into your default currency (:currency), so stores can be compared and price alerts work across currencies. Each price is converted with the exchange rate of the day it was found, and the original price is shown next to it. Stored prices are never changed, so turning this off restores the original prices.',
+                ['currency' => $target]
+            )),
+            Group::make([
+                Toggle::make('enabled')
+                    ->label(__('Convert prices to :currency', ['currency' => $target]))
+                    ->live(),
+
+                Group::make([
+                    Radio::make('provider')
+                        ->label('Exchange rates')
+                        ->options(collect(ExchangeRateProvider::cases())
+                            ->mapWithKeys(fn (ExchangeRateProvider $provider): array => [$provider->value => $provider->getLabel()])
+                            ->all())
+                        ->descriptions(collect(ExchangeRateProvider::cases())
+                            ->mapWithKeys(fn (ExchangeRateProvider $provider): array => [$provider->value => $provider->getDescription()])
+                            ->all())
+                        ->default(ExchangeRateProvider::Frankfurter->value)
+                        ->required()
+                        ->live(),
+
+                    Repeater::make('manual_rates')
+                        ->label('Manual rates')
+                        ->addActionLabel('Add rate')
+                        ->helperText(__('How many :currency one unit of each currency is worth.', ['currency' => $target]))
+                        ->visible(fn (Get $get): bool => $get('provider') === ExchangeRateProvider::Manual->value)
+                        ->schema([
+                            Select::make('currency')
+                                ->label('Currency')
+                                ->searchable()
+                                ->options(LocaleHelper::getAllCurrencyLocalesAsOptions())
+                                ->required()
+                                ->distinct(),
+                            TextInput::make('rate')
+                                ->label(__('Value of 1 unit in :currency', ['currency' => $target]))
+                                ->numeric()
+                                ->minValue(0.000001)
+                                ->required(),
+                        ])
+                        ->columns(2),
+
+                    Placeholder::make('rates_status')
+                        ->label('Rates in use')
+                        ->content(fn (): HtmlString => new HtmlString(view('filament.pages.settings.exchange-rates-status', [
+                            'converter' => CurrencyConverter::new(),
+                        ])->render())),
+
+                    Actions::make([
+                        Action::make('fetchExchangeRates')
+                            ->label('Fetch rates now')
+                            ->icon('heroicon-m-arrow-path')
+                            ->color('gray')
+                            ->action(fn (AppSettingsPage $livewire) => $livewire->fetchExchangeRates()),
+                    ])->visible(fn (Get $get): bool => $get('provider') !== ExchangeRateProvider::Manual->value),
+                ])->hidden(fn (Get $get): bool => ! $get('enabled')),
+            ])->statePath(CurrencyConverter::SETTINGS_KEY),
         ]);
     }
 

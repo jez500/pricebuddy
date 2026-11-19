@@ -7,7 +7,7 @@ use App\Models\Product;
 use App\Models\Url;
 use App\Models\User;
 use App\Notifications\Messages\GenericNotificationMessage;
-use App\Services\Helpers\CurrencyHelper;
+use App\Services\CurrencyConverter;
 use App\Services\Helpers\NotificationsHelper;
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification as DatabaseNotification;
@@ -153,10 +153,11 @@ class PriceAlertNotification extends Notification
             $this->url->product_name_short.' - '.$this->getPriceFormatted();
 
         if (! is_null($this->previousPrice)) {
-            $summary .= ' (was '.CurrencyHelper::toString(
+            $summary .= ' (was '.CurrencyConverter::new()->formatWithOriginal(
                 $this->previousPrice,
-                locale: $this->url->store?->locale,
-                iso: $this->url->store?->currency
+                $this->url->store?->currency,
+                $this->url->store?->locale,
+                $this->price?->created_at
             ).')';
         }
 
@@ -172,10 +173,11 @@ class PriceAlertNotification extends Notification
             return $this->url->latest_price_formatted;
         }
 
-        return CurrencyHelper::toString(
-            $this->price->price,
-            locale: $this->url->store?->locale,
-            iso: $this->url->store?->currency
+        return CurrencyConverter::new()->formatWithOriginal(
+            (float) $this->price->price,
+            $this->url->store?->currency,
+            $this->url->store?->locale,
+            $this->price->created_at
         );
     }
 
