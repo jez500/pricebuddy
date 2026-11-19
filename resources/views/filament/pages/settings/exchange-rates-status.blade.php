@@ -5,9 +5,11 @@
     $rows = $converter->status();
 @endphp
 <div class="text-sm">
-    @if ($converter->isEnabled() && ! $isRemote && ($stale = $converter->staleManualRatesCurrency()))
+    @if ($converter->isEnabled() && ! $isRemote && ($stale = $converter->staleManualRates()))
         <p class="mb-2 text-danger-600 dark:text-danger-400">
-            {{ __('The manual rates were entered for :old. Enter them again for :currency.', ['old' => $stale, 'currency' => $target]) }}
+            @foreach ($stale as $currency => $enteredFor)
+                {{ __('The :currency rate was entered for :old. Enter it again in :target.', ['currency' => $currency, 'old' => $enteredFor, 'target' => $target]) }}<br>
+            @endforeach
         </p>
     @endif
     @if (! $converter->isEnabled())

@@ -310,12 +310,19 @@ class ProductCurrencyConversionTest extends TestCase
     public function test_lowest_price_in_days_ignores_the_day_added_to_a_single_price(): void
     {
         $this->enableCurrencyConversion();
-        $this->addExchangeRate('2026-11-18', 1.60);
         $this->addExchangeRate('2026-11-19', 1.50);
-        // Only one price, today. The chart repeats it yesterday, at yesterday's higher rate.
+        // Each store has a single price, recorded today: 100 USD (150 CAD) and 140 CAD.
         $this->addPrice($this->usStore, 100, '2026-11-19 10:00:00');
+        $this->addPrice($this->caStore, 140, '2026-11-19 11:00:00');
         $this->product->refresh()->updatePriceCache();
 
+        // For the chart, each single price is repeated on the day before, so the cached
+        // history has 150 yesterday, above today's lowest price of 140.
+        $usHistory = $this->cacheFor($this->usStore)->getHistory();
+        $this->assertEquals(150.0, $usHistory->get('2026-11-18'));
+        $this->assertSame(140.0, (float) $this->product->current_price);
+
+        // No price was recorded before today, so it is not a new low.
         $this->assertSame([], Product::query()->lowestPriceInDays(7)->pluck('id')->all());
     }
 

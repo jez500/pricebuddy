@@ -78,26 +78,48 @@ class CurrencyConverter
      */
     public function manualRates(): array
     {
-        // Rates entered for another default currency are in the wrong unit: ignore them
-        // until they are entered again.
-        if ($this->staleManualRatesCurrency() !== null) {
-            return [];
-        }
-
-        return self::normalizeManualRates(SettingsHelper::getSetting(self::SETTINGS_KEY.'.manual_rates', []));
+        // A rate entered for another default currency is in the wrong unit: ignore it
+        // until it is entered again.
+        return self::normalizeManualRates(
+            $this->manualRateRows()
+                ->reject(fn (array $row): bool => $this->isStaleManualRate($row))
+                ->all()
+        );
     }
 
     /**
-     * The default currency the manual rates were entered for, when that is no longer
-     * the default currency. Null when the rates apply.
+     * Manual rates that were entered for another default currency and are not used,
+     * keyed by currency: the default currency each was entered for.
+     *
+     * @return array<string, string>
      */
-    public function staleManualRatesCurrency(): ?string
+    public function staleManualRates(): array
     {
-        $currency = SettingsHelper::getSetting(self::SETTINGS_KEY.'.manual_rates_currency');
+        return $this->manualRateRows()
+            ->filter(fn (array $row): bool => filled($row['currency'] ?? null) && $this->isStaleManualRate($row))
+            ->mapWithKeys(fn (array $row): array => [strtoupper((string) $row['currency']) => strtoupper((string) $row['entered_for'])])
+            ->sortKeys()
+            ->all();
+    }
 
-        return filled($currency) && strtoupper((string) $currency) !== $this->targetCurrency()
-            ? strtoupper((string) $currency)
-            : null;
+    /**
+     * @return Collection<int|string, array<mixed, mixed>>
+     */
+    protected function manualRateRows(): Collection
+    {
+        return collect((array) SettingsHelper::getSetting(self::SETTINGS_KEY.'.manual_rates', []))
+            ->filter(fn ($row): bool => is_array($row));
+    }
+
+    /**
+     * Each manual rate records the default currency it was entered for (entered_for).
+     *
+     * @param  array<string, mixed>  $row
+     */
+    protected function isStaleManualRate(array $row): bool
+    {
+        return filled($row['entered_for'] ?? null)
+            && strtoupper((string) $row['entered_for']) !== $this->targetCurrency();
     }
 
     /**

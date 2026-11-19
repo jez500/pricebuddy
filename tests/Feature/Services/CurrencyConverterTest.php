@@ -9,7 +9,6 @@ use App\Models\Product;
 use App\Models\Url;
 use App\Services\CurrencyConverter;
 use App\Services\ExchangeRates\FrankfurterRateSource;
-use App\Services\Helpers\SettingsHelper;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -282,14 +281,16 @@ class CurrencyConverterTest extends TestCase
 
     public function test_manual_rates_entered_for_another_default_currency_are_not_used(): void
     {
-        $this->enableCurrencyConversion(ExchangeRateProvider::Manual, [['currency' => 'USD', 'rate' => 1.4]]);
+        // The default currency is CAD.
+        $this->enableCurrencyConversion(ExchangeRateProvider::Manual, [
+            ['currency' => 'USD', 'rate' => 1.4, 'entered_for' => 'CAD'],
+            ['currency' => 'GBP', 'rate' => 1.17, 'entered_for' => 'EUR'],
+        ]);
+
+        $this->assertSame(['USD' => 1.4], $this->converter->manualRates());
+        $this->assertSame(['GBP' => 'EUR'], $this->converter->staleManualRates());
         $this->assertSame(1.4, $this->converter->rate('USD'));
-
-        SettingsHelper::setSetting(CurrencyConverter::SETTINGS_KEY.'.manual_rates_currency', 'EUR');
-
-        $this->assertSame('EUR', $this->converter->staleManualRatesCurrency());
-        $this->assertSame([], $this->converter->manualRates());
-        $this->assertNull($this->converter->rate('USD'));
+        $this->assertNull($this->converter->rate('GBP'));
     }
 
     public function test_sync_rates_reports_a_currency_the_provider_does_not_know(): void

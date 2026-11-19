@@ -116,31 +116,50 @@ class AppSettingsCurrencyConversionTest extends TestCase
         Livewire::test(AppSettingsPage::class)
             ->fillForm([
                 'currency_conversion.provider' => ExchangeRateProvider::Manual->value,
-                'currency_conversion.manual_rates' => [['currency' => 'USD', 'rate' => '1.42']],
+                'currency_conversion.manual_rates' => [
+                    ['currency' => 'USD', 'rate' => '1.42'],
+                    ['currency' => 'GBP', 'rate' => '1.85'],
+                ],
             ])
             ->call('save')
             ->assertHasNoFormErrors();
 
-        $this->assertSame(['USD' => 1.42], CurrencyConverter::new()->manualRates());
+        $this->assertSame(['GBP' => 1.85, 'USD' => 1.42], CurrencyConverter::new()->manualRates());
 
-        // 1.42 is CAD per USD. It must not be used as EUR per USD.
+        // The rates are CAD per unit. They must not be used as EUR per unit.
         Livewire::test(AppSettingsPage::class)
             ->fillForm(['default_locale_settings.currency' => 'EUR'])
             ->call('save')
             ->assertHasNoFormErrors();
 
-        $this->assertSame('CAD', CurrencyConverter::new()->staleManualRatesCurrency());
+        $this->assertSame(['GBP' => 'CAD', 'USD' => 'CAD'], CurrencyConverter::new()->staleManualRates());
         $this->assertSame([], CurrencyConverter::new()->manualRates());
 
+        // Entering only the USD rate again must not bring back the unchanged GBP rate.
         Livewire::test(AppSettingsPage::class)
-            ->assertSee('The manual rates were entered for CAD. Enter them again for EUR.')
-            // Replace the saved row rather than adding to it.
-            ->set('data.currency_conversion.manual_rates', ['usd' => ['currency' => 'USD', 'rate' => '0.93']])
+            ->assertSee('The USD rate was entered for CAD. Enter it again in EUR.')
+            ->assertSee('The GBP rate was entered for CAD. Enter it again in EUR.')
+            // Replace the saved rows rather than adding to them.
+            ->set('data.currency_conversion.manual_rates', [
+                'usd' => ['currency' => 'USD', 'rate' => '0.93'],
+                'gbp' => ['currency' => 'GBP', 'rate' => '1.85'],
+            ])
             ->call('save')
             ->assertHasNoFormErrors();
 
-        $this->assertNull(CurrencyConverter::new()->staleManualRatesCurrency());
         $this->assertSame(['USD' => 0.93], CurrencyConverter::new()->manualRates());
+        $this->assertSame(['GBP' => 'CAD'], CurrencyConverter::new()->staleManualRates());
+
+        Livewire::test(AppSettingsPage::class)
+            ->set('data.currency_conversion.manual_rates', [
+                'usd' => ['currency' => 'USD', 'rate' => '0.93'],
+                'gbp' => ['currency' => 'GBP', 'rate' => '1.17'],
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(['GBP' => 1.17, 'USD' => 0.93], CurrencyConverter::new()->manualRates());
+        $this->assertSame([], CurrencyConverter::new()->staleManualRates());
     }
 
     public function test_a_manual_rate_must_be_positive(): void

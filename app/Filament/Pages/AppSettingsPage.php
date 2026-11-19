@@ -216,29 +216,44 @@ class AppSettingsPage extends SettingsPage
     }
 
     /**
-     * Record which default currency the manual rates were entered for. Rates are only
-     * re-stamped when they are edited (or have never been stamped), so changing the
-     * default currency leaves them marked for the old one, and they are not used
-     * until they are entered again.
+     * Record on each manual rate the default currency it was entered for (entered_for).
+     * A rate that is new or edited gets the current default currency. A rate that is
+     * unchanged keeps the currency it was entered for, so after the default currency
+     * changes, each rate stays unused until that rate itself is entered again.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    protected function stampManualRatesCurrency(array $data): array
+    protected function stampManualRates(array $data): array
     {
-        $key = CurrencyConverter::SETTINGS_KEY;
+        $key = CurrencyConverter::SETTINGS_KEY.'.manual_rates';
+        $rows = data_get($data, $key);
 
-        if (! is_array(data_get($data, $key.'.manual_rates'))) {
+        if (! is_array($rows)) {
             return $data;
         }
 
-        $saved = (array) data_get(AppSettings::new()->toArray(), $key, []);
-        $edited = CurrencyConverter::normalizeManualRates(data_get($data, $key.'.manual_rates'))
-            !== CurrencyConverter::normalizeManualRates($saved['manual_rates'] ?? []);
+        $target = strtoupper((string) data_get($data, 'default_locale_settings.currency', CurrencyHelper::getCurrency()));
+        $saved = collect((array) data_get(AppSettings::new()->toArray(), $key, []))
+            ->filter(fn ($row): bool => is_array($row) && filled($row['currency'] ?? null))
+            ->keyBy(fn (array $row): string => strtoupper((string) $row['currency']));
 
-        data_set($data, $key.'.manual_rates_currency', $edited || blank($saved['manual_rates_currency'] ?? null)
-            ? data_get($data, 'default_locale_settings.currency', CurrencyHelper::getCurrency())
-            : $saved['manual_rates_currency']);
+        foreach ($rows as $index => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $previous = $saved->get(strtoupper((string) ($row['currency'] ?? '')));
+            $unchanged = $previous !== null
+                && filled($previous['entered_for'] ?? null)
+                && is_numeric($previous['rate'] ?? null)
+                && is_numeric($row['rate'] ?? null)
+                && round((float) $previous['rate'], 10) === round((float) $row['rate'], 10);
+
+            $rows[$index]['entered_for'] = $unchanged ? strtoupper((string) $previous['entered_for']) : $target;
+        }
+
+        data_set($data, $key, $rows);
 
         return $data;
     }
@@ -249,7 +264,7 @@ class AppSettingsPage extends SettingsPage
      */
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        $data = $this->stampManualRatesCurrency($data);
+        $data = $this->stampManualRates($data);
 
         $existingProviders = collect(
             data_get(AppSettings::new()->toArray(), 'integrated_services.ai.providers', [])
@@ -420,8 +435,8 @@ class AppSettingsPage extends SettingsPage
                     Repeater::make('manual_rates')
                         ->label('Manual rates')
                         ->addActionLabel('Add rate')
-                        ->helperText(fn (): string => ($stale = CurrencyConverter::new()->staleManualRatesCurrency())
-                            ? __('These rates were entered for :old, not :currency, so they are not used. Enter them again for :currency.', ['old' => $stale, 'currency' => $target])
+                        ->helperText(fn (): string => ($stale = CurrencyConverter::new()->staleManualRates())
+                            ? __('The rates for :list were entered for another default currency, so they are not used. Enter them again in :currency.', ['list' => implode(', ', array_keys($stale)), 'currency' => $target])
                             : __('How many :currency one unit of each currency is worth.', ['currency' => $target]))
                         ->visible(fn (Get $get): bool => $get('provider') === ExchangeRateProvider::Manual->value)
                         ->schema([
