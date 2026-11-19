@@ -10,6 +10,7 @@ use App\Models\Store;
 use App\Models\Url;
 use App\Models\User;
 use App\Notifications\PriceAlertNotification;
+use App\Services\CurrencyConverter;
 use App\Services\Insights\ProductInsights;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -180,6 +181,19 @@ class ProductCurrencyConversionTest extends TestCase
 
         $this->assertSame(150.0, $history->last());
         $this->assertSame(100.0, (float) $this->product->getPriceHistory('unit_price', convert: false)->first()->last());
+    }
+
+    public function test_a_missing_unit_price_converts_the_price(): void
+    {
+        $this->enableCurrencyConversion();
+        $this->addExchangeRate('2026-11-18', 1.50);
+        $price = $this->addPrice($this->usStore, 100, '2026-11-18 10:00:00');
+        $price->forceFill(['unit_price' => null])->saveQuietly();
+
+        $history = $this->product->refresh()->getPriceHistory('unit_price')->first();
+
+        $this->assertSame(150.0, $history->last());
+        $this->assertSame(150.0, CurrencyConverter::new()->convertPrice($price->refresh(), 'unit_price'));
     }
 
     public function test_target_price_alert_compares_the_converted_price(): void

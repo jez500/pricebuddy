@@ -814,8 +814,10 @@ class Product extends Model
                 $currency = $currencies->get($row->price_store_id ?? $row->store_id);
 
                 if ($converter->shouldConvert($currency)) {
-                    $row->{$priceColumn} = $converter->convert((float) $row->{$priceColumn}, (string) $currency, $row->created_at)
-                        ?? $row->{$priceColumn};
+                    // A price saved without a unit price is its own unit price, as in
+                    // CurrencyConverter::convertPrice(). A recorded 0 is kept.
+                    $value = (float) ($row->{$priceColumn} ?? $row->price);
+                    $row->{$priceColumn} = $converter->convert($value, (string) $currency, $row->created_at) ?? $value;
                 }
             });
         }
