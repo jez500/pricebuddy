@@ -157,7 +157,8 @@ class PriceAlertNotification extends Notification
                 $this->previousPrice,
                 $this->url->store?->currency,
                 $this->url->store?->locale,
-                $this->price?->created_at
+                // The previous price is converted at the rate of its own date.
+                $this->price ? $this->url->previousPrice($this->price)?->created_at : null
             ).')';
         }
 

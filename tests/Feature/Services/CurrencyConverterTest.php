@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Url;
 use App\Services\CurrencyConverter;
 use App\Services\ExchangeRates\FrankfurterRateSource;
+use App\Services\Helpers\SettingsHelper;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -191,8 +192,9 @@ class CurrencyConverterTest extends TestCase
 
         $results = $this->converter->syncRates();
 
-        $this->assertSame(['USD' => ['added' => 2, 'error' => null]], $results);
-        Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/2026-11-12..2026-11-19')
+        $this->assertSame(['USD' => ['added' => 2, 'changed' => 0, 'error' => null]], $results);
+        // A week before the oldest price, so the series starts on a published day.
+        Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/2026-11-05..2026-11-19')
             && $request['base'] === 'USD'
             && $request['symbols'] === 'CAD');
         $this->assertSame(1.43, $this->converter->rate('USD', '2026-11-19'));
@@ -219,9 +221,58 @@ class CurrencyConverterTest extends TestCase
 
         // The last stored day is fetched again (and updated), only the 18th is new.
         $this->assertSame(1, $results['USD']['added']);
+        $this->assertSame(1, $results['USD']['changed']);
+        $this->assertTrue(CurrencyConverter::ratesChanged($results));
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/2026-11-17..2026-11-19'));
         $this->assertSame(1.441, $this->converter->rate('USD', '2026-11-17'));
         $this->assertSame(3, ExchangeRate::query()->count());
+    }
+
+    public function test_sync_rates_backfills_when_an_older_price_needs_rates_from_a_few_days_earlier(): void
+    {
+        $this->travelTo(Carbon::parse('2026-11-19 17:00:00'));
+        $this->enableCurrencyConversion();
+        $this->addExchangeRate('2026-11-18', 1.44);
+        $this->addExchangeRate('2026-11-19', 1.45);
+        $url = Url::factory()->for($this->storeInCurrency('USD'))->create();
+        $price = $url->prices()->create(['price' => 10, 'store_id' => $url->store_id]);
+        $price->forceFill(['created_at' => '2026-11-14 08:00:00'])->saveQuietly();
+
+        Http::fake([FrankfurterRateSource::BASE_URL.'/*' => Http::response(['rates' => ['2026-11-13' => ['CAD' => 1.43]]])]);
+
+        $this->converter->syncRates();
+
+        Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/2026-11-07..2026-11-19'));
+        $this->assertSame(1.43, $this->converter->rate('USD', '2026-11-14'));
+    }
+
+    public function test_sync_rates_reports_an_unchanged_refetch_as_no_change(): void
+    {
+        $this->travelTo(Carbon::parse('2026-11-19 17:00:00'));
+        $this->enableCurrencyConversion();
+        $url = Url::factory()->for($this->storeInCurrency('USD'))->create();
+        $url->prices()->create(['price' => 10, 'store_id' => $url->store_id]);
+        $this->addExchangeRate('2026-11-12', 1.42);
+        $this->addExchangeRate('2026-11-19', 1.45);
+
+        Http::fake([FrankfurterRateSource::BASE_URL.'/*' => Http::response(['rates' => ['2026-11-19' => ['CAD' => 1.45]]])]);
+
+        $results = $this->converter->syncRates();
+
+        $this->assertSame(['USD' => ['added' => 0, 'changed' => 0, 'error' => null]], $results);
+        $this->assertFalse(CurrencyConverter::ratesChanged($results));
+    }
+
+    public function test_manual_rates_entered_for_another_default_currency_are_not_used(): void
+    {
+        $this->enableCurrencyConversion(ExchangeRateProvider::Manual, [['currency' => 'USD', 'rate' => 1.4]]);
+        $this->assertSame(1.4, $this->converter->rate('USD'));
+
+        SettingsHelper::setSetting(CurrencyConverter::SETTINGS_KEY.'.manual_rates_currency', 'EUR');
+
+        $this->assertSame('EUR', $this->converter->staleManualRatesCurrency());
+        $this->assertSame([], $this->converter->manualRates());
+        $this->assertNull($this->converter->rate('USD'));
     }
 
     public function test_sync_rates_reports_a_currency_the_provider_does_not_know(): void

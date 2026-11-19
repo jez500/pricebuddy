@@ -47,17 +47,16 @@ class FetchExchangeRates extends Command
         }
 
         $this->table(
-            ['Currency', 'New rates', 'Error'],
+            ['Currency', 'New rates', 'Changed rates', 'Error'],
             collect($results)->map(fn (array $result, string $currency): array => [
                 $currency.' → '.$converter->targetCurrency(),
                 $result['added'],
+                $result['changed'],
                 $result['error'] ?? '',
             ])->values()->all()
         );
 
-        $added = collect($results)->sum('added');
-
-        if ($added > 0 && ! $this->option('no-rebuild')) {
+        if (CurrencyConverter::ratesChanged($results) && ! $this->option('no-rebuild')) {
             $this->call(RegeneratePriceCache::COMMAND);
         }
 

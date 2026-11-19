@@ -5,6 +5,11 @@
     $rows = $converter->status();
 @endphp
 <div class="text-sm">
+    @if ($converter->isEnabled() && ! $isRemote && ($stale = $converter->staleManualRatesCurrency()))
+        <p class="mb-2 text-danger-600 dark:text-danger-400">
+            {{ __('The manual rates were entered for :old. Enter them again for :currency.', ['old' => $stale, 'currency' => $target]) }}
+        </p>
+    @endif
     @if (! $converter->isEnabled())
         <p class="text-gray-500 dark:text-gray-400">{{ __('Save your settings to see the rates in use.') }}</p>
     @elseif (empty($rows))

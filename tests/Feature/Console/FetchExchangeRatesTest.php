@@ -61,6 +61,24 @@ class FetchExchangeRatesTest extends TestCase
         $this->assertSame(150.0, (float) $url->product->refresh()->current_price);
     }
 
+    public function test_it_rebuilds_price_caches_when_only_an_existing_rate_changed(): void
+    {
+        $this->enableCurrencyConversion();
+        $url = Url::factory()->for($this->storeInCurrency('USD'))->for(Product::factory())->create();
+        $this->addExchangeRate(now()->toDateString(), 1.4);
+        $url->prices()->create(['price' => 100, 'store_id' => $url->store_id]);
+        $this->assertSame(140.0, (float) $url->product->refresh()->current_price);
+
+        Http::fake([
+            FrankfurterRateSource::BASE_URL.'/*' => Http::response(['rates' => [now()->toDateString() => ['CAD' => 1.5]]]),
+        ]);
+
+        $this->artisan(FetchExchangeRates::COMMAND)->assertExitCode(0);
+
+        $this->assertSame(1, ExchangeRate::query()->count());
+        $this->assertSame(150.0, (float) $url->product->refresh()->current_price);
+    }
+
     public function test_it_fails_when_every_currency_fails(): void
     {
         $this->enableCurrencyConversion();

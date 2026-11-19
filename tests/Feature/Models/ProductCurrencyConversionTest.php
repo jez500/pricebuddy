@@ -243,6 +243,68 @@ class ProductCurrencyConversionTest extends TestCase
         $this->assertEquals(['2026-10-01' => 125.0, '2026-11-18' => 100.0], $cache->getHistory()->all());
     }
 
+    public function test_history_of_a_url_that_moved_store_uses_each_prices_own_currency(): void
+    {
+        $this->enableCurrencyConversion();
+        $this->addExchangeRate('2026-11-10', 1.50);
+        $this->addExchangeRate('2026-11-10', 1.60, base: 'EUR');
+        $euStore = $this->storeInCurrency('EUR', 'Euro store');
+
+        $this->addPrice($this->usStore, 100, '2026-11-17 10:00:00');
+        $url = Url::query()->sole();
+        $url->update(['store_id' => $euStore->id]);
+        $url->prices()->create(['price' => 100, 'store_id' => $euStore->id])
+            ->forceFill(['created_at' => '2026-11-18 10:00:00'])->saveQuietly();
+
+        $history = $this->product->refresh()->getPriceHistory()->sole();
+
+        $this->assertEquals(['2026-11-17' => 150.0, '2026-11-18' => 160.0], $history->all());
+    }
+
+    public function test_price_change_alert_converts_the_previous_price_at_its_own_rate(): void
+    {
+        $this->enableCurrencyConversion();
+        $this->addExchangeRate('2026-11-18', 1.50);
+        $this->addExchangeRate('2026-11-19', 1.60);
+        $this->product->update(['notify_on_change' => true]);
+        $url = Url::factory()->for($this->usStore)->for($this->product)->create();
+
+        $this->travelTo(Carbon::parse('2026-11-18 12:00:00'));
+        $url->prices()->create(['price' => 100, 'store_id' => $this->usStore->id]);
+        $this->travelTo(Carbon::parse('2026-11-19 12:00:00'));
+        $url->prices()->create(['price' => 90, 'store_id' => $this->usStore->id]);
+
+        Notification::assertSentTo($this->user, PriceAlertNotification::class, function (PriceAlertNotification $notification): bool {
+            $summary = $notification->toArray($this->user)['summary'];
+
+            return str_contains($summary, 'CA$144.00 ($90.00) (was CA$150.00 ($100.00))');
+        });
+    }
+
+    public function test_lowest_price_in_days_counts_every_price_of_a_day(): void
+    {
+        $this->enableCurrencyConversion();
+        // 120 yesterday morning and 80 yesterday evening: 100 today is still lower than 120.
+        $this->addPrice($this->caStore, 120, '2026-11-18 09:00:00');
+        $this->addPrice($this->caStore, 80, '2026-11-18 18:00:00');
+        $this->addPrice($this->caStore, 100, '2026-11-19 10:00:00');
+        $this->product->refresh()->updatePriceCache();
+
+        $this->assertSame([$this->product->id], Product::query()->lowestPriceInDays(7)->pluck('id')->all());
+    }
+
+    public function test_lowest_price_in_days_ignores_the_day_added_to_a_single_price(): void
+    {
+        $this->enableCurrencyConversion();
+        $this->addExchangeRate('2026-11-18', 1.60);
+        $this->addExchangeRate('2026-11-19', 1.50);
+        // Only one price, today. The chart repeats it yesterday, at yesterday's higher rate.
+        $this->addPrice($this->usStore, 100, '2026-11-19 10:00:00');
+        $this->product->refresh()->updatePriceCache();
+
+        $this->assertSame([], Product::query()->lowestPriceInDays(7)->pluck('id')->all());
+    }
+
     public function test_lowest_price_in_days_uses_converted_prices(): void
     {
         $this->enableCurrencyConversion();

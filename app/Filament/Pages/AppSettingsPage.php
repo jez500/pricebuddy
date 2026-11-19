@@ -150,7 +150,7 @@ class AppSettingsPage extends SettingsPage
             return;
         }
 
-        if (collect($results)->sum('added') > 0) {
+        if (CurrencyConverter::ratesChanged($results)) {
             RegeneratePriceCache::dispatch();
         }
 
@@ -216,11 +216,41 @@ class AppSettingsPage extends SettingsPage
     }
 
     /**
+     * Record which default currency the manual rates were entered for. Rates are only
+     * re-stamped when they are edited (or have never been stamped), so changing the
+     * default currency leaves them marked for the old one, and they are not used
+     * until they are entered again.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function stampManualRatesCurrency(array $data): array
+    {
+        $key = CurrencyConverter::SETTINGS_KEY;
+
+        if (! is_array(data_get($data, $key.'.manual_rates'))) {
+            return $data;
+        }
+
+        $saved = (array) data_get(AppSettings::new()->toArray(), $key, []);
+        $edited = CurrencyConverter::normalizeManualRates(data_get($data, $key.'.manual_rates'))
+            !== CurrencyConverter::normalizeManualRates($saved['manual_rates'] ?? []);
+
+        data_set($data, $key.'.manual_rates_currency', $edited || blank($saved['manual_rates_currency'] ?? null)
+            ? data_get($data, 'default_locale_settings.currency', CurrencyHelper::getCurrency())
+            : $saved['manual_rates_currency']);
+
+        return $data;
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        $data = $this->stampManualRatesCurrency($data);
+
         $existingProviders = collect(
             data_get(AppSettings::new()->toArray(), 'integrated_services.ai.providers', [])
         );
@@ -390,7 +420,9 @@ class AppSettingsPage extends SettingsPage
                     Repeater::make('manual_rates')
                         ->label('Manual rates')
                         ->addActionLabel('Add rate')
-                        ->helperText(__('How many :currency one unit of each currency is worth.', ['currency' => $target]))
+                        ->helperText(fn (): string => ($stale = CurrencyConverter::new()->staleManualRatesCurrency())
+                            ? __('These rates were entered for :old, not :currency, so they are not used. Enter them again for :currency.', ['old' => $stale, 'currency' => $target])
+                            : __('How many :currency one unit of each currency is worth.', ['currency' => $target]))
                         ->visible(fn (Get $get): bool => $get('provider') === ExchangeRateProvider::Manual->value)
                         ->schema([
                             Select::make('currency')

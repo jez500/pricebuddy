@@ -5,8 +5,13 @@
     /** @var App\Models\Product $record */
     $insights = \App\Services\Insights\ProductInsights::for($record);
     $converter = \App\Services\CurrencyConverter::new();
-    // Insights are built from converted prices when currency conversion is on.
-    $currency = $converter->isEnabled()
+    $storeCurrencies = $record->urls->map(fn ($url) => $url->store?->currency)->filter()->unique();
+    // Insights are built from converted prices when currency conversion is on. If a
+    // store's currency has no rate its prices stay unconverted, so the amounts are not
+    // all in the default currency and the old per-store label is kept.
+    $currency = $converter->isEnabled() && $storeCurrencies->every(
+        fn (string $iso): bool => strtoupper($iso) === $converter->targetCurrency() || $converter->shouldConvert($iso)
+    )
         ? $converter->targetCurrency()
         : ($record->urls->first()?->store?->currency ?? 'USD');
     $money = fn ($value) => Number::currency((float) $value, in: $currency);

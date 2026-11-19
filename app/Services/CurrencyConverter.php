@@ -78,13 +78,46 @@ class CurrencyConverter
      */
     public function manualRates(): array
     {
-        return collect((array) SettingsHelper::getSetting(self::SETTINGS_KEY.'.manual_rates', []))
+        // Rates entered for another default currency are in the wrong unit: ignore them
+        // until they are entered again.
+        if ($this->staleManualRatesCurrency() !== null) {
+            return [];
+        }
+
+        return self::normalizeManualRates(SettingsHelper::getSetting(self::SETTINGS_KEY.'.manual_rates', []));
+    }
+
+    /**
+     * The default currency the manual rates were entered for, when that is no longer
+     * the default currency. Null when the rates apply.
+     */
+    public function staleManualRatesCurrency(): ?string
+    {
+        $currency = SettingsHelper::getSetting(self::SETTINGS_KEY.'.manual_rates_currency');
+
+        return filled($currency) && strtoupper((string) $currency) !== $this->targetCurrency()
+            ? strtoupper((string) $currency)
+            : null;
+    }
+
+    /**
+     * Manual rate rows as currency => rate, ignoring incomplete rows and rates of 0 or less.
+     *
+     * @return array<string, float>
+     */
+    public static function normalizeManualRates(mixed $rows): array
+    {
+        $rates = collect(is_array($rows) ? $rows : [])
             ->filter(fn ($row): bool => is_array($row)
                 && filled($row['currency'] ?? null)
                 && is_numeric($row['rate'] ?? null)
                 && (float) $row['rate'] > 0)
             ->mapWithKeys(fn (array $row): array => [strtoupper((string) $row['currency']) => (float) $row['rate']])
             ->all();
+
+        ksort($rates);
+
+        return $rates;
     }
 
     /**
@@ -158,11 +191,13 @@ class CurrencyConverter
     }
 
     /**
-     * A price's value in the default currency, or its own value when it is not converted.
+     * A price's value (or unit price) in the default currency, using the currency of
+     * the store the price was recorded at. Its own value when it is not converted.
      */
-    public function convertPrice(Price $price): float
+    public function convertPrice(Price $price, string $column = 'price'): float
     {
-        $value = (float) $price->price;
+        // A price saved without a unit price is its own unit price.
+        $value = (float) ($column === 'unit_price' ? ($price->unit_price ?? $price->price) : $price->price);
 
         if (! $this->isEnabled() || ! $price->store_id) {
             return $value;
@@ -175,6 +210,24 @@ class CurrencyConverter
         }
 
         return $this->convert($value, (string) $currency, $price->created_at) ?? $value;
+    }
+
+    /**
+     * Currency of each store, keyed by store id.
+     *
+     * @param  iterable<int|string|null>  $storeIds
+     * @return Collection<int, string>
+     */
+    public function storeCurrencies(iterable $storeIds): Collection
+    {
+        $ids = collect($storeIds)->filter()->unique()->values();
+
+        return $ids->isEmpty()
+            ? collect()
+            : Store::query()
+                ->whereIn('id', $ids)
+                ->get()
+                ->mapWithKeys(fn (Store $store): array => [$store->getKey() => (string) $store->currency]);
     }
 
     /**
@@ -230,7 +283,7 @@ class CurrencyConverter
      * Download and store any missing daily rates for every needed currency, back to
      * the oldest price in the price history window (one year).
      *
-     * @return array<string, array{added: int, error: ?string}> keyed by currency
+     * @return array<string, array{added: int, changed: int, error: ?string}> keyed by currency
      */
     public function syncRates(?CarbonInterface $today = null): array
     {
@@ -255,17 +308,21 @@ class CurrencyConverter
             $first = $stored->clone()->min('date');
             $last = $stored->clone()->max('date');
 
-            // Refetch the last stored day as well: a rate for today can still change.
-            $start = $first !== null && Carbon::parse($first)->lte($earliest->copy()->addWeek()) && $last !== null
-                ? Carbon::parse($last)
-                : $earliest->copy();
+            // Rates are needed back to the oldest price. Start a week before it so the
+            // series begins on a published day even when that price is on a weekend or
+            // holiday, otherwise the gap would be requested again on every run. Once the
+            // series reaches back far enough, only refetch from the last stored day,
+            // since a rate for today can still change.
+            $start = $first === null || $last === null || Carbon::parse($first)->gt($earliest)
+                ? $earliest->copy()->subWeek()
+                : Carbon::parse($last);
 
             try {
                 $rates = $source->fetch($currency, $target, $start, $today);
-                $results[$currency] = ['added' => $this->storeRates($provider, $currency, $target, $rates), 'error' => null];
+                $results[$currency] = [...$this->storeRates($provider, $currency, $target, $rates), 'error' => null];
             } catch (ExchangeRateException $e) {
                 Log::warning('Could not fetch exchange rates', ['currency' => $currency, 'error' => $e->getMessage()]);
-                $results[$currency] = ['added' => 0, 'error' => $e->getMessage()];
+                $results[$currency] = ['added' => 0, 'changed' => 0, 'error' => $e->getMessage()];
             }
         }
 
@@ -323,12 +380,26 @@ class CurrencyConverter
     }
 
     /**
-     * @param  array<string, float>  $rates
+     * Whether a sync stored anything that changes converted prices.
+     *
+     * @param  array<string, array{added: int, changed: int, error: ?string}>  $results
      */
-    protected function storeRates(ExchangeRateProvider $provider, string $base, string $quote, array $rates): int
+    public static function ratesChanged(array $results): bool
+    {
+        return collect($results)->contains(fn (array $result): bool => $result['added'] > 0 || $result['changed'] > 0);
+    }
+
+    /**
+     * Store fetched rates. Returns how many days are new and how many existing days
+     * got a different rate.
+     *
+     * @param  array<string, float>  $rates
+     * @return array{added: int, changed: int}
+     */
+    protected function storeRates(ExchangeRateProvider $provider, string $base, string $quote, array $rates): array
     {
         if ($rates === []) {
-            return 0;
+            return ['added' => 0, 'changed' => 0];
         }
 
         $existing = ExchangeRate::query()
@@ -336,6 +407,12 @@ class CurrencyConverter
             ->where('base_currency', $base)
             ->where('quote_currency', $quote)
             ->whereIn('date', array_keys($rates))
+            ->toBase()
+            ->get(['date', 'rate'])
+            ->mapWithKeys(fn ($row): array => [Carbon::parse($row->date)->toDateString() => (float) $row->rate]);
+
+        $changed = collect($rates)
+            ->filter(fn (float $rate, string $date): bool => $existing->has($date) && abs($existing->get($date) - $rate) > 1e-9)
             ->count();
 
         $now = now();
@@ -354,7 +431,7 @@ class CurrencyConverter
             ['rate', 'updated_at'],
         );
 
-        return count($rates) - $existing;
+        return ['added' => count($rates) - $existing->count(), 'changed' => $changed];
     }
 
     /**

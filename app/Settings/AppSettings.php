@@ -35,7 +35,8 @@ class AppSettings extends Settings
     /**
      * Convert store prices to the default currency. Keys: enabled (bool),
      * provider (ExchangeRateProvider value) and manual_rates (list of
-     * ['currency' => ISO code, 'rate' => units of the default currency per 1 unit]).
+     * ['currency' => ISO code, 'rate' => units of the default currency per 1 unit])
+     * and manual_rates_currency (the default currency the manual rates were entered for).
      */
     public array $currency_conversion = [];
 

@@ -109,6 +109,40 @@ class AppSettingsCurrencyConversionTest extends TestCase
         $this->assertSame(['USD' => 1.42], CurrencyConverter::new()->manualRates());
     }
 
+    public function test_manual_rates_stop_applying_when_the_default_currency_changes(): void
+    {
+        $this->enableCurrencyConversion();
+
+        Livewire::test(AppSettingsPage::class)
+            ->fillForm([
+                'currency_conversion.provider' => ExchangeRateProvider::Manual->value,
+                'currency_conversion.manual_rates' => [['currency' => 'USD', 'rate' => '1.42']],
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(['USD' => 1.42], CurrencyConverter::new()->manualRates());
+
+        // 1.42 is CAD per USD. It must not be used as EUR per USD.
+        Livewire::test(AppSettingsPage::class)
+            ->fillForm(['default_locale_settings.currency' => 'EUR'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('CAD', CurrencyConverter::new()->staleManualRatesCurrency());
+        $this->assertSame([], CurrencyConverter::new()->manualRates());
+
+        Livewire::test(AppSettingsPage::class)
+            ->assertSee('The manual rates were entered for CAD. Enter them again for EUR.')
+            // Replace the saved row rather than adding to it.
+            ->set('data.currency_conversion.manual_rates', ['usd' => ['currency' => 'USD', 'rate' => '0.93']])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertNull(CurrencyConverter::new()->staleManualRatesCurrency());
+        $this->assertSame(['USD' => 0.93], CurrencyConverter::new()->manualRates());
+    }
+
     public function test_a_manual_rate_must_be_positive(): void
     {
         $this->enableCurrencyConversion();
