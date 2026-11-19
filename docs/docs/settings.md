@@ -34,12 +34,55 @@ Eg. `en_US` for English (United States) or `fr_FR` for French.
 **Currency** - This should match the currency of the stores you are scraping.
 Eg. `USD` for US Dollars or `EUR` for Euros.
 
-NOTE: You can also override this per store, but mixing currencies on the same
-product results in incorrect price comparisons and aggregates.
+NOTE: You can also override this per store. If a product mixes stores with
+different currencies, turn on [currency conversion](#currency-conversion), or the
+price comparisons and aggregates will compare the raw numbers.
 
 Each store saves its own locale and currency when it is created. If you change
 the default later, existing stores keep their old values. To update them, go to
 **Stores**, select the stores, and use the bulk action **Set locale and currency**.
+
+## Currency conversion
+
+Found under the **Currency** tab. Off by default.
+
+When it is on, prices from stores that use a currency other than the default
+currency (see [Locale](#locale)) are converted into the default currency. You can
+then compare stores in different countries, and target price and percentage
+alerts work across currencies. Lowest prices, sorting, aggregates, charts,
+insights and the dashboard all use the converted prices.
+
+Each price is converted with the exchange rate of the day it was found, so the
+price history shows what each price was worth at the time. The original price
+is shown next to the converted one on product cards, on the product page and in
+price alerts. Hover over it to see the rate used.
+
+Stored prices are never changed. Turning conversion off, or changing the
+provider or default currency, rebuilds the price caches in the background,
+and turning it off shows every price in its store's own currency again.
+
+**Exchange rates** - Where the rates come from:
+
+* **Frankfurter (European Central Bank)** - Free daily reference rates from the
+  [ECB](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html)
+  via [Frankfurter](https://frankfurter.dev). About 30 major currencies, no API key.
+* **Yahoo Finance** - Free daily rates for most currencies, no API key. This is an
+  unofficial API and can rate limit.
+* **Manual rates** - Enter how much one unit of each currency is worth in the
+  default currency. The same rate is used for every date.
+
+Rates from Frankfurter and Yahoo Finance are fetched every day at 17:00 (app time)
+for each currency your stores use, going back to your oldest price (up to a year).
+Days without a rate, such as weekends, use the closest earlier rate. Use
+**Fetch rates now** to get them straight away, or run:
+
+```shell
+php artisan buddy:fetch-exchange-rates
+```
+
+The **Rates in use** table lists every currency that needs converting and its
+latest rate. A currency without a rate is shown in its own currency and is not
+converted.
 
 ## Logging
 

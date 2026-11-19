@@ -4,6 +4,7 @@ namespace App\Services\Helpers;
 
 use App\Console\Commands\FetchAll;
 use App\Console\Commands\FetchDue;
+use App\Console\Commands\FetchExchangeRates;
 use App\Models\UrlResearch;
 use Illuminate\Console\Scheduling\Schedule;
 use Lorisleiva\CronTranslator\CronTranslator;
@@ -47,6 +48,9 @@ class ScheduleHelper
             // lock so a crashed/unclean run can't block the next minute for the
             // 24h default.
             ->withoutOverlapping(5);
+        // Fetch exchange rates for currency conversion. The command does nothing while
+        // conversion is off. The ECB publishes its daily rates at around 16:00 CET.
+        $schedule->command(FetchExchangeRates::COMMAND)->dailyAt('17:00')->withoutOverlapping(30);
         // Prune old log messages
         $schedule->command('model:prune', ['--model' => [LogMessage::class]])->daily();
         // Prune search research results.

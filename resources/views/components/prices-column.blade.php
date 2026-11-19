@@ -44,6 +44,7 @@
                         <strong class="text-[1.2em] font-bold">
                             {{ $cache->hasVisiblePrice() ? $cache->getUnitPriceFormatted() : __('Unavailable') }}
                         </strong>
+                        <x-original-price :cache="$cache" brackets />
                         @if ($cache->hasVisiblePrice() && $cache->hasPriceFactor())
                             <span class="text-xs text-inherit">
                                 (<x-price-factor-price :cache="$cache" />)

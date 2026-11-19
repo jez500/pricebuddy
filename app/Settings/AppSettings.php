@@ -32,6 +32,14 @@ class AppSettings extends Settings
 
     public array $default_locale_settings = [];
 
+    /**
+     * Convert store prices to the default currency. Keys: enabled (bool),
+     * provider (ExchangeRateProvider value) and manual_rates (list of
+     * ['currency' => ISO code, 'rate' => units of the default currency per 1 unit,
+     * 'entered_for' => the default currency the rate was entered for]).
+     */
+    public array $currency_conversion = [];
+
     public static function new(): self
     {
         return resolve(static::class);

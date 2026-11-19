@@ -7,6 +7,7 @@ use App\Events\AvailabilityChangedEvent;
 use App\Services\AiConfigHealer;
 use App\Services\AiScrapeEnhancer;
 use App\Services\AutoCreateStore;
+use App\Services\CurrencyConverter;
 use App\Services\Helpers\AffiliateHelper;
 use App\Services\Helpers\CurrencyHelper;
 use App\Services\ScrapeUrl;
@@ -131,11 +132,17 @@ class Url extends Model
     protected function latestPriceFormatted(): Attribute
     {
         return Attribute::make(
-            get: fn () => CurrencyHelper::toString(
-                $this->latestPrice()->first()->price ?? 0,
-                locale: $this->store?->locale,
-                iso: $this->store?->currency
-            )
+            get: function (): string {
+                /** @var ?Price $latest */
+                $latest = $this->latestPrice()->first();
+
+                return CurrencyConverter::new()->formatWithOriginal(
+                    (float) ($latest->price ?? 0),
+                    $this->store?->currency,
+                    $this->store?->locale,
+                    $latest?->created_at
+                );
+            }
         );
     }
 

@@ -284,6 +284,29 @@ Without the parameter the key is absent and the response is unchanged.
 All matching entries are flagged, so a product tracking the same page twice gets `true`
 on both. `current_url` is also accepted on `GET /api/products`.
 
+### Converted prices
+
+When [currency conversion](/settings.html#currency-conversion) is on, a `price_cache` entry
+from a store in another currency is converted: `price`, `unit_price` and `history` are in
+the default currency, and `currency` and `locale` are the default ones. The entry also has
+the store's own values:
+
+```json
+{
+  "price": 2069.3,
+  "unit_price": 2069.3,
+  "currency": "CAD",
+  "original_price": 1453.63,
+  "original_unit_price": 1453.63,
+  "original_currency": "USD",
+  "original_locale": "en_US",
+  "exchange_rate": 1.4235
+}
+```
+
+`exchange_rate` is the rate of the latest price: 1 unit of `original_currency` in
+`currency`. Entries that were not converted have no `original_*` keys.
+
 ## Client config
 
 `GET /api/client-config`

@@ -12,6 +12,10 @@ Stores can be scraped using CSS selectors, regular expressions or JSONPath.
 Add multiple urls to a product to compare prices from different stores
 (or even the same store - eg eBay listings).
 
+Stores can use different currencies. Turn on
+[currency conversion](/settings.html#currency-conversion) to compare them in your
+own currency, using daily exchange rates or rates you set yourself.
+
 ## Availability tracking
 
 PriceBuddy can also track product availability such as in stock, pre-order,

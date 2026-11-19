@@ -11,6 +11,7 @@ use App\Policies\ProductPolicy;
 use App\Policies\ProductSourcePolicy;
 use App\Policies\StorePolicy;
 use App\Policies\UserPolicy;
+use App\Services\CurrencyConverter;
 use App\Services\Helpers\NotificationsHelper;
 use App\Services\Helpers\QueueHelper;
 use App\Services\Helpers\SettingsHelper;
@@ -31,6 +32,9 @@ class AppServiceProvider extends ServiceProvider
     {
         // Convert scraped pages to UTF-8 before they are cached (#203).
         $this->app->bind(WebScraperHttp::class, Utf8WebScraperHttp::class);
+
+        // Scoped so loaded exchange rates are dropped between requests and queued jobs.
+        $this->app->scoped(CurrencyConverter::class);
     }
 
     public function boot(): void

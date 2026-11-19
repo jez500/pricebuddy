@@ -43,6 +43,13 @@ class PriceCacheDto
 
     private StockStatus $stockStatus;
 
+    /**
+     * Set when the price was converted from the store's currency into the default one.
+     *
+     * @var array{price: float, unit_price: float, currency: string, locale: string, rate: ?float}|null
+     */
+    private ?array $original;
+
     public function __construct(
         float $price,
         ?int $storeId = null,
@@ -58,6 +65,7 @@ class PriceCacheDto
         float $priceFactor = 1,
         ?string $unitOfMeasure = self::DEFAULT_UNIT_OF_MEASURE,
         StockStatus|string|null $availability = null,
+        ?array $original = null,
     ) {
         $this->storeId = $storeId;
         $this->storeName = $storeName;
@@ -75,6 +83,7 @@ class PriceCacheDto
         $this->stockStatus = $availability instanceof StockStatus
             ? $availability
             : StockStatus::fromScrapedValue($availability);
+        $this->original = $original;
     }
 
     // Getters
@@ -240,6 +249,62 @@ class PriceCacheDto
         return $this->stockStatus->getIcon();
     }
 
+    /**
+     * Whether the price was converted from another currency.
+     */
+    public function isConverted(): bool
+    {
+        return $this->original !== null;
+    }
+
+    public function getOriginalCurrency(): ?string
+    {
+        return $this->original['currency'] ?? null;
+    }
+
+    public function getExchangeRate(): ?float
+    {
+        return $this->original['rate'] ?? null;
+    }
+
+    public function getOriginalPriceFormatted(): ?string
+    {
+        return $this->original === null ? null : CurrencyHelper::toString(
+            $this->original['price'],
+            locale: $this->original['locale'],
+            iso: $this->original['currency']
+        );
+    }
+
+    public function getOriginalUnitPriceFormatted(): ?string
+    {
+        return $this->original === null ? null : CurrencyHelper::toString(
+            $this->original['unit_price'],
+            locale: $this->original['locale'],
+            iso: $this->original['currency']
+        );
+    }
+
+    /**
+     * How the price was converted, e.g. "Converted from USD at 1 USD = 1.4258 CAD".
+     */
+    public function getConversionDescription(): ?string
+    {
+        if ($this->original === null) {
+            return null;
+        }
+
+        $rate = $this->getExchangeRate();
+
+        return $rate === null
+            ? __('Converted from :currency', ['currency' => $this->original['currency']])
+            : __('Converted from :from at 1 :from = :rate :to', [
+                'from' => $this->original['currency'],
+                'rate' => rtrim(rtrim(number_format($rate, 6, '.', ''), '0'), '.'),
+                'to' => $this->currency,
+            ]);
+    }
+
     public function matchesNotification(Product $product): bool
     {
         if ($this->isUnavailable()) {
@@ -268,12 +333,19 @@ class PriceCacheDto
             $data['price_factor'] ?? 1,
             $data['unit_of_measure'] ?? null,
             $data['availability'] ?? null,
+            isset($data['original_currency']) ? [
+                'price' => (float) ($data['original_price'] ?? 0),
+                'unit_price' => (float) ($data['original_unit_price'] ?? $data['original_price'] ?? 0),
+                'currency' => (string) $data['original_currency'],
+                'locale' => (string) ($data['original_locale'] ?? CurrencyHelper::getLocale()),
+                'rate' => isset($data['exchange_rate']) ? (float) $data['exchange_rate'] : null,
+            ] : null,
         );
     }
 
     public function toArray(): array
     {
-        return [
+        $data = [
             'store_id' => $this->getStoreId(),
             'store_name' => $this->getStoreName(),
             'url_id' => $this->getUrlId(),
@@ -296,5 +368,20 @@ class PriceCacheDto
             'unit_of_measure' => $this->getUnitOfMeasure(),
             'availability' => $this->stockStatus === StockStatus::InStock ? null : $this->stockStatus->value,
         ];
+
+        // Only converted prices carry the original, so unconverted output is unchanged.
+        if ($this->original !== null) {
+            $data += [
+                'original_price' => $this->original['price'],
+                'original_price_formatted' => $this->getOriginalPriceFormatted(),
+                'original_unit_price' => $this->original['unit_price'],
+                'original_unit_price_formatted' => $this->getOriginalUnitPriceFormatted(),
+                'original_currency' => $this->original['currency'],
+                'original_locale' => $this->original['locale'],
+                'exchange_rate' => $this->original['rate'],
+            ];
+        }
+
+        return $data;
     }
 }
