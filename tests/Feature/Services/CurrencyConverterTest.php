@@ -263,6 +263,23 @@ class CurrencyConverterTest extends TestCase
         $this->assertFalse(CurrencyConverter::ratesChanged($results));
     }
 
+    public function test_sync_rates_detects_a_change_in_the_tenth_decimal_place(): void
+    {
+        $this->travelTo(Carbon::parse('2026-11-19 17:00:00'));
+        $this->enableCurrencyConversion();
+        $url = Url::factory()->for($this->storeInCurrency('USD'))->create();
+        $url->prices()->create(['price' => 10, 'store_id' => $url->store_id]);
+        $this->addExchangeRate('2026-11-12', 1.42);
+        $this->addExchangeRate('2026-11-19', 1.4);
+
+        Http::fake([FrankfurterRateSource::BASE_URL.'/*' => Http::response(['rates' => ['2026-11-19' => ['CAD' => 1.4000000001]]])]);
+
+        $results = $this->converter->syncRates();
+
+        $this->assertSame(1, $results['USD']['changed']);
+        $this->assertTrue(CurrencyConverter::ratesChanged($results));
+    }
+
     public function test_manual_rates_entered_for_another_default_currency_are_not_used(): void
     {
         $this->enableCurrencyConversion(ExchangeRateProvider::Manual, [['currency' => 'USD', 'rate' => 1.4]]);

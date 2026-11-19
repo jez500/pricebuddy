@@ -319,6 +319,20 @@ class ProductCurrencyConversionTest extends TestCase
         $this->assertSame([], Product::query()->lowestPriceInDays(7)->pluck('id')->all());
     }
 
+    public function test_lowest_price_in_days_matches_the_unconverted_filter_for_a_zero_current_price(): void
+    {
+        // A product whose listings are all unavailable has a current price of 0.
+        $this->addPrice($this->caStore, 120, '2026-11-18 09:00:00');
+        $this->product->forceFill(['current_price' => 0])->saveQuietly();
+
+        $withoutConversion = Product::query()->lowestPriceInDays(7)->pluck('id')->all();
+
+        $this->enableCurrencyConversion();
+
+        $this->assertSame([$this->product->id], $withoutConversion);
+        $this->assertSame($withoutConversion, Product::query()->lowestPriceInDays(7)->pluck('id')->all());
+    }
+
     public function test_lowest_price_in_days_uses_converted_prices(): void
     {
         $this->enableCurrencyConversion();

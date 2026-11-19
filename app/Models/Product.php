@@ -341,7 +341,6 @@ class Product extends Model
             ->where('prices.created_at', '>=', Carbon::now()->subDays($days)->startOfDay())
             ->where('prices.created_at', '<', Carbon::now()->startOfDay())
             ->where('prices.price', '>', 0)
-            ->where('products.current_price', '>', 0)
             ->get([
                 'prices.price',
                 'prices.created_at',

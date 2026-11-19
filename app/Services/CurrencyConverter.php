@@ -412,7 +412,8 @@ class CurrencyConverter
             ->mapWithKeys(fn ($row): array => [Carbon::parse($row->date)->toDateString() => (float) $row->rate]);
 
         $changed = collect($rates)
-            ->filter(fn (float $rate, string $date): bool => $existing->has($date) && abs($existing->get($date) - $rate) > 1e-9)
+            // Compare at the 10 decimal places the rate column stores.
+            ->filter(fn (float $rate, string $date): bool => $existing->has($date) && round($existing->get($date), 10) !== round($rate, 10))
             ->count();
 
         $now = now();
