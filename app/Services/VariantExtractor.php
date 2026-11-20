@@ -82,13 +82,14 @@ class VariantExtractor
             return StockStatus::InStock;
         }
 
+        // Normalised, so "In stock", "in-stock" and "InStock" all read the same.
         $word = VariantMatcher::normalize($value);
 
-        if (in_array($word, ['true', 'yes', 'y', 'available', 'instock', 'in stock', 'onlineonly', 'limitedavailability'], true)) {
+        if (in_array($word, ['true', 'yes', 'y', 'available', 'instock', 'onlineonly', 'limitedavailability'], true)) {
             return StockStatus::InStock;
         }
 
-        if (in_array($word, ['false', 'no', 'n', 'unavailable', 'outofstock', 'out of stock', 'soldout', 'sold out', 'not available'], true)) {
+        if (in_array($word, ['false', 'no', 'n', 'unavailable', 'notavailable', 'outofstock', 'soldout'], true)) {
             return StockStatus::OutOfStock;
         }
 
@@ -141,17 +142,25 @@ class VariantExtractor
                 $offers = $offers['offers'] ?? null;
             }
 
-            if (! is_array($offers) || ! array_is_list($offers) || count($offers) < 2) {
+            if (! is_array($offers) || $offers === []) {
                 continue;
             }
+
+            $offers = array_is_list($offers) ? $offers : [$offers];
 
             $variants = collect($offers)
                 ->filter(fn ($offer): bool => is_array($offer))
                 ->map(fn (array $offer): ?VariantDto => self::schemaOfferVariant($offer))
-                ->filter();
+                ->filter()
+                ->values();
 
-            if ($variants->count() >= 2) {
-                return $variants->values();
+            // Several identifiable offers are a variant list. A single offer only counts
+            // when it names variant properties (eg its item's size), because a lone offer
+            // with just a name is usually the whole product. This keeps a list that has
+            // shrunk to one variant, so a tracked variant that was removed reads as out
+            // of stock instead of failing.
+            if ($variants->count() >= 2 || $variants->contains(fn (VariantDto $variant): bool => $variant->options !== [])) {
+                return $variants;
             }
         }
 
@@ -319,11 +328,13 @@ class VariantExtractor
     }
 
     /**
+     * Schema.org prices always use "." for decimals, so numeric text is read as a number.
+     *
      * @param  array<string, mixed>|null  $offer
      */
-    protected static function schemaPrice(?array $offer): ?string
+    protected static function schemaPrice(?array $offer): int|float|string|null
     {
-        return self::scalarString(data_get($offer, 'price', data_get($offer, 'lowPrice', data_get($offer, 'priceSpecification.price'))));
+        return self::price(data_get($offer, 'price', data_get($offer, 'lowPrice', data_get($offer, 'priceSpecification.price'))), null, true);
     }
 
     /***************************************************
@@ -369,7 +380,7 @@ class VariantExtractor
                     status: $strategy->availability
                         ? self::statusFromValue(data_get($item, $strategy->availability), $availability)
                         : StockStatus::InStock,
-                    price: $strategy->price ? self::price(data_get($item, $strategy->price), $strategy->priceDivisor) : null,
+                    price: $strategy->price ? self::price(data_get($item, $strategy->price), $strategy->priceDivisor, true) : null,
                     id: $id,
                 );
             })
@@ -455,7 +466,7 @@ class VariantExtractor
                 label: $label,
                 options: $label !== '' ? [$label] : [],
                 status: self::domIsOutOfStock($item, $strategy->outOfStock) ? StockStatus::OutOfStock : StockStatus::InStock,
-                price: $strategy->price ? self::price(self::readNode($item, $strategy->price), $strategy->priceDivisor) : null,
+                price: $strategy->price ? self::price(self::readNode($item, $strategy->price), $strategy->priceDivisor, false) : null,
                 id: $strategy->id ? self::readNode($item, $strategy->id) : null,
             );
         }))->values();
@@ -536,18 +547,30 @@ class VariantExtractor
         return $value === '' ? null : $value;
     }
 
-    protected static function price(mixed $value, ?float $divisor): ?string
+    /**
+     * A variant price. Data meant for machines (JSON, schema.org) keeps numbers as numbers,
+     * so a store locale that uses "." for thousands can't misread 32.5 as 325. Page text
+     * such as "£38.99" or "1.234,50" stays text and is read later with the store's locale.
+     * The divisor applies to numbers only, eg prices in cents.
+     */
+    protected static function price(mixed $value, ?float $divisor, bool $machineReadable): int|float|string|null
     {
-        $value = self::scalarString($value);
+        if (is_int($value) || is_float($value)) {
+            $number = $value;
+        } else {
+            $value = self::scalarString($value);
 
-        if ($value === null) {
-            return null;
+            if ($value === null) {
+                return null;
+            }
+
+            if (! is_numeric($value) || (! $machineReadable && ! $divisor)) {
+                return $value;
+            }
+
+            $number = (float) $value;
         }
 
-        if ($divisor && is_numeric($value)) {
-            return (string) round((float) $value / $divisor, 4);
-        }
-
-        return $value;
+        return $divisor ? round($number / $divisor, 4) : $number;
     }
 }

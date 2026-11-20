@@ -182,7 +182,9 @@ forms are supported:
 
 * A `ProductGroup` with a `hasVariant` list. Option values come from `size`, `color`,
   `material`, `pattern`, the properties in `variesBy`, and `additionalProperty`.
-* A `Product` with a list of two or more `offers`, each with a `name` or `itemOffered`.
+* A `Product` with a list of `offers`, each with a `name` or `itemOffered`. A single
+  offer only counts when its `itemOffered` has a variant property such as `size` or
+  `color`, because a lone offer is usually for the whole product.
 
 Many stores only publish one offer for the whole product. Those need one of the
 other types.

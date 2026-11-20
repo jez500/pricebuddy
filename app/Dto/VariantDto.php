@@ -15,12 +15,13 @@ class VariantDto implements Arrayable, JsonSerializable
 {
     /**
      * @param  array<int, string>  $options  the variant's option values, eg ["Small", "Black"]
+     * @param  int|float|string|null  $price  a number from JSON or schema.org data, or page text such as "£38.99"
      */
     public function __construct(
         public string $label,
         public array $options = [],
         public StockStatus $status = StockStatus::InStock,
-        public ?string $price = null,
+        public int|float|string|null $price = null,
         public ?string $id = null,
     ) {}
 
@@ -35,13 +36,26 @@ class VariantDto implements Arrayable, JsonSerializable
             label: (string) ($data['label'] ?? ''),
             options: array_values(array_map('strval', (array) ($data['options'] ?? []))),
             status: $status instanceof StockStatus ? $status : (StockStatus::tryFrom((string) $status) ?? StockStatus::InStock),
-            price: isset($data['price']) && $data['price'] !== '' ? (string) $data['price'] : null,
+            price: self::priceFrom($data['price'] ?? null),
             id: isset($data['id']) && $data['id'] !== '' ? (string) $data['id'] : null,
         );
     }
 
     /**
-     * @return array{label: string, options: array<int, string>, status: string, price: ?string, id: ?string}
+     * A price as extracted: a number from JSON or schema.org data, or text from the page
+     * such as "£38.99" that is read later with the store's locale.
+     */
+    protected static function priceFrom(mixed $price): int|float|string|null
+    {
+        if (is_int($price) || is_float($price)) {
+            return $price;
+        }
+
+        return is_scalar($price) && $price !== '' && ! is_bool($price) ? (string) $price : null;
+    }
+
+    /**
+     * @return array{label: string, options: array<int, string>, status: string, price: int|float|string|null, id: ?string}
      */
     public function toArray(): array
     {
@@ -55,7 +69,7 @@ class VariantDto implements Arrayable, JsonSerializable
     }
 
     /**
-     * @return array{label: string, options: array<int, string>, status: string, price: ?string, id: ?string}
+     * @return array{label: string, options: array<int, string>, status: string, price: int|float|string|null, id: ?string}
      */
     public function jsonSerialize(): array
     {

@@ -124,7 +124,9 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
                 TextInput::make('url')
                     ->label('URL')
                     ->required()
-                    ->rules([new StoreUrl]),
+                    ->rules([new StoreUrl])
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(VariantFilterFields::resetOnUrlChange()),
                 TextInput::make('price_factor')
                     ->label('Price Factor')
                     ->numeric()
@@ -137,11 +139,13 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
                 $url = Url::find($arguments['url']);
                 $variant = $data['variant'] ?? null;
 
-                // A new variant is applied with a new URL, so the new page is scraped for it.
+                // A new variant is applied with a new URL, so the new page is scraped for
+                // it, and its stock is a fresh baseline rather than a stock change.
                 if (trim($data['url']) !== $url->url) {
+                    $variantChanged = $url->variantDiffers($variant);
                     $url->variant = VariantFilterDto::fromArray($variant)?->toArray();
 
-                    if (! $url->changeUrl($data['url'])) {
+                    if (! $url->changeUrl($data['url'], silentStockChange: $variantChanged)) {
                         Notification::make('url_update_failed')
                             ->title('Unable to resolve a store or price for this URL')
                             ->danger()

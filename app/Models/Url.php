@@ -66,6 +66,15 @@ class Url extends Model
 
     protected $guarded = [];
 
+    /**
+     * See self::variantScrapeState().
+     */
+    protected const string VARIANT_SCRAPE_OK = 'ok';
+
+    protected const string VARIANT_SCRAPE_FAILED = 'failed';
+
+    protected const string VARIANT_SCRAPE_STALE = 'stale';
+
     public function casts(): array
     {
         return [
@@ -394,8 +403,12 @@ class Url extends Model
      * history) intact. The store is re-resolved from the new domain and a fresh price is
      * scraped and appended. Fails closed: on an invalid/unresolvable URL the record is
      * left untouched and `false` is returned.
+     *
+     * With $silentStockChange the new page's stock is saved without an
+     * AvailabilityChangedEvent, eg when the same edit also changed the tracked variant:
+     * the user changed what is tracked, nothing came back in stock.
      */
-    public function changeUrl(string $newUrl, bool $createStore = true): bool
+    public function changeUrl(string $newUrl, bool $createStore = true, bool $silentStockChange = false): bool
     {
         $newUrl = trim($newUrl);
 
@@ -416,7 +429,13 @@ class Url extends Model
         $this->forceFill([
             'url' => $newUrl,
             'store_id' => $store->getKey(),
-        ])->save();
+        ]);
+
+        if ($silentStockChange) {
+            $this->setStockFromScrape($scrape, $store);
+        }
+
+        $this->save();
 
         $this->updatePrice(data_get($scrape, 'price'), $scrape);
 
@@ -424,35 +443,63 @@ class Url extends Model
     }
 
     /**
+     * Whether a submitted variant (from a form or the API) differs from the one tracked.
+     *
+     * @param  array<string, mixed>|null  $variant
+     */
+    public function variantDiffers(?array $variant): bool
+    {
+        return VariantFilterDto::fromArray($variant)?->toArray() != $this->getVariantFilter()?->toArray();
+    }
+
+    /**
+     * Set the stock status from a scrape without dispatching an AvailabilityChangedEvent.
+     * Used when what the URL tracks changed, so the new status is a fresh baseline rather
+     * than a stock change. The caller saves.
+     *
+     * @param  array<string, mixed>  $scrape
+     */
+    protected function setStockFromScrape(array $scrape, ?Store $store = null): void
+    {
+        $status = ScrapeUrl::resolveStockStatus($scrape, data_get($store ?? $this->store, 'scrape_strategy.availability'));
+        $this->availability = $status->isUnavailable() ? $status : null;
+    }
+
+    /**
      * Change the variant this URL tracks (null to track the page as a whole) and refresh
      * its stock and price straight away. The stock change is saved without an
      * AvailabilityChangedEvent: the user changed what is tracked, nothing came back in
-     * stock. Returns false when the new variant can't be found on the page; the variant
-     * is still saved so the next fetch retries it.
+     * stock.
+     *
+     * The new variant is only saved once a scrape says what its stock is. When the
+     * scrape fails, or the store lists no variants, nothing changes and false is
+     * returned. So the stored stock status always belongs to the stored variant, and a
+     * later fetch can't mistake the new variant's stock for a change of the old one's.
      *
      * @param  array<string, mixed>|null  $variant
      */
     public function changeVariant(?array $variant): bool
     {
-        $new = VariantFilterDto::fromArray($variant)?->toArray();
-
-        if ($new == $this->getVariantFilter()?->toArray()) {
+        if (! $this->variantDiffers($variant)) {
             return true;
         }
 
-        $this->variant = $new;
-        $this->save();
+        $filter = VariantFilterDto::fromArray($variant);
+        $previous = $this->variant;
+        $this->variant = $filter?->toArray();
 
         $scrape = $this->scrape();
+        $confirmed = $scrape
+            && ! data_get($scrape, ScrapeUrl::VARIANT_ERROR_KEY)
+            && ($filter ? ScrapeUrl::hasVariantResult($scrape) : filled(data_get($scrape, 'title')));
 
-        if (! $scrape || data_get($scrape, ScrapeUrl::VARIANT_ERROR_KEY)) {
-            $this->product?->updatePriceCache();
+        if (! $confirmed) {
+            $this->variant = $previous;
 
             return false;
         }
 
-        $status = ScrapeUrl::resolveStockStatus($scrape, data_get($this->store, 'scrape_strategy.availability'));
-        $this->availability = $status->isUnavailable() ? $status : null;
+        $this->setStockFromScrape($scrape);
         $this->save();
 
         $this->updatePrice(data_get($scrape, 'price'), $scrape);
@@ -512,6 +559,46 @@ class Url extends Model
         return ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable];
     }
 
+    /**
+     * Whether a scrape result can update this URL's stock and price:
+     *  - stale: it was scraped for a different variant than the URL tracks now, eg the
+     *    variant was changed while a scheduled update was scraping.
+     *  - failed: the URL tracks a variant but the result doesn't say what its stock is,
+     *    eg the store lists no variants or the page couldn't be fetched.
+     *  - ok: anything else, including results that don't record their variant.
+     *
+     * @param  array<string, mixed>|null  $scrapeResult
+     */
+    protected function variantScrapeState(?array $scrapeResult): string
+    {
+        if (! is_array($scrapeResult)) {
+            return self::VARIANT_SCRAPE_OK;
+        }
+
+        if (data_get($scrapeResult, ScrapeUrl::VARIANT_ERROR_KEY)) {
+            return self::VARIANT_SCRAPE_FAILED;
+        }
+
+        if (! array_key_exists(ScrapeUrl::VARIANT_FILTER_KEY, $scrapeResult)) {
+            return self::VARIANT_SCRAPE_OK;
+        }
+
+        $scrapedFor = VariantFilterDto::fromArray($scrapeResult[ScrapeUrl::VARIANT_FILTER_KEY]);
+
+        // Read the stored variant, not this instance's: a job may have loaded the URL
+        // before the variant was changed.
+        $stored = $this->exists ? static::query()->whereKey($this->getKey())->value('variant') : $this->variant;
+        $tracked = VariantFilterDto::fromArray(is_array($stored) ? $stored : null);
+
+        if ($scrapedFor?->key() !== $tracked?->key()) {
+            return self::VARIANT_SCRAPE_STALE;
+        }
+
+        return $scrapedFor && ! ScrapeUrl::hasVariantResult($scrapeResult)
+            ? self::VARIANT_SCRAPE_FAILED
+            : self::VARIANT_SCRAPE_OK;
+    }
+
     public function updatePrice(int|float|string|null $price = null, ?array $scrapeResult = null): Price|Model|null
     {
         if (! $this->store_id) {
@@ -520,20 +607,27 @@ class Url extends Model
 
         $availabilityChanged = false;
         $stockStatus = null;
+        $needsPrice = is_null($price) || $price === '';
 
-        // A tracked variant that can't be found fails closed: no price, no stock change
+        if ($needsPrice) {
+            $scrapeResult = $scrapeResult ?? $this->scrape();
+        }
+
+        $variantState = $this->variantScrapeState($scrapeResult);
+
+        // A tracked variant that can't be resolved fails closed: no price, no stock change
         // and no alerts. Healing is skipped because the price selector isn't the problem.
-        if (data_get($scrapeResult, ScrapeUrl::VARIANT_ERROR_KEY)) {
+        if ($variantState === self::VARIANT_SCRAPE_FAILED) {
             return null;
         }
 
-        if (is_null($price) || $price === '') {
-            $scrapeResult = $scrapeResult ?? $this->scrape();
+        // The variant changed while this was being scraped. The change already saved the
+        // new variant's stock and price, so keep them rather than write the old one's.
+        if ($variantState === self::VARIANT_SCRAPE_STALE) {
+            return $this->prices()->latest('id')->first();
+        }
 
-            if (data_get($scrapeResult, ScrapeUrl::VARIANT_ERROR_KEY)) {
-                return null;
-            }
-
+        if ($needsPrice) {
             $scrapeResult = AiConfigHealer::new()->heal($this, $scrapeResult);
             $scrapeResult = AiScrapeEnhancer::new()->enhance($this, $scrapeResult);
             $price = data_get($scrapeResult, 'price');

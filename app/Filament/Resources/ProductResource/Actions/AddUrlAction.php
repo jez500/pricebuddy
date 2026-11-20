@@ -47,6 +47,8 @@ class AddUrlAction extends Action
                 ->helperText(__('One URL per line, up to :max. When you add more than one URL, they are added in the background.', ['max' => AddUrlsToProductAction::MAX_URLS]))
                 ->rows(3)
                 ->required()
+                ->live(onBlur: true)
+                ->afterStateUpdated(VariantFilterFields::resetOnUrlChange())
                 ->rules([
                     fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
                         $urls = AddUrlsToProductAction::parse((string) $value);

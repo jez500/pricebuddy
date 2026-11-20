@@ -79,6 +79,41 @@ class ScrapeUrl
     public const string VARIANTS_KEY = 'variants';
 
     /**
+     * The variant filter the scrape was made for (null for the whole page). Set even when
+     * the scrape fails, so a result can be checked against the URL's current variant.
+     */
+    public const string VARIANT_FILTER_KEY = 'variant_filter';
+
+    /**
+     * The variant filter in scrape options, given as a VariantFilterDto or an array.
+     *
+     * @param  array<string, mixed>  $options
+     */
+    public static function variantFilterFromOptions(array $options): ?VariantFilterDto
+    {
+        $filter = data_get($options, 'variant');
+
+        if (is_array($filter)) {
+            return VariantFilterDto::fromArray($filter);
+        }
+
+        return $filter instanceof VariantFilterDto ? $filter : null;
+    }
+
+    /**
+     * Whether a scrape result says what a tracked variant's stock is: the variant was
+     * resolved, or the page is a soft 404. A failed fetch says nothing about it, so it
+     * must not change the variant's stock.
+     *
+     * @param  array<string, mixed>|null  $scrapeResult
+     */
+    public static function hasVariantResult(?array $scrapeResult): bool
+    {
+        return data_get($scrapeResult, self::NOT_FOUND_KEY)
+            || StockStatus::tryFrom((string) data_get($scrapeResult, self::VARIANT_KEY.'.status')) !== null;
+    }
+
+    /**
      * Titles that mean "this page does not exist". A bare "404" is deliberately NOT
      * enough: plenty of real products carry it as a model number (eg "Roland SP-404",
      * "Peugeot 404"), so it only counts alongside error wording or as the whole title.
@@ -237,6 +272,7 @@ class ScrapeUrl
 
         $output = [
             'store' => $store,
+            self::VARIANT_FILTER_KEY => self::variantFilterFromOptions($options)?->toArray(),
         ];
 
         try {
@@ -318,9 +354,7 @@ class ScrapeUrl
      */
     protected function applyVariant(array $output, Store $store, array $options): array
     {
-        $filter = data_get($options, 'variant');
-        $filter = is_array($filter) ? VariantFilterDto::fromArray($filter) : $filter;
-        $filter = $filter instanceof VariantFilterDto ? $filter : null;
+        $filter = self::variantFilterFromOptions($options);
 
         if (! $filter && ! data_get($options, 'with_variants')) {
             return $output;
@@ -351,7 +385,7 @@ class ScrapeUrl
             return $output;
         }
 
-        ['status' => $status, 'price' => $price, 'matched' => $matched] = VariantMatcher::resolve($variants, $filter);
+        ['status' => $status, 'price' => $price, 'matched' => $matched] = VariantMatcher::resolve($variants, $filter, $store->locale, $store->currency);
 
         $output[self::VARIANT_KEY] = [
             'status' => $status->value,

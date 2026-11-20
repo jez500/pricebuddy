@@ -85,10 +85,11 @@ The variant field is on every form that adds or edits a URL, including **Add URL
 * **Type the values**, for example `Small`, `Black` or `55"`. Each value must match one
   of the variant's options, so `Small` and `Black` together only match the small black
   one. A value must match a whole option: `Small` does not match `X Small`. Case,
-  hyphens and spaces don't matter, so `x-large` matches `X Large`.
+  hyphens and spaces don't matter, so `x-large` and `XLarge` both match `X Large`.
 * **Or click Detect variants** to scrape the URL and pick from the variants it finds,
   for example "Small · Out of Stock · 38.99". Picking one also saves its ID (such as
-  its SKU) so that exact variant is tracked.
+  its SKU) so that exact variant is tracked. Changing the URL clears the detected
+  variants and the saved ID.
 
 Typed values work across stores, so you can add the same values to many URLs at once
 with **Add URL** or the API. The same page can be added to a product more than once
@@ -105,7 +106,9 @@ price, leaves the stock status as it was and sends no alerts. Set up the store's
 [variants strategy](/stores.html#variants-strategy) to fix it.
 
 Back in stock notifications are sent when the tracked variant comes back. Changing the
-variant on a URL updates its stock straight away without sending one.
+variant on a URL updates its stock straight away without sending one. If the new
+variant's stock can't be found on the page, the change isn't saved and the URL keeps
+tracking the old variant.
 
 ## Price History
 

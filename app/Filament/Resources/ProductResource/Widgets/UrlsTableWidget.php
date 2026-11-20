@@ -63,7 +63,9 @@ class UrlsTableWidget extends BaseWidget
                         TextInput::make('url')
                             ->label('URL')
                             ->required()
-                            ->rules([new StoreUrl]),
+                            ->rules([new StoreUrl])
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(VariantFilterFields::resetOnUrlChange()),
                         TextInput::make('price_factor')
                             ->label('Price Factor')
                             ->numeric()
@@ -77,11 +79,13 @@ class UrlsTableWidget extends BaseWidget
 
                         // Validate/apply the URL change first so a failed change leaves
                         // nothing persisted (changeUrl fails closed) before price_factor.
-                        // A new variant is applied with it, so the new page is scraped for it.
+                        // A new variant is applied with it, so the new page is scraped for
+                        // it, and its stock is a fresh baseline rather than a stock change.
                         if (trim($data['url']) !== $record->url) {
+                            $variantChanged = $record->variantDiffers($variant);
                             $record->variant = VariantFilterDto::fromArray($variant)?->toArray();
 
-                            if (! $record->changeUrl($data['url'])) {
+                            if (! $record->changeUrl($data['url'], silentStockChange: $variantChanged)) {
                                 $record->refresh();
 
                                 throw ValidationException::withMessages([
@@ -116,8 +120,8 @@ class UrlsTableWidget extends BaseWidget
     public static function notifyVariantNotFound(): void
     {
         Notification::make('variant_not_found')
-            ->title(__('Variant saved, but not found on the page'))
-            ->body(__('Check the variant values, or the store\'s variants strategy.'))
+            ->title(__('Variant not changed'))
+            ->body(__('Its stock could not be found on the page. Check the variant values, or the store\'s variants strategy.'))
             ->warning()
             ->send();
     }

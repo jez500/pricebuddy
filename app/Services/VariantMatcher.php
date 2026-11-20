@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Dto\VariantDto;
 use App\Dto\VariantFilterDto;
 use App\Enums\StockStatus;
+use App\Services\Helpers\CurrencyHelper;
 use Illuminate\Support\Collection;
 
 /**
@@ -14,39 +15,31 @@ use Illuminate\Support\Collection;
 class VariantMatcher
 {
     /**
-     * Normalise an option value for comparison: case-insensitive, "-" / "_" read as a
-     * space and whitespace collapsed. So "X-Large" equals "x large", but "Small" never
-     * equals "X Small" because values are compared whole.
+     * Normalise an option value for comparison: case-insensitive, and spaces, hyphens and
+     * underscores are ignored. So "X-Large", "x large" and "XLarge" are equal, but "Small"
+     * never equals "X Small" because values are compared whole.
      */
     public static function normalize(string $value): string
     {
         $value = mb_strtolower(html_entity_decode($value, ENT_QUOTES | ENT_HTML5));
-        $value = (string) preg_replace('/[-_]+/u', ' ', $value);
-        $value = (string) preg_replace('/\s+/u', ' ', $value);
 
-        return trim($value);
+        return (string) preg_replace('/[\s\-_]+/u', '', $value);
     }
 
     /**
-     * The variants matching a filter. A pinned id wins while the page still lists it;
-     * otherwise every filter value must equal one of the variant's option values.
+     * The variants matching a filter: every filter value must equal one of the
+     * variant's option values. A pinned id narrows that to one exact variant while the
+     * page still lists it. A pinned variant that contradicts the values (eg an id
+     * detected on another page) is ignored, so the values decide.
      *
      * @param  Collection<int, VariantDto>  $variants
      * @return Collection<int, VariantDto>
      */
     public static function match(Collection $variants, VariantFilterDto $filter): Collection
     {
-        if ($filter->id !== null) {
-            $pinned = $variants->filter(fn (VariantDto $variant): bool => $variant->id !== null && $variant->id === $filter->id);
-
-            if ($pinned->isNotEmpty() || $filter->values === []) {
-                return $pinned->values();
-            }
-        }
-
         $wanted = array_map(self::normalize(...), $filter->values);
 
-        return $variants->filter(function (VariantDto $variant) use ($wanted): bool {
+        $byValues = $variants->filter(function (VariantDto $variant) use ($wanted): bool {
             $have = self::comparableValues($variant);
 
             foreach ($wanted as $value) {
@@ -57,6 +50,16 @@ class VariantMatcher
 
             return true;
         })->values();
+
+        if ($filter->id === null) {
+            return $byValues;
+        }
+
+        $pinned = ($wanted === [] ? $variants : $byValues)
+            ->filter(fn (VariantDto $variant): bool => $variant->id !== null && $variant->id === $filter->id)
+            ->values();
+
+        return $pinned->isNotEmpty() || $wanted === [] ? $pinned : $byValues;
     }
 
     /**
@@ -64,12 +67,13 @@ class VariantMatcher
      *
      * Several matches (eg "Small" in three colours) count as in stock when any of them
      * is, at the lowest in-stock price. No match counts as out of stock: many stores
-     * drop sold out variants from the page entirely.
+     * drop sold out variants from the page entirely. Prices shown as text, eg "£20.00",
+     * are read with the store's locale and currency to find the lowest.
      *
      * @param  Collection<int, VariantDto>  $variants
-     * @return array{status: StockStatus, price: ?string, matched: Collection<int, VariantDto>}
+     * @return array{status: StockStatus, price: int|float|string|null, matched: Collection<int, VariantDto>}
      */
-    public static function resolve(Collection $variants, VariantFilterDto $filter): array
+    public static function resolve(Collection $variants, VariantFilterDto $filter, ?string $locale = null, ?string $currency = null): array
     {
         $matched = self::match($variants, $filter);
 
@@ -84,15 +88,26 @@ class VariantMatcher
         $status = $inStock->isNotEmpty() ? StockStatus::InStock : $best->status;
 
         $pool = $inStock->isNotEmpty() ? $inStock : $matched;
-        $withPrice = $pool->filter(fn (VariantDto $variant): bool => $variant->price !== null && $variant->price !== '');
 
-        $price = $withPrice
-            ->filter(fn (VariantDto $variant): bool => is_numeric($variant->price))
-            ->sortBy(fn (VariantDto $variant): float => (float) $variant->price)
-            ->first()->price
-            ?? $withPrice->first()->price;
+        return ['status' => $status, 'price' => self::lowestPrice($pool, $locale, $currency), 'matched' => $matched];
+    }
 
-        return ['status' => $status, 'price' => $price, 'matched' => $matched];
+    /**
+     * The lowest price among the variants, as extracted. A price that can't be read as a
+     * number is only used when no other price can be.
+     *
+     * @param  Collection<int, VariantDto>  $variants
+     */
+    protected static function lowestPrice(Collection $variants, ?string $locale, ?string $currency): int|float|string|null
+    {
+        $withPrice = $variants->filter(fn (VariantDto $variant): bool => $variant->price !== null && $variant->price !== '');
+
+        $readable = $withPrice
+            ->map(fn (VariantDto $variant): array => [$variant->price, CurrencyHelper::toFloat($variant->price, $locale, $currency)])
+            ->filter(fn (array $price): bool => $price[1] !== null)
+            ->sortBy(fn (array $price): float => (float) $price[1]);
+
+        return $readable->first()[0] ?? $withPrice->first()?->price;
     }
 
     /**

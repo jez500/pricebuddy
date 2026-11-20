@@ -47,10 +47,14 @@ class VariantFilterDto implements Arrayable, JsonSerializable
 
         $values = is_array($values) ? $values : [];
 
-        $values = array_values(array_unique(array_filter(
-            array_map(static fn ($value): string => is_scalar($value) ? trim((string) $value) : '', $values),
-            static fn (string $value): bool => $value !== '',
-        )));
+        // Drop blanks, and values that only differ in case or separators (eg "Small" and
+        // "small"), keeping the first spelling.
+        $values = collect($values)
+            ->map(static fn ($value): string => is_scalar($value) ? trim((string) $value) : '')
+            ->filter(static fn (string $value): bool => VariantMatcher::normalize($value) !== '')
+            ->unique(static fn (string $value): string => VariantMatcher::normalize($value))
+            ->values()
+            ->all();
 
         $id = is_scalar($data['id'] ?? null) ? trim((string) $data['id']) : '';
         $id = $id === '' ? null : $id;
@@ -71,14 +75,16 @@ class VariantFilterDto implements Arrayable, JsonSerializable
     }
 
     /**
-     * A stable key for de-duplicating URLs tracked for the same variant.
+     * A stable key for comparing filters, eg to de-duplicate URLs tracked for the same
+     * variant. Order, case and separators don't matter. JSON keeps the values apart from
+     * each other and from the id, so no option text can collide with another filter.
      */
     public function key(): string
     {
-        $values = array_map(VariantMatcher::normalize(...), $this->values);
+        $values = array_values(array_unique(array_map(VariantMatcher::normalize(...), $this->values)));
         sort($values);
 
-        return implode('|', $values).'#'.($this->id ?? '');
+        return (string) json_encode([$values, $this->id], JSON_UNESCAPED_UNICODE);
     }
 
     /**

@@ -15,6 +15,8 @@ trait VariantTrait
 {
     protected bool $smallInStock = false;
 
+    protected bool $variantPageFails = false;
+
     /**
      * @return array<string, mixed>
      */
@@ -74,7 +76,19 @@ trait VariantTrait
     {
         $this->smallInStock = $smallInStock;
 
-        Http::fake(fn () => Http::response($this->variantPageHtml($this->smallInStock)));
+        Http::fake(fn () => $this->variantPageFails
+            ? Http::response('Service unavailable', 503)
+            : Http::response($this->variantPageHtml($this->smallInStock)));
+    }
+
+    /**
+     * Make the faked page fail to load (or load again), eg a network or server error.
+     */
+    protected function setVariantPageFails(bool $fails): void
+    {
+        $this->variantPageFails = $fails;
+
+        Cache::flush();
     }
 
     protected function setSmallInStock(bool $smallInStock): void

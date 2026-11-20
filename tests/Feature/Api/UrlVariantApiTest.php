@@ -87,6 +87,12 @@ class UrlVariantApiTest extends TestCase
             'urls' => ['https://example.com/a'],
             'variant' => ['values' => ['small']],
         ])->assertStatus(202)->assertJsonPath('data.queued', []);
+
+        // The same value twice is still the same variant.
+        $this->postJson("/api/products/{$this->product->id}/urls", [
+            'urls' => ['https://example.com/a'],
+            'variant' => ['values' => ['SMALL', 'small']],
+        ])->assertStatus(202)->assertJsonPath('data.queued', []);
     }
 
     public function test_variant_is_validated()

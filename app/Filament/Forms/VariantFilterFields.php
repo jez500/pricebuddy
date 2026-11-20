@@ -6,6 +6,7 @@ use App\Actions\AddUrlsToProductAction;
 use App\Dto\VariantDto;
 use App\Enums\Icons;
 use App\Services\ScrapeUrl;
+use Closure;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\Hidden;
@@ -21,7 +22,8 @@ use Throwable;
  * every form that adds or edits a URL.
  *
  * Values can be typed, or picked from the variants detected on the page. Picking also
- * pins the variant's id (eg SKU) so it is matched exactly.
+ * pins the variant's id (eg SKU) so it is matched exactly. The form's URL field should
+ * use resetOnUrlChange() so a pick from one page can't be saved for another.
  */
 class VariantFilterFields
 {
@@ -49,13 +51,14 @@ class VariantFilterFields
                     ->options(fn (Get $get): array => collect((array) $get('variant_options'))
                         ->mapWithKeys(fn (array $option, int|string $key): array => [$key => $option['display'] ?? $key])
                         ->all())
-                    ->visible(fn (Get $get): bool => filled($get('variant_options')))
+                    // Detected variants belong to the page they were detected on.
+                    ->visible(fn (Get $get): bool => filled($get('variant_options')) && self::detectedForCurrentUrl($get, $urlField))
                     ->dehydrated(false)
                     ->live()
-                    ->afterStateUpdated(function (Get $get, Set $set, int|string|null $state): void {
+                    ->afterStateUpdated(function (Get $get, Set $set, int|string|null $state) use ($urlField): void {
                         $option = data_get((array) $get('variant_options'), (string) $state);
 
-                        if (! is_array($option)) {
+                        if (! is_array($option) || ! self::detectedForCurrentUrl($get, $urlField)) {
                             return;
                         }
 
@@ -68,7 +71,38 @@ class VariantFilterFields
 
                 Hidden::make('variant_options')
                     ->dehydrated(false),
+
+                Hidden::make('variant_options_url')
+                    ->dehydrated(false),
             ]);
+    }
+
+    /**
+     * For the URL field the variant fields belong to: when the URL changes, forget the
+     * variants detected on the old page and the pinned id picked from them. The typed
+     * values stay, since they can apply to the new page too.
+     */
+    public static function resetOnUrlChange(): Closure
+    {
+        return fn (Set $set) => self::clearDetected($set, clearPinnedId: true);
+    }
+
+    protected static function clearDetected(Set $set, bool $clearPinnedId = false): void
+    {
+        $set('variant_options', []);
+        $set('variant_options_url', null);
+        $set('variant_pick', null);
+
+        if ($clearPinnedId) {
+            $set('variant.id', null);
+        }
+    }
+
+    protected static function detectedForCurrentUrl(Get $get, string $urlField): bool
+    {
+        $urls = AddUrlsToProductAction::parse((string) $get($urlField));
+
+        return count($urls) === 1 && $urls[0] === $get('variant_options_url');
     }
 
     /**
@@ -80,6 +114,10 @@ class VariantFilterFields
             ->label(__('Detect variants'))
             ->icon(Icons::Search->value)
             ->action(function (Get $get, Set $set) use ($urlField): void {
+                // Start from nothing, so a failed detect can't leave the last page's
+                // variants to pick from.
+                self::clearDetected($set);
+
                 $urls = AddUrlsToProductAction::parse((string) $get($urlField));
 
                 if (count($urls) !== 1) {
@@ -114,7 +152,7 @@ class VariantFilterFields
                 }
 
                 $set('variant_options', $variants);
-                $set('variant_pick', null);
+                $set('variant_options_url', $urls[0]);
 
                 Notification::make()
                     ->title(trans_choice('Found :count variant|Found :count variants', count($variants)))

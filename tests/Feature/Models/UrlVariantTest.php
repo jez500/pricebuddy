@@ -157,6 +157,86 @@ class UrlVariantTest extends TestCase
         $this->assertNull($url->fresh()->variant);
     }
 
+    public function test_changing_the_variant_keeps_the_old_one_when_the_page_cannot_be_read()
+    {
+        $this->createVariantStore();
+        $this->mockVariantPage();
+        $url = $this->createUrl(['values' => ['Small']]);
+
+        Event::fake([AvailabilityChangedEvent::class]);
+        $this->setVariantPageFails(true);
+
+        $this->assertFalse($url->fresh()->changeVariant(['values' => ['X Small']]));
+
+        $this->assertSame(['values' => ['Small']], $url->fresh()->variant);
+        $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
+        Event::assertNotDispatched(AvailabilityChangedEvent::class);
+    }
+
+    public function test_changing_the_variant_keeps_the_old_one_when_the_store_lists_no_variants()
+    {
+        $store = $this->createVariantStore();
+        $this->mockVariantPage();
+        $url = $this->createUrl(['values' => ['Small']]);
+
+        $strategy = $store->scrape_strategy->toArray();
+        unset($strategy['variants']);
+        $store->update(['scrape_strategy' => $strategy]);
+        Cache::flush();
+
+        $this->assertFalse($url->fresh()->changeVariant(['values' => ['X Small']]));
+        $this->assertSame(['values' => ['Small']], $url->fresh()->variant);
+        $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
+
+        // Once the variant is confirmed later, there's no stock change to alert about:
+        // the stored stock still belongs to Small.
+        $store->update(['scrape_strategy' => $strategy + ['variants' => $this->nextDataVariantStrategy()]]);
+        Cache::flush();
+        Event::fake([AvailabilityChangedEvent::class]);
+
+        $url->fresh()->updatePrice();
+        Event::assertNotDispatched(AvailabilityChangedEvent::class);
+    }
+
+    public function test_a_failed_fetch_leaves_the_tracked_variant_stock_alone()
+    {
+        Notification::fake();
+        $this->createVariantStore();
+        $this->mockVariantPage();
+        $url = $this->createUrl(['values' => ['Small']]);
+        $url->product->update(['notify_in_stock' => true]);
+        $priceCount = $url->prices()->count();
+
+        $this->setVariantPageFails(true);
+
+        $this->assertNull($url->fresh()->updatePrice());
+        $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
+        $this->assertSame($priceCount, $url->prices()->count());
+        Notification::assertNotSentTo($this->user, StockAlertNotification::class);
+    }
+
+    public function test_a_scrape_for_a_replaced_variant_is_discarded()
+    {
+        $this->createVariantStore();
+        $this->mockVariantPage();
+        $url = $this->createUrl(['values' => ['Small']]);
+        $priceCount = $url->prices()->count();
+
+        // A scheduled update loads the URL and scrapes it for Small...
+        $job = $url->fresh();
+        $scrape = ScrapeUrl::new(self::URL)->scrape(['variant' => $job->getVariantFilter()]);
+
+        // ...while the user switches it to X Small, which is in stock.
+        Url::query()->whereKey($url->getKey())->update(['variant' => json_encode(['values' => ['X Small']]), 'availability' => null]);
+        Event::fake([AvailabilityChangedEvent::class]);
+
+        $job->updatePrice(data_get($scrape, 'price'), $scrape);
+
+        $this->assertNull($url->fresh()->availability);
+        $this->assertSame($priceCount, $url->prices()->count());
+        Event::assertNotDispatched(AvailabilityChangedEvent::class);
+    }
+
     public function test_variant_status_wins_over_the_store_availability_rules()
     {
         // The store reads the heading as availability and matches nothing, so its

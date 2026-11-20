@@ -86,6 +86,8 @@ class ProductResource extends Resource
             ->label('Product URL')
             ->hintIcon(Icons::Help->value, 'The domain of the URL must be in the list of available stores')
             ->rules([new StoreUrl])
+            ->live(onBlur: true)
+            ->afterStateUpdated(VariantFilterFields::resetOnUrlChange())
             ->columnSpanFull();
 
         if (is_null($productId)) {
