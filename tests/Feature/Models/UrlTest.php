@@ -3,6 +3,7 @@
 namespace Tests\Feature\Models;
 
 use App\Enums\StockStatus;
+use App\Events\AvailabilityChangedEvent;
 use App\Models\Price;
 use App\Models\Product;
 use App\Models\Store;
@@ -12,6 +13,8 @@ use App\Notifications\StockAlertNotification;
 use App\Services\Helpers\CurrencyHelper;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 use Tests\Traits\ScraperTrait;
@@ -528,6 +531,150 @@ class UrlTest extends TestCase
 
         $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
         Notification::assertNotSentTo($this->user, StockAlertNotification::class);
+    }
+
+    public static function failedFetchResponses(): array
+    {
+        return [
+            'empty response' => [''],
+            // The http scraper parses an error page rather than flagging it, so a store
+            // that reads the <title> element still finds a title on it.
+            'error page with a title' => ['<html><head><title>503 Service Temporarily Unavailable</title></head><body><h1>503 Service Temporarily Unavailable</h1></body></html>'],
+        ];
+    }
+
+    /**
+     * Regression: a failed fetch has no price or availability, which used to resolve as
+     * in stock, so an out-of-stock URL was marked back in stock and sent an alert.
+     *
+     * @dataProvider failedFetchResponses
+     */
+    public function test_failed_fetch_leaves_out_of_stock_url_unchanged(string $body)
+    {
+        Notification::fake();
+
+        $url = $this->createOutOfStockUrlWithPrice();
+
+        Http::fake(['*' => Http::response($body, 503)]);
+
+        $this->assertNull($url->updatePrice());
+
+        $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
+        $this->assertCount(1, $url->fresh()->prices);
+        Notification::assertNotSentTo($this->user, StockAlertNotification::class);
+    }
+
+    public function test_failed_fetch_is_reported_as_failed_without_changing_availability()
+    {
+        Event::fake([AvailabilityChangedEvent::class]);
+
+        $url = $this->createOutOfStockUrlWithPrice();
+
+        Http::fake(['*' => Http::response('', 503)]);
+
+        $failedUrls = $url->product->updatePrices();
+
+        $this->assertSame([$url->getKey()], $failedUrls->modelKeys());
+        Event::assertNotDispatched(AvailabilityChangedEvent::class);
+    }
+
+    /**
+     * An error page with a title and no price must not read as a store that drops the
+     * price when out of stock.
+     */
+    public function test_failed_fetch_does_not_mark_url_out_of_stock_when_store_treats_missing_price_as_out_of_stock()
+    {
+        Event::fake([AvailabilityChangedEvent::class]);
+
+        $this->store->update([
+            'scrape_strategy' => array_merge($this->store->scrape_strategy->toArray(), [
+                'title' => ['type' => 'selector', 'value' => 'title'],
+            ]),
+            'settings' => array_merge($this->store->settings ?? [], ['missing_price_out_of_stock' => true]),
+        ]);
+
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => Product::factory()->create(['user_id' => $this->user->id])->id,
+            'store_id' => $this->store->id,
+        ]);
+        $url->prices()->create(['price' => 25, 'unit_price' => 25, 'price_factor' => 1, 'store_id' => $this->store->id]);
+
+        Http::fake(['*' => Http::response('<html><head><title>503 Service Temporarily Unavailable</title></head></html>', 503)]);
+
+        $this->assertNull($url->updatePrice());
+
+        $this->assertNull($url->fresh()->availability);
+        $this->assertCount(1, $url->fresh()->prices);
+        Event::assertNotDispatched(AvailabilityChangedEvent::class);
+    }
+
+    public function test_create_from_url_stores_out_of_stock_when_page_has_no_title()
+    {
+        Event::fake([AvailabilityChangedEvent::class]);
+        $this->setAvailabilityStrategy();
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+
+        // No title and no price, but the page says the product is out of stock.
+        $this->mockScrape('', 'invalid', null, 'OutOfStock');
+
+        $url = Url::createFromUrl(self::TEST_URL, productId: $product->id, userId: $this->user->id);
+
+        $this->assertInstanceOf(Url::class, $url);
+        $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
+        Event::assertDispatched(AvailabilityChangedEvent::class);
+    }
+
+    public function test_update_price_marks_out_of_stock_when_page_has_no_title()
+    {
+        $this->setAvailabilityStrategy();
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => Product::factory()->create()->id,
+            'store_id' => $this->store->id,
+        ]);
+        $existing = $url->prices()->create(['price' => 25, 'unit_price' => 25, 'price_factor' => 1, 'store_id' => $this->store->id]);
+
+        $this->mockScrape('', 'invalid', null, 'OutOfStock');
+
+        // Out of stock, not a failed scrape: the latest known price is returned.
+        $this->assertSame($existing->getKey(), $url->updatePrice()?->getKey());
+        $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
+    }
+
+    /**
+     * An out-of-stock URL with a price history, on a product that wants back-in-stock
+     * alerts. The store reads the <title> element, as auto-created stores can.
+     */
+    protected function createOutOfStockUrlWithPrice(): Url
+    {
+        $this->setAvailabilityStrategy();
+        $this->store->update([
+            'scrape_strategy' => array_merge($this->store->scrape_strategy->toArray(), [
+                'title' => ['type' => 'selector', 'value' => 'title'],
+            ]),
+        ]);
+
+        $product = Product::factory()->create([
+            'user_id' => $this->user->id,
+            'notify_in_stock' => true,
+        ]);
+
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'availability' => StockStatus::OutOfStock,
+        ]);
+
+        $url->prices()->create([
+            'price' => 25,
+            'unit_price' => 25,
+            'price_factor' => 1,
+            'store_id' => $this->store->id,
+        ]);
+
+        return $url;
     }
 
     /**

@@ -73,6 +73,12 @@ Possible availability states include:
 * Out of Stock
 * Discontinued
 
+Availability only changes when PriceBuddy can read the product page. If a check
+fails, for example because the store is down or returns an error page, the URL
+keeps its last availability and the check counts as a scrape error. An out of
+stock URL is only marked as in stock again when PriceBuddy finds a price for it,
+so a failed check never sends a back-in-stock alert.
+
 ## Price History
 
 Each URL has a price history. This is a list of prices that the product has been

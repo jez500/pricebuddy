@@ -279,6 +279,50 @@ HTML),
         $this->assertSame('https://schema.org/Discontinued', $result['availability'] ?? null);
     }
 
+    public function test_hard_404_page_is_still_parsed_for_the_soft_404_check()
+    {
+        $this->store->update([
+            'scrape_strategy' => ['title' => ['type' => 'selector', 'value' => 'title']],
+        ]);
+
+        Http::fake(['*' => Http::response('<html><head><title>404 Not Found</title></head></html>', 404)]);
+
+        $result = ScrapeUrl::new(self::TEST_URL)->setMaxAttempts(1)->scrape();
+
+        $this->assertTrue($result[ScrapeUrl::NOT_FOUND_KEY] ?? false);
+        $this->assertArrayNotHasKey(ScrapeUrl::SCRAPE_FAILED_KEY, $result);
+    }
+
+    /**
+     * An error page can carry a title, so it is reported as a failed scrape rather than
+     * parsed, and it is not cached: the next scrape fetches the page again.
+     */
+    public function test_error_response_is_a_failed_scrape_and_is_not_cached()
+    {
+        $this->store->update([
+            'scrape_strategy' => [
+                'title' => ['type' => 'selector', 'value' => 'title'],
+                'price' => ['type' => 'selector', 'value' => '.price'],
+            ],
+        ]);
+
+        Http::fake(['*' => Http::sequence()
+            ->push('<html><head><title>503 Service Temporarily Unavailable</title></head></html>', 503)
+            ->push('<html><head><title>Example product</title></head><body><span class="price">$25</span></body></html>'),
+        ]);
+
+        $failed = ScrapeUrl::new(self::TEST_URL)->setMaxAttempts(1)->scrape();
+
+        $this->assertTrue($failed[ScrapeUrl::SCRAPE_FAILED_KEY] ?? false);
+        $this->assertArrayNotHasKey('title', $failed);
+
+        $result = ScrapeUrl::new(self::TEST_URL)->setMaxAttempts(1)->scrape();
+
+        $this->assertArrayNotHasKey(ScrapeUrl::SCRAPE_FAILED_KEY, $result);
+        $this->assertSame('Example product', $result['title']);
+        $this->assertSame('$25', $result['price']);
+    }
+
     public function test_looks_like_not_found_page_detects_common_markers()
     {
         $scrapeUrl = ScrapeUrl::new(self::TEST_URL);
@@ -383,5 +427,29 @@ HTML),
                 ScrapeUrl::NOT_FOUND_KEY => true,
             ], $strategy)
         );
+    }
+
+    public static function stockResultCases(): array
+    {
+        return [
+            'no scrape result' => [null, false],
+            'failed fetch' => [[ScrapeUrl::SCRAPE_FAILED_KEY => true], false],
+            'failed fetch with an out of stock value' => [[ScrapeUrl::SCRAPE_FAILED_KEY => true, 'title' => 'Example product', 'availability' => 'OutOfStock'], false],
+            'empty page' => [['title' => null, 'price' => null, 'availability' => null, 'body' => ''], false],
+            'in stock page without a price' => [['title' => 'Example product', 'price' => null, 'availability' => null], false],
+            'out of stock value without a title' => [['title' => null, 'price' => null, 'availability' => 'OutOfStock'], true],
+            'price without a title' => [['title' => null, 'price' => '9.99', 'availability' => null], true],
+            'product page with a price' => [['title' => 'Example product', 'price' => '9.99', 'availability' => null], true],
+            'out of stock product page without a price' => [['title' => 'Example product', 'price' => null, 'availability' => 'OutOfStock'], true],
+            'soft 404' => [['title' => null, 'price' => null, ScrapeUrl::NOT_FOUND_KEY => true], true],
+        ];
+    }
+
+    /**
+     * @dataProvider stockResultCases
+     */
+    public function test_has_stock_result(?array $scrapeResult, bool $expected)
+    {
+        $this->assertSame($expected, ScrapeUrl::hasStockResult($scrapeResult, null));
     }
 }

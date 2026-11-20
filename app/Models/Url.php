@@ -419,9 +419,7 @@ class Url extends Model
 
         /** @var ?Store $store */
         $store = data_get($scrape, 'store');
-
-        $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
-        $isUnavailable = ScrapeUrl::resolveStockStatus($scrape, $availabilityStrategy)->isUnavailable();
+        $isUnavailable = self::scrapeIsUnavailable($scrape, $store);
 
         // AI fallback: when a normal create would fail, let the healing agent build or
         // repair the store config, then re-scrape once with the new config.
@@ -429,11 +427,24 @@ class Url extends Model
             && AiConfigHealer::new()->healStoreForUrl($url, $store, data_get($scrape, 'body'), $userId) !== null) {
             $scrape = ScrapeUrl::new($url)->setSendUiNotifications(false)->scrape();
             $store = data_get($scrape, 'store');
-            $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
-            $isUnavailable = ScrapeUrl::resolveStockStatus($scrape, $availabilityStrategy)->isUnavailable();
+            $isUnavailable = self::scrapeIsUnavailable($scrape, $store);
         }
 
         return ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable];
+    }
+
+    /**
+     * Whether a scrape shows the product as unavailable, by the same rule updatePrice()
+     * uses to store it, so a URL added as unavailable is also saved as unavailable.
+     *
+     * @param  array<string, mixed>  $scrape
+     */
+    protected static function scrapeIsUnavailable(array $scrape, ?Store $store): bool
+    {
+        $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
+
+        return ScrapeUrl::hasStockResult($scrape, $availabilityStrategy)
+            && ScrapeUrl::resolveStockStatus($scrape, $availabilityStrategy)->isUnavailable();
     }
 
     public function updatePrice(int|float|string|null $price = null, ?array $scrapeResult = null): Price|Model|null
@@ -452,9 +463,11 @@ class Url extends Model
             $price = data_get($scrapeResult, 'price');
         }
 
-        // Update out-of-stock status based on scrape result.
-        if ($scrapeResult) {
-            $availabilityStrategy = data_get($this->store, 'scrape_strategy.availability');
+        // Update out-of-stock status based on scrape result. A failed scrape, eg a page
+        // that couldn't be fetched, leaves it as it was rather than reading as in stock.
+        $availabilityStrategy = data_get($this->store, 'scrape_strategy.availability');
+
+        if ($scrapeResult && ScrapeUrl::hasStockResult($scrapeResult, $availabilityStrategy)) {
             $stockStatus = ScrapeUrl::resolveStockStatus($scrapeResult, $availabilityStrategy);
             $availability = $stockStatus->isUnavailable() ? $stockStatus : null;
             $previousAvailability = $this->getAvailabilityStatus();
