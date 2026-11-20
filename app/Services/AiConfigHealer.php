@@ -125,7 +125,9 @@ class AiConfigHealer
 
         $html = data_get($scrapeResult, 'body');
 
-        if (blank($html)) {
+        // A failed fetch has no page, so healing fetches a fresh one, static then in the
+        // browser. That is how a store blocked by a challenge page (eg a 403) recovers.
+        if (blank($html) && ! data_get($scrapeResult, ScrapeUrl::SCRAPE_FAILED_KEY)) {
             return $scrapeResult;
         }
 
@@ -414,6 +416,10 @@ class AiConfigHealer
         foreach ($config['extracted'] as $field => $value) {
             data_set($scrapeResult, $field, $value);
         }
+
+        // After a failed fetch the healed values come from a page healing fetched itself,
+        // so the result no longer counts as a failed scrape.
+        unset($scrapeResult[ScrapeUrl::SCRAPE_FAILED_KEY]);
 
         $this->log($url->url)->info('Store scraper config healed.', [
             'fields' => array_keys($config['fields']),

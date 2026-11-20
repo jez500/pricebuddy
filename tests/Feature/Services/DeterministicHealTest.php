@@ -3,9 +3,11 @@
 namespace Tests\Feature\Services;
 
 use App\Models\Store;
+use App\Models\Url;
 use App\Services\AiConfigHealer;
 use App\Services\AiService;
 use App\Services\Helpers\SettingsHelper;
+use App\Services\ScrapeUrl;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Once;
@@ -96,5 +98,49 @@ class DeterministicHealTest extends TestCase
         $this->assertInstanceOf(Store::class, $store);
         $this->assertSame('api', data_get($store->settings, 'scraper_service'));
         $this->assertSame('schema_org', $store->scrape_strategy->price?->type->value);
+    }
+
+    /**
+     * A failed fetch (eg a 403 challenge page) has no body. Healing fetches a fresh page
+     * itself and switches the store to the browser scraper when that is what works.
+     */
+    public function test_heals_a_failed_fetch_through_the_browser(): void
+    {
+        $this->mock(AiService::class, fn ($m) => $m->shouldReceive('runAgent')->never());
+
+        // The static fetch is still blocked; the browser returns the product page.
+        WebScraper::shouldReceive('make')->andReturnUsing(
+            fn (string $service) => (new WebScraperFake)->setBody($service === 'api' ? $this->schemaOrgHtml() : ''),
+        );
+
+        $url = $this->urlForNewStore();
+
+        $result = AiConfigHealer::new()->heal($url, ['store' => $url->store, ScrapeUrl::SCRAPE_FAILED_KEY => true]);
+
+        $this->assertSame('api', data_get($url->store->fresh()->settings, 'scraper_service'));
+        $this->assertNotEmpty($result['price'] ?? null);
+        $this->assertArrayNotHasKey(ScrapeUrl::SCRAPE_FAILED_KEY, $result);
+    }
+
+    public function test_failed_fetch_stays_failed_when_healing_cannot_recover_it(): void
+    {
+        $this->mock(AiService::class, fn ($m) => $m->shouldReceive('runAgent')->andReturn(null));
+
+        WebScraper::shouldReceive('make')->andReturnUsing(fn () => (new WebScraperFake)->setBody(''));
+
+        $url = $this->urlForNewStore();
+
+        $result = AiConfigHealer::new()->heal($url, ['store' => $url->store, ScrapeUrl::SCRAPE_FAILED_KEY => true]);
+
+        $this->assertTrue($result[ScrapeUrl::SCRAPE_FAILED_KEY]);
+        $this->assertSame('http', data_get($url->store->fresh()->settings, 'scraper_service'));
+        $this->assertNotNull($url->store->fresh()->getAiHealFailedAt());
+    }
+
+    private function urlForNewStore(): Url
+    {
+        $store = Store::factory()->create(['scrape_strategy' => [], 'settings' => ['scraper_service' => 'http']]);
+
+        return Url::factory()->for($store)->create(['url' => 'https://shop.test/widget']);
     }
 }
