@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\Icons;
 use App\Enums\Statuses;
+use App\Filament\Forms\VariantFilterFields;
 use App\Filament\Resources\ProductResource\Actions\FetchBulkAction;
 use App\Filament\Resources\ProductResource\Actions\PauseBulkAction;
 use App\Filament\Resources\ProductResource\Actions\ResumeBulkAction;
@@ -20,6 +21,7 @@ use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\FontWeight;
@@ -84,7 +86,9 @@ class ProductResource extends Resource
         $components[] = TextInput::make('url')
             ->label('Product URL')
             ->hintIcon(Icons::Help->value, 'The domain of the URL must be in the list of available stores')
-            ->rules([new StoreUrl])
+            ->rules(fn (Get $get): array => [StoreUrl::forVariant((array) $get('variant'))])
+            ->live(onBlur: true)
+            ->afterStateUpdated(VariantFilterFields::resetOnUrlChange())
             ->columnSpanFull();
 
         if (is_null($productId)) {
@@ -107,6 +111,8 @@ class ProductResource extends Resource
             ->default(1)
             ->minValue(0.01)
             ->helperText(__('Number of items (unit price = price / factor)'));
+
+        $components[] = VariantFilterFields::make();
 
         $components[] = Forms\Components\Toggle::make('create_store')
             ->label('Create store if it doesn\'t exist')

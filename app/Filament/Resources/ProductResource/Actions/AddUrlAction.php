@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ProductResource\Actions;
 
 use App\Actions\AddUrlsToProductAction;
 use App\Enums\Icons;
+use App\Filament\Forms\VariantFilterFields;
 use App\Models\Product;
 use App\Models\Url;
 use App\Rules\StoreUrl;
@@ -12,6 +13,7 @@ use Exception;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 
 /**
@@ -46,15 +48,17 @@ class AddUrlAction extends Action
                 ->helperText(__('One URL per line, up to :max. When you add more than one URL, they are added in the background.', ['max' => AddUrlsToProductAction::MAX_URLS]))
                 ->rows(3)
                 ->required()
+                ->live(onBlur: true)
+                ->afterStateUpdated(VariantFilterFields::resetOnUrlChange())
                 ->rules([
-                    fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
+                    fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
                         $urls = AddUrlsToProductAction::parse((string) $value);
 
                         if (count($urls) > AddUrlsToProductAction::MAX_URLS) {
                             $fail(__('Add no more than :max URLs at once.', ['max' => AddUrlsToProductAction::MAX_URLS]));
                         } elseif (count($urls) === 1) {
                             // Many URLs are checked by the queued jobs, because each check scrapes the page.
-                            (new StoreUrl)->validate($attribute, $urls[0], $fail);
+                            StoreUrl::forVariant((array) $get('variant'))->validate($attribute, $urls[0], $fail);
                         }
                     },
                 ]),
@@ -64,6 +68,7 @@ class AddUrlAction extends Action
                 ->default(1)
                 ->minValue(0.01)
                 ->helperText(__('Number of items (unit price = price / factor)')),
+            VariantFilterFields::make(),
         ]);
 
         $this->color('gray');
@@ -77,9 +82,10 @@ class AddUrlAction extends Action
 
             $urls = AddUrlsToProductAction::parse((string) $data['url']);
             $priceFactor = (float) ($data['price_factor'] ?? 1);
+            $variant = $data['variant'] ?? null;
 
             if (count($urls) > 1) {
-                $this->queueUrls($product, $urls, $priceFactor);
+                $this->queueUrls($product, $urls, $priceFactor, $variant);
 
                 return;
             }
@@ -90,6 +96,7 @@ class AddUrlAction extends Action
                     productId: $product->getKey(),
                     userId: auth()->id(),
                     priceFactor: $priceFactor,
+                    variant: $variant,
                 );
 
                 if ($urlModel === false) {
@@ -108,10 +115,11 @@ class AddUrlAction extends Action
 
     /**
      * @param  array<int, string>  $urls
+     * @param  array<string, mixed>|null  $variant
      */
-    protected function queueUrls(Product $product, array $urls, float $priceFactor): void
+    protected function queueUrls(Product $product, array $urls, float $priceFactor, ?array $variant = null): void
     {
-        $result = (new AddUrlsToProductAction)($product, $urls, (int) auth()->id(), $priceFactor);
+        $result = (new AddUrlsToProductAction)($product, $urls, (int) auth()->id(), $priceFactor, $variant);
 
         $skipped = collect($result['skipped'])
             ->map(fn (array $skip) => $skip['url'].' ('.match ($skip['reason']) {

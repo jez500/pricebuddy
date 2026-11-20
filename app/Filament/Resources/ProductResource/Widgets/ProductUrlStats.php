@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\ProductResource\Widgets;
 
 use App\Dto\PriceCacheDto;
+use App\Dto\VariantFilterDto;
+use App\Filament\Forms\VariantFilterFields;
 use App\Models\Product;
 use App\Models\Url;
 use App\Rules\StoreUrl;
@@ -13,6 +15,7 @@ use Filament\Actions\Contracts\HasActions;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Model;
@@ -115,30 +118,47 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
                 return [
                     'url' => $url->url,
                     'price_factor' => $url->price_factor,
+                    'variant' => $url->variant,
                 ];
             })
             ->form([
                 TextInput::make('url')
                     ->label('URL')
                     ->required()
-                    ->rules([new StoreUrl]),
+                    ->rules(fn (Get $get): array => [StoreUrl::forVariant((array) $get('variant'))])
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(VariantFilterFields::resetOnUrlChange()),
                 TextInput::make('price_factor')
                     ->label('Price Factor')
                     ->numeric()
                     ->default(1)
                     ->minValue(0.01)
                     ->required(),
+                VariantFilterFields::make(),
             ])
-            ->action(function ($arguments, $data) {
+            ->action(function (Action $action, $arguments, $data) {
                 $url = Url::find($arguments['url']);
+                $variant = $data['variant'] ?? null;
 
-                if (trim($data['url']) !== $url->url && ! $url->changeUrl($data['url'])) {
-                    Notification::make('url_update_failed')
-                        ->title('Unable to resolve a store or price for this URL')
-                        ->danger()
-                        ->send();
+                // A new variant is applied with a new URL, so the new page is scraped for
+                // it, and its stock is a fresh baseline rather than a stock change.
+                if (trim($data['url']) !== $url->url) {
+                    $variantChanged = $url->variantDiffers($variant);
+                    $url->variant = VariantFilterDto::fromArray($variant)?->toArray();
 
-                    return;
+                    if (! $url->changeUrl($data['url'], silentStockChange: $variantChanged)) {
+                        Notification::make('url_update_failed')
+                            ->title('Unable to resolve a store or price for this URL')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+                } elseif (! $url->changeVariant($variant)) {
+                    // Nothing was changed. Keep the form open with the selection, rather
+                    // than save the rest and report success.
+                    UrlsTableWidget::notifyVariantNotFound();
+                    $action->halt();
                 }
 
                 $url->update(['price_factor' => $data['price_factor']]);

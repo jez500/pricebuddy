@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Dto\AvailabilityStrategyDto;
 use App\Dto\StandardStrategyDto;
+use App\Dto\VariantFilterDto;
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
 use App\Enums\StockStatus;
@@ -58,6 +59,59 @@ class ScrapeUrl
      * than the scraped `availability` value, which a store's match config can override.
      */
     public const string NOT_FOUND_KEY = 'not_found';
+
+    /**
+     * The stock status and matched variants for a URL that tracks a variant. Read via
+     * self::resolveStockStatus() so the store's availability match config can't
+     * re-interpret it.
+     */
+    public const string VARIANT_KEY = 'variant';
+
+    /**
+     * Set when a URL tracks a variant but no variant data was found on the page. The
+     * scrape then fails closed: no price, no stock change, no alerts.
+     */
+    public const string VARIANT_ERROR_KEY = 'variant_error';
+
+    /**
+     * Every variant found on the page, as arrays, for the variant picker and store test.
+     */
+    public const string VARIANTS_KEY = 'variants';
+
+    /**
+     * The variant filter the scrape was made for (null for the whole page). Set even when
+     * the scrape fails, so a result can be checked against the URL's current variant.
+     */
+    public const string VARIANT_FILTER_KEY = 'variant_filter';
+
+    /**
+     * The variant filter in scrape options, given as a VariantFilterDto or an array.
+     *
+     * @param  array<string, mixed>  $options
+     */
+    public static function variantFilterFromOptions(array $options): ?VariantFilterDto
+    {
+        $filter = data_get($options, 'variant');
+
+        if (is_array($filter)) {
+            return VariantFilterDto::fromArray($filter);
+        }
+
+        return $filter instanceof VariantFilterDto ? $filter : null;
+    }
+
+    /**
+     * Whether a scrape result says what a tracked variant's stock is: the variant was
+     * resolved, or the page is a soft 404. A failed fetch says nothing about it, so it
+     * must not change the variant's stock.
+     *
+     * @param  array<string, mixed>|null  $scrapeResult
+     */
+    public static function hasVariantResult(?array $scrapeResult): bool
+    {
+        return data_get($scrapeResult, self::NOT_FOUND_KEY)
+            || StockStatus::tryFrom((string) data_get($scrapeResult, self::VARIANT_KEY.'.status')) !== null;
+    }
 
     /**
      * Titles that mean "this page does not exist". A bare "404" is deliberately NOT
@@ -174,6 +228,11 @@ class ScrapeUrl
             }
         }
 
+        // Already logged by applyVariant(); the caller treats this as a failed scrape.
+        if (data_get($output, self::VARIANT_ERROR_KEY)) {
+            return $output;
+        }
+
         $availabilityStrategy = data_get($output, 'store.scrape_strategy.availability');
         $isUnavailable = self::resolveStockStatus($output, $availabilityStrategy)->isUnavailable();
 
@@ -213,6 +272,7 @@ class ScrapeUrl
 
         $output = [
             'store' => $store,
+            self::VARIANT_FILTER_KEY => self::variantFilterFromOptions($options)?->toArray(),
         ];
 
         try {
@@ -251,6 +311,7 @@ class ScrapeUrl
             $output['body'] = $page->getBody();
             $output['errors'] = $scraper->getErrors();
             $output = $this->applyNotFoundPageGuards($output);
+            $output = $this->applyVariant($output, $store, $options);
         } catch (Exception $e) {
             $this->errorLog('Error scraping URL', [
                 'error' => $e->getMessage(),
@@ -278,6 +339,65 @@ class ScrapeUrl
         $output['price'] = null;
         $output['availability'] = 'https://schema.org/Discontinued';
         $output[self::NOT_FOUND_KEY] = true;
+
+        return $output;
+    }
+
+    /**
+     * When the URL tracks a variant (eg size "Small"), take stock and price from that
+     * variant rather than the page as a whole. Variants are also listed when asked for
+     * with the `with_variants` option, for the variant picker and the store test.
+     *
+     * @param  array<string, mixed>  $output
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    protected function applyVariant(array $output, Store $store, array $options): array
+    {
+        $filter = self::variantFilterFromOptions($options);
+
+        if (! $filter && ! data_get($options, 'with_variants')) {
+            return $output;
+        }
+
+        $strategy = $store->scrape_strategy;
+        $variants = VariantExtractor::extract($output['body'] ?? null, $strategy->variants, $strategy->availability);
+
+        $output[self::VARIANTS_KEY] = $variants?->map->toArray()->all() ?? [];
+
+        // A soft 404 is discontinued whatever its variants say.
+        if (! $filter || data_get($output, self::NOT_FOUND_KEY)) {
+            return $output;
+        }
+
+        if ($variants === null) {
+            $output['price'] = null;
+            $output[self::VARIANT_ERROR_KEY] = __('No variant data found for ":variant". Check the store\'s variants strategy.', [
+                'variant' => $filter->label(),
+            ]);
+            $this->errorLog('Error scraping URL variant', [
+                'store_id' => $store->getKey(),
+                'variant' => $filter->toArray(),
+                'error' => $output[self::VARIANT_ERROR_KEY],
+            ]);
+            $this->errorNotification($output[self::VARIANT_ERROR_KEY]);
+
+            return $output;
+        }
+
+        ['status' => $status, 'price' => $price, 'matched' => $matched] = VariantMatcher::resolve($variants, $filter, $store->locale, $store->currency);
+
+        $output[self::VARIANT_KEY] = [
+            'status' => $status->value,
+            'matched' => $matched->map->toArray()->all(),
+        ];
+
+        // Variants that don't list a price share the page price.
+        if ($price !== null) {
+            $output['price'] = $price;
+        } elseif ($matched->isEmpty()) {
+            $output['price'] = null;
+        }
 
         return $output;
     }
@@ -314,6 +434,13 @@ class ScrapeUrl
     {
         if (data_get($scrapeResult, self::NOT_FOUND_KEY)) {
             return StockStatus::Discontinued;
+        }
+
+        // A tracked variant's own status wins over the page.
+        $variantStatus = StockStatus::tryFrom((string) data_get($scrapeResult, self::VARIANT_KEY.'.status'));
+
+        if ($variantStatus !== null) {
+            return $variantStatus;
         }
 
         $status = StockStatus::resolveAvailability(data_get($scrapeResult, 'availability'), $availabilityStrategy);

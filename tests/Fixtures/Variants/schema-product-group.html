@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Example 4K TV</title>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@graph": [
+            {"@type": "WebPage", "name": "Example 4K TV"},
+            {
+                "@type": "ProductGroup",
+                "name": "Example 4K TV",
+                "productGroupID": "TV4K",
+                "variesBy": ["https://schema.org/size"],
+                "hasVariant": [
+                    {
+                        "@type": "Product",
+                        "name": "Example 4K TV 55\"",
+                        "sku": "TV4K-55",
+                        "size": "55\"",
+                        "offers": {"@type": "Offer", "price": 499.00, "priceCurrency": "GBP", "availability": "https://schema.org/InStock"}
+                    },
+                    {
+                        "@type": "Product",
+                        "name": "Example 4K TV 65\"",
+                        "sku": "TV4K-65",
+                        "size": {"@type": "SizeSpecification", "name": "65\""},
+                        "offers": {"@type": "Offer", "price": 799.00, "priceCurrency": "GBP", "availability": "https://schema.org/OutOfStock"}
+                    }
+                ]
+            }
+        ]
+    }
+    </script>
+</head>
+<body>
+    <h1>Example 4K TV</h1>
+</body>
+</html>

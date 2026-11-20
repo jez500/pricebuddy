@@ -162,6 +162,126 @@ If your JSON looks like this:
 
 You would use the JSON Path `product.price` to extract the price.
 
+## Variants strategy
+
+The variants strategy is optional. It tells PriceBuddy where the store lists a
+product's variants (sizes, colours, screen sizes, ...) and the stock and price of
+each. It is only used by product URLs that track a
+[variant](/products.html#variants).
+
+Use **Test** (see [Testing a store](#testing-a-store)) to check it: the results list
+every variant found, with its stock, price and ID.
+
+Stores list variants in one of three ways. View the page source to see which one a
+store uses.
+
+### Schema.org (automatic)
+
+When no type is set, PriceBuddy reads variants from the page's schema.org data. Two
+forms are supported:
+
+* A `ProductGroup` with a `hasVariant` list. Option values come from `size`, `color`,
+  `material`, `pattern`, the properties in `variesBy`, and `additionalProperty`.
+* A `Product` with a list of `offers`, each with a `name` or `itemOffered`. A single
+  offer only counts when its `itemOffered` has a variant property such as `size` or
+  `color`, because a lone offer is usually for the whole product.
+
+Many stores only publish one offer for the whole product. Those need one of the
+other types.
+
+### JSON in the page
+
+Many stores put their product data in the page as JSON. Choose **JSON in the page
+(CSS selector)** or **JSON in the page (Regex)** to find it, or **JSON response** when
+the whole response is JSON. Then use dot paths, like [JSON Path](#json-path), to read it:
+
+* **Variants path** - the list of variants in the JSON. Leave empty if the JSON is the
+  list.
+* **Option paths** - one or more paths inside each variant to its option values. Use
+  `*` to read every item in a list.
+* **Availability path** - the variant's stock. This can be `true`/`false`, a count, a
+  schema.org availability, or text such as "Sold out". Other text is matched with the
+  store's [availability strategy](#availability-strategy) match values.
+* **Price** - optional, for stores where variants have different prices.
+* **Price divisor** - optional, eg `100` when prices are in cents.
+* **ID** - optional, a unique value per variant such as its SKU. It is used when a
+  variant is picked with **Detect variants**.
+
+#### Example: Next.js stores
+
+Stores built with Next.js have a `<script id="__NEXT_DATA__">` tag. For example
+sportsshoes.com lists each size like this:
+
+```json
+{"props": {"pageProps": {"product": {"variants": [
+  {"sku": "TNF1639_Small_1278467",
+   "prices": {"price": 38.99},
+   "inventory": {"isInStock": false},
+   "options": [{"value": [{"label": "Small"}], "group": "Generic Size"}]}
+]}}}}
+```
+
+* Type - JSON in the page (CSS selector)
+* JSON selector - `script#__NEXT_DATA__`
+* Variants path - `props.pageProps.product.variants`
+* Option paths - `options.*.value.*.label`
+* Availability path - `inventory.isInStock`
+* Price - `prices.price`
+* ID - `sku`
+
+#### Example: WooCommerce
+
+WooCommerce puts the variants in an attribute of the add to cart form:
+
+* Type - JSON in the page (CSS selector)
+* JSON selector - `form.variations_form|data-product_variations`
+* Option paths - `attributes.*`
+* Availability path - `is_in_stock`
+* Price - `display_price`
+* ID - `sku`
+
+#### Example: Shopify
+
+Many Shopify themes include the product as JSON, for example in
+`<script type="application/json" data-product-json>`. The exact tag depends on the
+theme. Prices are in cents.
+
+* Type - JSON in the page (CSS selector)
+* JSON selector - `script[data-product-json]`
+* Variants path - `variants`
+* Option paths - `options.*` (or `option1`, `option2`, `option3`)
+* Availability path - `available`
+* Price - `price`
+* Price divisor - `100`
+* ID - `id`
+
+#### Using a regex
+
+With **JSON in the page (Regex)**, put the JSON in a capture group, for example
+`var product = (\{.*?\});`. As with other regex strategies, a pattern that starts with
+`<` and ends with `>` is read as already delimited, so leave out the opening `<` of a
+tag, eg `id="product-json">(.*?)</script>`.
+
+### Page elements
+
+Some stores only show variants as elements on the page, such as size buttons that
+are disabled or crossed out when sold out. Choose **Page elements**:
+
+* **Variant element selector** - a CSS selector for one element per variant, eg
+  `.size-selector button`.
+* **Label selector** - optional, a selector or `|attribute` inside the element for its
+  label, eg `|data-size`. Leave empty to use the element's text.
+* **Out of stock when** - a selector the element (or a child) matches when sold out,
+  eg `[disabled], .is-sold-out`, or an `|attribute` it has, eg `|aria-disabled`. An
+  attribute set to `false` does not count.
+* **Price** and **ID** - optional selectors or `|attribute`s inside the element.
+
+If the store draws these elements with JavaScript, use the
+[browser based scraper service](#browser-based-request-api).
+
+Stores that only show a variant's stock after you click it, or load it with a
+separate request, are not supported.
+
 ## Locale
 
 This is default locale settings for the store, the default can be set in 

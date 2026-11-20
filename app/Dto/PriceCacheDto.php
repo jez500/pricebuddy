@@ -43,6 +43,8 @@ class PriceCacheDto
 
     private StockStatus $stockStatus;
 
+    private ?string $variant;
+
     public function __construct(
         float $price,
         ?int $storeId = null,
@@ -58,6 +60,7 @@ class PriceCacheDto
         float $priceFactor = 1,
         ?string $unitOfMeasure = self::DEFAULT_UNIT_OF_MEASURE,
         StockStatus|string|null $availability = null,
+        ?string $variant = null,
     ) {
         $this->storeId = $storeId;
         $this->storeName = $storeName;
@@ -75,6 +78,15 @@ class PriceCacheDto
         $this->stockStatus = $availability instanceof StockStatus
             ? $availability
             : StockStatus::fromScrapedValue($availability);
+        $this->variant = $variant;
+    }
+
+    /**
+     * The variant this URL tracks, eg "Small", or null for the page as a whole.
+     */
+    public function getVariant(): ?string
+    {
+        return $this->variant;
     }
 
     // Getters
@@ -268,6 +280,7 @@ class PriceCacheDto
             $data['price_factor'] ?? 1,
             $data['unit_of_measure'] ?? null,
             $data['availability'] ?? null,
+            $data['variant'] ?? null,
         );
     }
 
@@ -295,6 +308,7 @@ class PriceCacheDto
             'currency' => $this->currency,
             'unit_of_measure' => $this->getUnitOfMeasure(),
             'availability' => $this->stockStatus === StockStatus::InStock ? null : $this->stockStatus->value,
+            'variant' => $this->getVariant(),
         ];
     }
 }

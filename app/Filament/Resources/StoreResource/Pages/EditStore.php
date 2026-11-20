@@ -52,6 +52,7 @@ class EditStore extends EditRecord
             $scrape = ScrapeUrl::new($url)->scrape([
                 'store' => $store,
                 'use_cache' => false,
+                'with_variants' => true,
             ]);
         } catch (Throwable $e) {
             // @phpstan-ignore-next-line - withContext is valid.

@@ -23,6 +23,7 @@ class UrlResource extends JsonResource
             'url' => $this->resource->url,
             'product_id' => $this->resource->product_id,
             'store_id' => $this->resource->store_id,
+            'variant' => $this->resource->getVariantFilter()?->toArray(),
             'created_at' => $this->resource->created_at,
             'updated_at' => $this->resource->updated_at,
         ];

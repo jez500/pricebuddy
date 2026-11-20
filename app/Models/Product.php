@@ -588,6 +588,7 @@ class Product extends Model
                     'currency' => $store->currency,
                     'unit_of_measure' => $this->unit_of_measure,
                     'availability' => $url->getAvailabilityStatus()?->value,
+                    'variant' => $url->variantLabel(),
                 ];
             })
             ->sort(function ($left, $right): int {

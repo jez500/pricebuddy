@@ -4,6 +4,7 @@ namespace App\Filament\Resources\StoreResource\Api\Requests;
 
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
+use App\Enums\VariantSourceType;
 use App\Rules\ScrapeStrategyValue;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -42,7 +43,28 @@ class CreateStoreRequest extends FormRequest
             'settings.locale_settings.locale' => 'nullable|string',
             'settings.locale_settings.currency' => 'nullable|string',
             'notes' => 'nullable|string',
-        ], self::getStrategyRules());
+        ], self::getStrategyRules(), self::getVariantStrategyRules());
+    }
+
+    /**
+     * Optional variants strategy: where the store lists product variants (sizes,
+     * colours, ...). Only used by URLs that track a variant.
+     */
+    public static function getVariantStrategyRules(): array
+    {
+        return [
+            'scrape_strategy.variants' => 'nullable|array',
+            'scrape_strategy.variants.type' => 'required_with:scrape_strategy.variants|in:'.implode(',', VariantSourceType::values()),
+            'scrape_strategy.variants.value' => 'nullable|string|required_if:scrape_strategy.variants.type,selector,regex,dom',
+            'scrape_strategy.variants.path' => 'nullable|string',
+            'scrape_strategy.variants.options' => 'nullable|array',
+            'scrape_strategy.variants.options.*' => 'string',
+            'scrape_strategy.variants.availability' => 'nullable|string',
+            'scrape_strategy.variants.out_of_stock' => 'nullable|string',
+            'scrape_strategy.variants.price' => 'nullable|string',
+            'scrape_strategy.variants.id' => 'nullable|string',
+            'scrape_strategy.variants.price_divisor' => 'nullable|numeric|gt:0',
+        ];
     }
 
     public static function getStrategyRules(): array

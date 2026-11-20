@@ -2,10 +2,13 @@
 
 namespace App\Filament\Resources\ProductResource\Widgets;
 
+use App\Dto\VariantFilterDto;
+use App\Filament\Forms\VariantFilterFields;
 use App\Models\Product;
 use App\Models\Url;
 use App\Rules\StoreUrl;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -40,6 +43,13 @@ class UrlsTableWidget extends BaseWidget
                             ->formatStateUsing(fn (string $state): HtmlString => new HtmlString('<a href="'.$state.'" title="'.$state.'" target="_blank">'.Str::limit($state, 80).'</a>')
                             ),
                     ]),
+                    Tables\Columns\TextColumn::make('variant_label')
+                        ->label('Variant')
+                        ->getStateUsing(fn (Url $record): ?string => $record->variantLabel())
+                        ->grow(false)
+                        ->badge()
+                        ->icon('heroicon-m-tag')
+                        ->color('gray'),
                     Tables\Columns\TextColumn::make('price_factor')
                         ->label('Price Factor')
                         ->grow(false)
@@ -54,21 +64,40 @@ class UrlsTableWidget extends BaseWidget
                         TextInput::make('url')
                             ->label('URL')
                             ->required()
-                            ->rules([new StoreUrl]),
+                            ->rules(fn (Get $get): array => [StoreUrl::forVariant((array) $get('variant'))])
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(VariantFilterFields::resetOnUrlChange()),
                         TextInput::make('price_factor')
                             ->label('Price Factor')
                             ->numeric()
                             ->default(1)
                             ->minValue(0.01)
                             ->required(),
+                        VariantFilterFields::make(),
                     ])
-                    ->using(function (Url $record, array $data): Url {
+                    ->using(function (Tables\Actions\EditAction $action, Url $record, array $data): Url {
+                        $variant = $data['variant'] ?? null;
+
                         // Validate/apply the URL change first so a failed change leaves
                         // nothing persisted (changeUrl fails closed) before price_factor.
-                        if (trim($data['url']) !== $record->url && ! $record->changeUrl($data['url'])) {
-                            throw ValidationException::withMessages([
-                                'url' => __('Unable to resolve a store or price for this URL'),
-                            ]);
+                        // A new variant is applied with it, so the new page is scraped for
+                        // it, and its stock is a fresh baseline rather than a stock change.
+                        if (trim($data['url']) !== $record->url) {
+                            $variantChanged = $record->variantDiffers($variant);
+                            $record->variant = VariantFilterDto::fromArray($variant)?->toArray();
+
+                            if (! $record->changeUrl($data['url'], silentStockChange: $variantChanged)) {
+                                $record->refresh();
+
+                                throw ValidationException::withMessages([
+                                    'url' => __('Unable to resolve a store or price for this URL'),
+                                ]);
+                            }
+                        } elseif (! $record->changeVariant($variant)) {
+                            // Nothing was changed. Keep the form open with the selection,
+                            // rather than save the rest and report success.
+                            self::notifyVariantNotFound();
+                            $action->halt();
                         }
 
                         $record->price_factor = (float) $data['price_factor'];
@@ -90,5 +119,14 @@ class UrlsTableWidget extends BaseWidget
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),
             ]);
+    }
+
+    public static function notifyVariantNotFound(): void
+    {
+        Notification::make('variant_not_found')
+            ->title(__('Variant not changed'))
+            ->body(__('Its stock could not be found on the page. Check the variant values, or the store\'s variants strategy.'))
+            ->warning()
+            ->send();
     }
 }

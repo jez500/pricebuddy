@@ -29,6 +29,8 @@ class AddProductUrlsRequest extends FormRequest
             // line does not block the rest of the list.
             'urls.*' => 'string|max:2048',
             'price_factor' => 'sometimes|numeric|min:0.01',
+            // The same variant is tracked on every URL, eg size "Small" across stores.
+            ...CreateProductRequest::variantRules(),
         ];
     }
 }
