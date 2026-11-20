@@ -73,6 +73,40 @@ Possible availability states include:
 * Out of Stock
 * Discontinued
 
+## Variants
+
+Many products come in sizes, colours or other options, and each one can have its
+own stock and price. A store page often says the product is in stock when only some
+sizes are. To track the one you want, set a **variant** on the URL. Stock and price
+then come from that variant, not from the page as a whole.
+
+The variant field is on every form that adds or edits a URL, including **Add URL**.
+
+* **Type the values**, for example `Small`, `Black` or `55"`. Each value must match one
+  of the variant's options, so `Small` and `Black` together only match the small black
+  one. A value must match a whole option: `Small` does not match `X Small`. Case,
+  hyphens and spaces don't matter, so `x-large` matches `X Large`.
+* **Or click Detect variants** to scrape the URL and pick from the variants it finds,
+  for example "Small · Out of Stock · 38.99". Picking one also saves its ID (such as
+  its SKU) so that exact variant is tracked.
+
+Typed values work across stores, so you can add the same values to many URLs at once
+with **Add URL** or the API. The same page can be added to a product more than once
+for different variants.
+
+When the values match more than one variant, for example `Small` in three colours, the
+URL is in stock when any of them is, at the lowest in-stock price.
+
+When the store lists variants but not yours, the URL is out of stock, because many
+stores remove sold out variants from the page.
+
+When the store doesn't list any variants, the scrape fails. PriceBuddy records no
+price, leaves the stock status as it was and sends no alerts. Set up the store's
+[variants strategy](/stores.html#variants-strategy) to fix it.
+
+Back in stock notifications are sent when the tracked variant comes back. Changing the
+variant on a URL updates its stock straight away without sending one.
+
 ## Price History
 
 Each URL has a price history. This is a list of prices that the product has been

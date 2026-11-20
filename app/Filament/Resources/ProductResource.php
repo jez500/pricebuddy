@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\Icons;
 use App\Enums\Statuses;
+use App\Filament\Forms\VariantFilterFields;
 use App\Filament\Resources\ProductResource\Actions\FetchBulkAction;
 use App\Filament\Resources\ProductResource\Actions\PauseBulkAction;
 use App\Filament\Resources\ProductResource\Actions\ResumeBulkAction;
@@ -107,6 +108,8 @@ class ProductResource extends Resource
             ->default(1)
             ->minValue(0.01)
             ->helperText(__('Number of items (unit price = price / factor)'));
+
+        $components[] = VariantFilterFields::make();
 
         $components[] = Forms\Components\Toggle::make('create_store')
             ->label('Create store if it doesn\'t exist')

@@ -42,6 +42,24 @@ class CreateProductRequest extends FormRequest
             'notify_on_change' => 'sometimes|boolean',
             'paused' => 'sometimes|boolean',
             'refresh_interval' => ['sometimes', 'nullable', 'integer', Rule::in(array_keys(ProductResource::REFRESH_INTERVALS))],
+            ...self::variantRules(),
+        ];
+    }
+
+    /**
+     * Optional variant to track, eg `{"values": ["Small"]}`. Stock and price then come
+     * from the matching variant instead of the whole page. `id` pins one exact variant,
+     * eg its SKU.
+     *
+     * @return array<string, string>
+     */
+    public static function variantRules(): array
+    {
+        return [
+            'variant' => 'nullable|array',
+            'variant.values' => 'nullable|array|max:10',
+            'variant.values.*' => 'string|max:255',
+            'variant.id' => 'nullable|string|max:255',
         ];
     }
 }

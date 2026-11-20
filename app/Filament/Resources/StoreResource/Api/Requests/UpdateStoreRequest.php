@@ -26,6 +26,7 @@ class UpdateStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
+            ...CreateStoreRequest::getVariantStrategyRules(),
             'name' => 'sometimes|string|max:255',
             'slug' => 'sometimes|string|max:255|unique:stores,slug,'.$this->route('id'),
             'initials' => 'sometimes|string|max:2',

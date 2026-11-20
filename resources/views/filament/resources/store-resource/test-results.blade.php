@@ -112,6 +112,42 @@
             </tbody>
         </table>
 
+        @php
+            $variants = collect(data_get($scrape, \App\Services\ScrapeUrl::VARIANTS_KEY, []))
+                ->map(fn ($variant) => \App\Dto\VariantDto::fromArray((array) $variant));
+            $variantSource = $record?->scrape_strategy?->variants?->type?->getLabel() ?? __('Schema.org (automatic)');
+        @endphp
+        <div class="mt-6">
+            <x-filament::section :heading="__('Variants') . ' (' . $variants->count() . ')'" :description="__('Found with: :source', ['source' => $variantSource])" collapsible :collapsed="$variants->isEmpty()">
+                @if ($variants->isEmpty())
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('No variants found. URLs tracking a variant on this store will fail until the variants strategy is set.') }}</p>
+                @else
+                    <table class="w-full text-sm border-collapse">
+                        <thead>
+                            <tr class="border-b border-gray-200 dark:border-white/10 text-left">
+                                <th class="py-2 pr-4 font-semibold">{{ __('Variant') }}</th>
+                                <th class="py-2 pr-4 font-semibold">{{ __('Availability') }}</th>
+                                <th class="py-2 pr-4 font-semibold">{{ __('Price') }}</th>
+                                <th class="py-2 pr-4 font-semibold">{{ __('ID') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($variants as $variant)
+                                <tr class="border-b border-gray-100 dark:border-white/5 align-top" data-variant-row>
+                                    <td class="py-2 pr-4 break-words">{{ $variant->label }}</td>
+                                    <td class="py-2 pr-4">
+                                        <x-filament::badge :color="$variant->status->getColor()" :icon="$variant->status->getIcon()">{{ $variant->status->getLabel() }}</x-filament::badge>
+                                    </td>
+                                    <td class="py-2 pr-4">{{ $variant->price ?? '—' }}</td>
+                                    <td class="py-2 pr-4 break-all text-gray-500 dark:text-gray-400">{{ $variant->id ?? '—' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @endif
+            </x-filament::section>
+        </div>
+
         @if (filled(data_get($scrape, 'errors')))
             <div class="mt-6">
                 <x-filament::section heading="Errors">

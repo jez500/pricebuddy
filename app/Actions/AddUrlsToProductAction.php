@@ -2,9 +2,11 @@
 
 namespace App\Actions;
 
+use App\Dto\VariantFilterDto;
 use App\Jobs\AddUrlToProductJob;
 use App\Models\Product;
 use App\Models\Url;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 
 /**
  * Add several URLs to a product at once (#206). Each URL is scraped by a queued job,
@@ -22,17 +24,26 @@ class AddUrlsToProductAction
 
     /**
      * @param  string|array<int, string>  $urls  a list of URLs, or text with one URL per line
+     * @param  array<string, mixed>|null  $variant  the variant every URL tracks, see VariantFilterDto
      * @return array{queued: array<int, string>, skipped: array<int, array{url: string, reason: string}>}
      */
-    public function __invoke(Product $product, string|array $urls, int $userId, float $priceFactor = 1): array
+    public function __invoke(Product $product, string|array $urls, int $userId, float $priceFactor = 1, ?array $variant = null): array
     {
-        $existing = $product->urls()->pluck('url_normalized')->filter()->flip();
+        $variant = VariantFilterDto::fromArray($variant);
+
+        // The same page can be tracked once per variant, eg for size Small and Medium.
+        /** @var EloquentCollection<int, Url> $productUrls */
+        $productUrls = $product->urls()->get(['url_normalized', 'variant']);
+        $existing = $productUrls
+            ->filter(fn (Url $url): bool => filled($url->url_normalized))
+            ->mapWithKeys(fn (Url $url): array => [self::dedupeKey((string) $url->url_normalized, $url->getVariantFilter()) => true]);
         $seen = [];
         $queued = [];
         $skipped = [];
 
         foreach (self::parse($urls) as $url) {
             $normalized = Url::normalizeForMatch($url);
+            $normalized = $normalized === '' ? '' : self::dedupeKey($normalized, $variant);
 
             if (! self::isValidUrl($url) || $normalized === '') {
                 $skipped[] = ['url' => $url, 'reason' => self::SKIP_INVALID];
@@ -47,10 +58,15 @@ class AddUrlsToProductAction
         }
 
         foreach ($queued as $url) {
-            AddUrlToProductJob::dispatch($product->getKey(), $url, $userId, $priceFactor);
+            AddUrlToProductJob::dispatch($product->getKey(), $url, $userId, $priceFactor, $variant?->toArray());
         }
 
         return ['queued' => $queued, 'skipped' => $skipped];
+    }
+
+    protected static function dedupeKey(string $normalizedUrl, ?VariantFilterDto $variant): string
+    {
+        return $variant ? $normalizedUrl.'#variant:'.$variant->key() : $normalizedUrl;
     }
 
     /**

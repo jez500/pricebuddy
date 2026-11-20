@@ -29,6 +29,8 @@ class AddUrlToProductJob implements ShouldQueue
         public string $url,
         public int $userId,
         public float $priceFactor = 1,
+        /** @var array<string, mixed>|null */
+        public ?array $variant = null,
     ) {}
 
     public function handle(): void
@@ -47,6 +49,7 @@ class AddUrlToProductJob implements ShouldQueue
                 productId: $product->getKey(),
                 userId: $user->getKey(),
                 priceFactor: $this->priceFactor,
+                variant: $this->variant,
             );
         } catch (Exception $e) {
             logger()->warning('Failed to add URL to product: '.$e->getMessage(), [

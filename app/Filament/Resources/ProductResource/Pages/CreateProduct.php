@@ -27,6 +27,7 @@ class CreateProduct extends CreateRecord
             userId: auth()->id(),
             createStore: data_get($data, 'create_store', false),
             priceFactor: (float) data_get($data, 'price_factor', 1),
+            variant: data_get($data, 'variant'),
         );
 
         if ($urlModel === false) {

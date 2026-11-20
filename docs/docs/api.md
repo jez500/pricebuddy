@@ -183,11 +183,13 @@ Adds up to 50 URLs to a product in one request. The endpoint requires the
 | --- | --- | --- |
 | `urls` | array of strings | Required. 1 to 50 URLs. |
 | `price_factor` | number | Optional. Applied to every URL. Defaults to `1`. |
+| `variant` | object | Optional. The [variant](/products.html#variants) every URL tracks, see [Tracking a variant](#tracking-a-variant). |
 
 The response lists the queued URLs and the skipped URLs. A skipped URL has a reason:
 `invalid` (not an `http` or `https` URL), `duplicate` (it repeats an earlier URL in the
-list) or `existing` (the product already has it). A queued URL can still fail, for
-example when the page has no price. The user then gets a "URL not added" notification.
+list) or `existing` (the product already has it for the same variant). A queued URL can
+still fail, for example when the page has no price. The user then gets a "URL not added"
+notification.
 
 ```json
 POST /api/products/42/urls
@@ -205,6 +207,31 @@ POST /api/products/42/urls
   "message": "2 URLs queued"
 }
 ```
+
+### Tracking a variant
+
+`POST /api/products` and `POST /api/products/{id}/urls` accept an optional `variant`
+object. Stock and price for the URL then come from the matching
+[variant](/products.html#variants), eg one size, rather than the whole page.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `variant.values` | array of strings | Up to 10 option values that must all match, eg `["Small", "Black"]`. |
+| `variant.id` | string | Optional. Pins one exact variant by its ID, eg SKU. Used while the page still lists it. |
+
+```json
+POST /api/products/42/urls
+{
+  "urls": ["https://example.com/a", "https://example.org/b"],
+  "variant": { "values": ["Small"] }
+}
+```
+
+The same page can be added to a product once per variant. Each `price_cache` entry of a
+product has a `variant` label, and URLs in `GET /api/stores/{id}?include=urls` return
+their `variant`. Both are `null` for URLs that track the whole page. The store needs a
+[variants strategy](/stores.html#variants-strategy) unless its pages list variants in
+schema.org data. Without one the URL is not added.
 
 ### Insights (`GET /api/products/{id}?include=insights`)
 
@@ -357,6 +384,24 @@ identically, so any strategy that meta-extraction accepts can be saved as-is.
 
 A stored `schema_org` strategy round-trips without a `value` key at all — the API returns
 `{"type": "schema_org"}`, which is valid input to all three endpoints.
+
+The optional `variants` slot says where the store lists product variants. Its `type` is
+one of `schema_org`, `selector`, `regex`, `json` or `dom`, and `value` is required for
+`selector`, `regex` and `dom`. The other fields are `path`, `options` (array),
+`availability`, `out_of_stock`, `price`, `id` and `price_divisor`. See
+[Variants strategy](/stores.html#variants-strategy).
+
+```json
+"variants": {
+  "type": "selector",
+  "value": "script#__NEXT_DATA__",
+  "path": "props.pageProps.product.variants",
+  "options": ["options.*.value.*.label"],
+  "availability": "inventory.isInStock",
+  "price": "prices.price",
+  "id": "sku"
+}
+```
 
 ### Currency & locale
 

@@ -7,6 +7,7 @@ use App\Enums\Icons;
 use App\Enums\ScraperService;
 use App\Enums\ScraperStrategyType;
 use App\Enums\StockStatus;
+use App\Enums\VariantSourceType;
 use App\Filament\Concerns\HasScraperTrait;
 use App\Filament\Pages\AppSettingsPage;
 use App\Filament\Resources\StoreResource\Pages\CreateStore;
@@ -131,6 +132,7 @@ class StoreResource extends Resource
                             ->hidden(fn (Get $get): bool => $get('availability.type') === ScraperStrategyType::SchemaOrg->value),
                     ])->description('Optional: a selector that matches product availability.')
                         ->collapsed(fn (Get $get): bool => ($get('availability.value') ?? '') === ''),
+                    self::variantStrategySection(),
                 ])
                     ->label('Scrape Strategy')
                     ->statePath('scrape_strategy'),
@@ -154,6 +156,84 @@ class StoreResource extends Resource
                 ])->description('Additional notes regarding this store and how to scrape its content'),
             ])
             ->columns(1);
+    }
+
+    /**
+     * Where this store lists product variants (sizes, colours, screen sizes, ...). Only
+     * used by product URLs that track a variant. Left empty, Schema.org is used.
+     */
+    public static function variantStrategySection(): Section
+    {
+        $type = fn (Get $get): ?VariantSourceType => VariantSourceType::tryFrom((string) $get('variants.type'));
+        $isJson = fn (Get $get): bool => (bool) $type($get)?->isJson();
+        $isDom = fn (Get $get): bool => $type($get) === VariantSourceType::Dom;
+
+        return Section::make('Variants strategy')->schema([
+            Select::make('variants.type')
+                ->label('Type')
+                ->options(VariantSourceType::class)
+                ->placeholder('Schema.org (automatic)')
+                ->hintIcon(Icons::Help->value, fn (Get $get): string => $type($get)?->getDescription()
+                    ?? 'Read variants from Schema.org ProductGroup/hasVariant or a list of offers.')
+                ->live(),
+            TextInput::make('variants.value')
+                ->label(fn (Get $get): string => match ($type($get)) {
+                    VariantSourceType::Regex => 'Regex',
+                    VariantSourceType::Dom => 'Variant element selector',
+                    default => 'JSON selector',
+                })
+                ->placeholder(fn (Get $get): string => match ($type($get)) {
+                    VariantSourceType::Regex => 'var product = (\{.*?\});',
+                    VariantSourceType::Dom => '.size-selector button',
+                    default => 'script#__NEXT_DATA__',
+                })
+                ->hintIcon(Icons::Help->value, fn (Get $get): string => $isDom($get)
+                    ? 'CSS selector matching one element per variant'
+                    : 'Where the JSON is. A selector can use |attribute, eg form.variations_form|data-product_variations')
+                ->required(fn (Get $get): bool => $isDom($get) || in_array($type($get), [VariantSourceType::Selector, VariantSourceType::Regex], true))
+                ->visible(fn (Get $get): bool => $isDom($get) || in_array($type($get), [VariantSourceType::Selector, VariantSourceType::Regex], true)),
+            TextInput::make('variants.path')
+                ->label('Variants path')
+                ->placeholder('props.pageProps.product.variants')
+                ->hintIcon(Icons::Help->value, 'Dot path to the list of variants in the JSON. Leave empty if the JSON is the list')
+                ->visible($isJson),
+            Forms\Components\TagsInput::make('variants.options')
+                ->label(fn (Get $get): string => $isDom($get) ? 'Label selector' : 'Option paths')
+                ->placeholder(fn (Get $get): string => $isDom($get) ? '|data-size' : 'options.*.value.*.label')
+                ->hintIcon(Icons::Help->value, fn (Get $get): string => $isDom($get)
+                    ? 'Optional selector or |attribute inside the variant element for its label. Empty uses the element text'
+                    : 'Dot paths inside each variant to its option values, eg size and colour. Use * for lists')
+                ->visible(fn (Get $get): bool => $isJson($get) || $isDom($get)),
+            TextInput::make('variants.availability')
+                ->label('Availability path')
+                ->placeholder('inventory.isInStock')
+                ->hintIcon(Icons::Help->value, 'Dot path inside each variant to its stock: true/false, a count, schema.org availability or text matched by the availability strategy')
+                ->visible($isJson),
+            TextInput::make('variants.out_of_stock')
+                ->label('Out of stock when')
+                ->placeholder('[disabled], .is-sold-out or |aria-disabled')
+                ->hintIcon(Icons::Help->value, 'A selector the variant element (or a child) matches, or an |attribute it has, when it is out of stock')
+                ->visible($isDom),
+            TextInput::make('variants.price')
+                ->label('Price')
+                ->placeholder(fn (Get $get): string => $isDom($get) ? '|data-price' : 'prices.price')
+                ->hintIcon(Icons::Help->value, 'Optional. The variant price, when variants are priced differently')
+                ->visible(fn (Get $get): bool => $isJson($get) || $isDom($get)),
+            TextInput::make('variants.price_divisor')
+                ->label('Price divisor')
+                ->numeric()
+                ->placeholder('100')
+                ->hintIcon(Icons::Help->value, 'Optional. Divide variant prices by this, eg 100 when prices are in cents')
+                ->visible(fn (Get $get): bool => $isJson($get) || $isDom($get)),
+            TextInput::make('variants.id')
+                ->label('ID')
+                ->placeholder(fn (Get $get): string => $isDom($get) ? '|data-sku' : 'sku')
+                ->hintIcon(Icons::Help->value, 'Optional. A unique id per variant, eg SKU, so a picked variant can be pinned exactly')
+                ->visible(fn (Get $get): bool => $isJson($get) || $isDom($get)),
+        ])
+            ->columns(2)
+            ->description('Optional: where this store lists product variants (sizes, colours, ...). Used by product URLs that track a variant.')
+            ->collapsed(fn (Get $get): bool => blank($get('variants.type')));
     }
 
     public static function testForm(Form $form, Store $store): Form

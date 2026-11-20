@@ -40,7 +40,8 @@ class CreateHandler extends Handlers
             url: data_get($values, 'url'),
             productId: data_get($values, 'product_id'),
             userId: auth()->id(),
-            createStore: data_get($values, 'create_store', false)
+            createStore: data_get($values, 'create_store', false),
+            variant: data_get($values, 'variant'),
         );
 
         if ($urlModel) {

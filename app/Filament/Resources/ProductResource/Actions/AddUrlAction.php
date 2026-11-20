@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ProductResource\Actions;
 
 use App\Actions\AddUrlsToProductAction;
 use App\Enums\Icons;
+use App\Filament\Forms\VariantFilterFields;
 use App\Models\Product;
 use App\Models\Url;
 use App\Rules\StoreUrl;
@@ -64,6 +65,7 @@ class AddUrlAction extends Action
                 ->default(1)
                 ->minValue(0.01)
                 ->helperText(__('Number of items (unit price = price / factor)')),
+            VariantFilterFields::make(),
         ]);
 
         $this->color('gray');
@@ -77,9 +79,10 @@ class AddUrlAction extends Action
 
             $urls = AddUrlsToProductAction::parse((string) $data['url']);
             $priceFactor = (float) ($data['price_factor'] ?? 1);
+            $variant = $data['variant'] ?? null;
 
             if (count($urls) > 1) {
-                $this->queueUrls($product, $urls, $priceFactor);
+                $this->queueUrls($product, $urls, $priceFactor, $variant);
 
                 return;
             }
@@ -90,6 +93,7 @@ class AddUrlAction extends Action
                     productId: $product->getKey(),
                     userId: auth()->id(),
                     priceFactor: $priceFactor,
+                    variant: $variant,
                 );
 
                 if ($urlModel === false) {
@@ -108,10 +112,11 @@ class AddUrlAction extends Action
 
     /**
      * @param  array<int, string>  $urls
+     * @param  array<string, mixed>|null  $variant
      */
-    protected function queueUrls(Product $product, array $urls, float $priceFactor): void
+    protected function queueUrls(Product $product, array $urls, float $priceFactor, ?array $variant = null): void
     {
-        $result = (new AddUrlsToProductAction)($product, $urls, (int) auth()->id(), $priceFactor);
+        $result = (new AddUrlsToProductAction)($product, $urls, (int) auth()->id(), $priceFactor, $variant);
 
         $skipped = collect($result['skipped'])
             ->map(fn (array $skip) => $skip['url'].' ('.match ($skip['reason']) {

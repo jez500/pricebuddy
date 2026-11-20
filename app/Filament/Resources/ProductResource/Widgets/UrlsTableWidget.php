@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\ProductResource\Widgets;
 
+use App\Dto\VariantFilterDto;
+use App\Filament\Forms\VariantFilterFields;
 use App\Models\Product;
 use App\Models\Url;
 use App\Rules\StoreUrl;
@@ -40,6 +42,13 @@ class UrlsTableWidget extends BaseWidget
                             ->formatStateUsing(fn (string $state): HtmlString => new HtmlString('<a href="'.$state.'" title="'.$state.'" target="_blank">'.Str::limit($state, 80).'</a>')
                             ),
                     ]),
+                    Tables\Columns\TextColumn::make('variant_label')
+                        ->label('Variant')
+                        ->getStateUsing(fn (Url $record): ?string => $record->variantLabel())
+                        ->grow(false)
+                        ->badge()
+                        ->icon('heroicon-m-tag')
+                        ->color('gray'),
                     Tables\Columns\TextColumn::make('price_factor')
                         ->label('Price Factor')
                         ->grow(false)
@@ -61,14 +70,26 @@ class UrlsTableWidget extends BaseWidget
                             ->default(1)
                             ->minValue(0.01)
                             ->required(),
+                        VariantFilterFields::make(),
                     ])
                     ->using(function (Url $record, array $data): Url {
+                        $variant = $data['variant'] ?? null;
+
                         // Validate/apply the URL change first so a failed change leaves
                         // nothing persisted (changeUrl fails closed) before price_factor.
-                        if (trim($data['url']) !== $record->url && ! $record->changeUrl($data['url'])) {
-                            throw ValidationException::withMessages([
-                                'url' => __('Unable to resolve a store or price for this URL'),
-                            ]);
+                        // A new variant is applied with it, so the new page is scraped for it.
+                        if (trim($data['url']) !== $record->url) {
+                            $record->variant = VariantFilterDto::fromArray($variant)?->toArray();
+
+                            if (! $record->changeUrl($data['url'])) {
+                                $record->refresh();
+
+                                throw ValidationException::withMessages([
+                                    'url' => __('Unable to resolve a store or price for this URL'),
+                                ]);
+                            }
+                        } elseif (! $record->changeVariant($variant)) {
+                            self::notifyVariantNotFound();
                         }
 
                         $record->price_factor = (float) $data['price_factor'];
@@ -90,5 +111,14 @@ class UrlsTableWidget extends BaseWidget
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),
             ]);
+    }
+
+    public static function notifyVariantNotFound(): void
+    {
+        Notification::make('variant_not_found')
+            ->title(__('Variant saved, but not found on the page'))
+            ->body(__('Check the variant values, or the store\'s variants strategy.'))
+            ->warning()
+            ->send();
     }
 }

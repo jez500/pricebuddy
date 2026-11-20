@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Dto\VariantFilterDto;
 use App\Enums\StockStatus;
 use App\Events\AvailabilityChangedEvent;
 use App\Services\AiConfigHealer;
@@ -12,6 +13,7 @@ use App\Services\Helpers\CurrencyHelper;
 use App\Services\ScrapeUrl;
 use Carbon\Carbon;
 use Database\Factories\UrlFactory;
+use Filament\Notifications\Notification;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -40,6 +42,7 @@ use Illuminate\Support\Uri;
  * @property ?int $store_id
  * @property ?int $product_id
  * @property ?StockStatus $availability
+ * @property ?array<string, mixed> $variant
  * @property Collection $prices
  * @property Carbon $updated_at
  * @property Carbon $created_at
@@ -69,7 +72,21 @@ class Url extends Model
             'updated_at' => 'datetime',
             'created_at' => 'datetime',
             'availability' => StockStatus::class,
+            'variant' => 'array',
         ];
+    }
+
+    /**
+     * The variant this URL tracks (eg size "Small"), or null to track the page as a whole.
+     */
+    public function getVariantFilter(): ?VariantFilterDto
+    {
+        return VariantFilterDto::fromArray(is_array($this->variant) ? $this->variant : null);
+    }
+
+    public function variantLabel(): ?string
+    {
+        return $this->getVariantFilter()?->label();
     }
 
     /***************************************************
@@ -304,7 +321,7 @@ class Url extends Model
 
     public function scrape(): array
     {
-        return $this->url ? ScrapeUrl::new($this->url)->scrape() : [];
+        return $this->url ? ScrapeUrl::new($this->url)->scrape(['variant' => $this->getVariantFilter()]) : [];
     }
 
     public function getAvailabilityStatus(): ?StockStatus
@@ -322,8 +339,13 @@ class Url extends Model
         return null;
     }
 
-    public static function createFromUrl(string $url, ?int $productId = null, ?int $userId = null, bool $createStore = true, float $priceFactor = 1): Url|false
+    /**
+     * @param  array<string, mixed>|null  $variant  the variant to track, see VariantFilterDto
+     */
+    public static function createFromUrl(string $url, ?int $productId = null, ?int $userId = null, bool $createStore = true, float $priceFactor = 1, ?array $variant = null): Url|false
     {
+        $variant = VariantFilterDto::fromArray($variant);
+
         $userId = $userId ?? auth()->id();
 
         // A user can only add a URL to their own product. Without a user (console,
@@ -332,9 +354,9 @@ class Url extends Model
             throw new AuthorizationException('The product does not belong to this user.');
         }
 
-        ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable] = self::scrapeAndResolveStore($url, $createStore, $userId);
+        ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable] = self::scrapeAndResolveStore($url, $createStore, $userId, $variant);
 
-        if (! $store || (! data_get($scrape, 'price') && ! $isUnavailable)) {
+        if (! $store || data_get($scrape, ScrapeUrl::VARIANT_ERROR_KEY) || (! data_get($scrape, 'price') && ! $isUnavailable)) {
             return false;
         }
 
@@ -359,6 +381,7 @@ class Url extends Model
             'store_id' => $store->getKey(),
             'product_id' => $productId,
             'price_factor' => $priceFactor,
+            'variant' => $variant?->toArray(),
         ]);
 
         $urlModel->updatePrice(data_get($scrape, 'price'), $scrape);
@@ -384,9 +407,9 @@ class Url extends Model
             return true;
         }
 
-        ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable] = self::scrapeAndResolveStore($newUrl, $createStore, $this->product?->user_id);
+        ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => $isUnavailable] = self::scrapeAndResolveStore($newUrl, $createStore, $this->product?->user_id, $this->getVariantFilter());
 
-        if (! $store || (! data_get($scrape, 'price') && ! $isUnavailable)) {
+        if (! $store || data_get($scrape, ScrapeUrl::VARIANT_ERROR_KEY) || (! data_get($scrape, 'price') && ! $isUnavailable)) {
             return false;
         }
 
@@ -401,12 +424,50 @@ class Url extends Model
     }
 
     /**
+     * Change the variant this URL tracks (null to track the page as a whole) and refresh
+     * its stock and price straight away. The stock change is saved without an
+     * AvailabilityChangedEvent: the user changed what is tracked, nothing came back in
+     * stock. Returns false when the new variant can't be found on the page; the variant
+     * is still saved so the next fetch retries it.
+     *
+     * @param  array<string, mixed>|null  $variant
+     */
+    public function changeVariant(?array $variant): bool
+    {
+        $new = VariantFilterDto::fromArray($variant)?->toArray();
+
+        if ($new == $this->getVariantFilter()?->toArray()) {
+            return true;
+        }
+
+        $this->variant = $new;
+        $this->save();
+
+        $scrape = $this->scrape();
+
+        if (! $scrape || data_get($scrape, ScrapeUrl::VARIANT_ERROR_KEY)) {
+            $this->product?->updatePriceCache();
+
+            return false;
+        }
+
+        $status = ScrapeUrl::resolveStockStatus($scrape, data_get($this->store, 'scrape_strategy.availability'));
+        $this->availability = $status->isUnavailable() ? $status : null;
+        $this->save();
+
+        $this->updatePrice(data_get($scrape, 'price'), $scrape);
+        $this->product?->updatePriceCache();
+
+        return true;
+    }
+
+    /**
      * Scrape a URL and resolve its Store, using AI self-healing as a fallback when a
      * normal scrape would not yield a usable store/price.
      *
      * @return array{store: ?Store, scrape: array<string, mixed>, isUnavailable: bool}
      */
-    protected static function scrapeAndResolveStore(string $url, bool $createStore = true, ?int $userId = null): array
+    protected static function scrapeAndResolveStore(string $url, bool $createStore = true, ?int $userId = null, ?VariantFilterDto $variant = null): array
     {
         if ($createStore) {
             AutoCreateStore::createStoreFromUrl($url, $userId);
@@ -415,7 +476,22 @@ class Url extends Model
         // Suppress UI toasts on these intermediate scrapes: a first attempt may legitimately
         // fail (e.g. bot-blocked) before AI self-healing switches to browser scraping. The
         // only user-facing feedback is the final outcome (product created, or the caller's error).
-        $scrape = ScrapeUrl::new($url)->setSendUiNotifications(false)->scrape();
+        $scrape = ScrapeUrl::new($url)->setSendUiNotifications(false)->scrape(['variant' => $variant]);
+
+        // The page scraped fine but the store can't find its variants. Healing the price
+        // selector would not fix that, so fail closed and let the caller report it.
+        if (data_get($scrape, ScrapeUrl::VARIANT_ERROR_KEY)) {
+            /** @var ?Store $store */
+            $store = data_get($scrape, 'store');
+
+            Notification::make()
+                ->title(__('Variant not found'))
+                ->body(data_get($scrape, ScrapeUrl::VARIANT_ERROR_KEY))
+                ->danger()
+                ->send();
+
+            return ['store' => $store, 'scrape' => $scrape, 'isUnavailable' => false];
+        }
 
         /** @var ?Store $store */
         $store = data_get($scrape, 'store');
@@ -427,7 +503,7 @@ class Url extends Model
         // repair the store config, then re-scrape once with the new config.
         if ((! $store || (! data_get($scrape, 'price') && ! $isUnavailable))
             && AiConfigHealer::new()->healStoreForUrl($url, $store, data_get($scrape, 'body'), $userId) !== null) {
-            $scrape = ScrapeUrl::new($url)->setSendUiNotifications(false)->scrape();
+            $scrape = ScrapeUrl::new($url)->setSendUiNotifications(false)->scrape(['variant' => $variant]);
             $store = data_get($scrape, 'store');
             $availabilityStrategy = data_get($store, 'scrape_strategy.availability');
             $isUnavailable = ScrapeUrl::resolveStockStatus($scrape, $availabilityStrategy)->isUnavailable();
@@ -445,8 +521,19 @@ class Url extends Model
         $availabilityChanged = false;
         $stockStatus = null;
 
+        // A tracked variant that can't be found fails closed: no price, no stock change
+        // and no alerts. Healing is skipped because the price selector isn't the problem.
+        if (data_get($scrapeResult, ScrapeUrl::VARIANT_ERROR_KEY)) {
+            return null;
+        }
+
         if (is_null($price) || $price === '') {
             $scrapeResult = $scrapeResult ?? $this->scrape();
+
+            if (data_get($scrapeResult, ScrapeUrl::VARIANT_ERROR_KEY)) {
+                return null;
+            }
+
             $scrapeResult = AiConfigHealer::new()->heal($this, $scrapeResult);
             $scrapeResult = AiScrapeEnhancer::new()->enhance($this, $scrapeResult);
             $price = data_get($scrapeResult, 'price');

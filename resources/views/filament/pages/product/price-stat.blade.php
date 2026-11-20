@@ -110,8 +110,19 @@
         </div>
     @endif
 
-    @if ($priceCache->isUnavailable() || ! $priceCache->isLastScrapeSuccessful() || $priceCache->matchesNotification($product))
+    @if (filled($priceCache->getVariant()) || $priceCache->isUnavailable() || ! $priceCache->isLastScrapeSuccessful() || $priceCache->matchesNotification($product))
         <div class="mt-2 pb-4 inline-flex gap-2">
+            @if (filled($priceCache->getVariant()))
+                <div class="mb-2">
+                    @include('components.icon-badge', [
+                        'hoverText' => __('Stock and price are for this variant only'),
+                        'label' => $priceCache->getVariant(),
+                        'color' => 'gray',
+                        'icon' => 'heroicon-m-tag',
+                    ])
+                </div>
+            @endif
+
             @if ($priceCache->isUnavailable())
                 <div class="mb-2">
                     @include('components.icon-badge', [

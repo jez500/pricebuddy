@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\ProductResource\Widgets;
 
 use App\Dto\PriceCacheDto;
+use App\Dto\VariantFilterDto;
+use App\Filament\Forms\VariantFilterFields;
 use App\Models\Product;
 use App\Models\Url;
 use App\Rules\StoreUrl;
@@ -115,6 +117,7 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
                 return [
                     'url' => $url->url,
                     'price_factor' => $url->price_factor,
+                    'variant' => $url->variant,
                 ];
             })
             ->form([
@@ -128,17 +131,26 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
                     ->default(1)
                     ->minValue(0.01)
                     ->required(),
+                VariantFilterFields::make(),
             ])
             ->action(function ($arguments, $data) {
                 $url = Url::find($arguments['url']);
+                $variant = $data['variant'] ?? null;
 
-                if (trim($data['url']) !== $url->url && ! $url->changeUrl($data['url'])) {
-                    Notification::make('url_update_failed')
-                        ->title('Unable to resolve a store or price for this URL')
-                        ->danger()
-                        ->send();
+                // A new variant is applied with a new URL, so the new page is scraped for it.
+                if (trim($data['url']) !== $url->url) {
+                    $url->variant = VariantFilterDto::fromArray($variant)?->toArray();
 
-                    return;
+                    if (! $url->changeUrl($data['url'])) {
+                        Notification::make('url_update_failed')
+                            ->title('Unable to resolve a store or price for this URL')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+                } elseif (! $url->changeVariant($variant)) {
+                    UrlsTableWidget::notifyVariantNotFound();
                 }
 
                 $url->update(['price_factor' => $data['price_factor']]);
