@@ -384,4 +384,27 @@ HTML),
             ], $strategy)
         );
     }
+
+    public static function stockResultCases(): array
+    {
+        return [
+            'no scrape result' => [null, false],
+            'failed fetch with nothing scraped' => [['errors' => []], false],
+            'empty page' => [['title' => null, 'price' => null, 'availability' => null, 'body' => ''], false],
+            'error page with a title' => [['title' => '503 Service Temporarily Unavailable', 'price' => null, 'availability' => null], false],
+            'out of stock value without a title' => [['title' => null, 'price' => null, 'availability' => 'OutOfStock'], false],
+            'price without a title' => [['title' => null, 'price' => '9.99', 'availability' => null], true],
+            'product page with a price' => [['title' => 'Example product', 'price' => '9.99', 'availability' => null], true],
+            'out of stock product page without a price' => [['title' => 'Example product', 'price' => null, 'availability' => 'OutOfStock'], true],
+            'soft 404' => [['title' => null, 'price' => null, ScrapeUrl::NOT_FOUND_KEY => true], true],
+        ];
+    }
+
+    /**
+     * @dataProvider stockResultCases
+     */
+    public function test_has_stock_result(?array $scrapeResult, bool $expected)
+    {
+        $this->assertSame($expected, ScrapeUrl::hasStockResult($scrapeResult, null));
+    }
 }

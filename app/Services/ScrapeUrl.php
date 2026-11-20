@@ -331,6 +331,28 @@ class ScrapeUrl
         return $status;
     }
 
+    /**
+     * Whether a scrape result says what the product's stock is: it found a price, the
+     * page is a soft 404, or it found the product's title on a page that shows it as
+     * unavailable. A failed fetch says nothing about it, so it must not change the stock.
+     *
+     * A failed fetch has no price and usually resolves as InStock. The http scraper does
+     * not flag a 5xx response as an error; it parses the error page, which may still
+     * carry a <title>. A title alone therefore can't tell a product page from an error
+     * page.
+     *
+     * @param  array<string, mixed>|null  $scrapeResult
+     */
+    public static function hasStockResult(?array $scrapeResult, ?AvailabilityStrategyDto $availabilityStrategy): bool
+    {
+        if (data_get($scrapeResult, self::NOT_FOUND_KEY) || filled(data_get($scrapeResult, 'price'))) {
+            return true;
+        }
+
+        return filled(data_get($scrapeResult, 'title'))
+            && self::resolveStockStatus($scrapeResult, $availabilityStrategy)->isUnavailable();
+    }
+
     public function getStore(): ?Store
     {
         $host = Uri::of($this->url)->host();

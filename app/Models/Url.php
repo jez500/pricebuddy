@@ -452,9 +452,11 @@ class Url extends Model
             $price = data_get($scrapeResult, 'price');
         }
 
-        // Update out-of-stock status based on scrape result.
-        if ($scrapeResult) {
-            $availabilityStrategy = data_get($this->store, 'scrape_strategy.availability');
+        // Update out-of-stock status based on scrape result. A failed scrape, eg a page
+        // that couldn't be fetched, leaves it as it was rather than reading as in stock.
+        $availabilityStrategy = data_get($this->store, 'scrape_strategy.availability');
+
+        if ($scrapeResult && ScrapeUrl::hasStockResult($scrapeResult, $availabilityStrategy)) {
             $stockStatus = ScrapeUrl::resolveStockStatus($scrapeResult, $availabilityStrategy);
             $availability = $stockStatus->isUnavailable() ? $stockStatus : null;
             $previousAvailability = $this->getAvailabilityStatus();
