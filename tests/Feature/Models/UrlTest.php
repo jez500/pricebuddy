@@ -579,6 +579,70 @@ class UrlTest extends TestCase
     }
 
     /**
+     * An error page with a title and no price must not read as a store that drops the
+     * price when out of stock.
+     */
+    public function test_failed_fetch_does_not_mark_url_out_of_stock_when_store_treats_missing_price_as_out_of_stock()
+    {
+        Event::fake([AvailabilityChangedEvent::class]);
+
+        $this->store->update([
+            'scrape_strategy' => array_merge($this->store->scrape_strategy->toArray(), [
+                'title' => ['type' => 'selector', 'value' => 'title'],
+            ]),
+            'settings' => array_merge($this->store->settings ?? [], ['missing_price_out_of_stock' => true]),
+        ]);
+
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => Product::factory()->create(['user_id' => $this->user->id])->id,
+            'store_id' => $this->store->id,
+        ]);
+        $url->prices()->create(['price' => 25, 'unit_price' => 25, 'price_factor' => 1, 'store_id' => $this->store->id]);
+
+        Http::fake(['*' => Http::response('<html><head><title>503 Service Temporarily Unavailable</title></head></html>', 503)]);
+
+        $this->assertNull($url->updatePrice());
+
+        $this->assertNull($url->fresh()->availability);
+        $this->assertCount(1, $url->fresh()->prices);
+        Event::assertNotDispatched(AvailabilityChangedEvent::class);
+    }
+
+    public function test_create_from_url_stores_out_of_stock_when_page_has_no_title()
+    {
+        Event::fake([AvailabilityChangedEvent::class]);
+        $this->setAvailabilityStrategy();
+        $product = Product::factory()->create(['user_id' => $this->user->id]);
+
+        // No title and no price, but the page says the product is out of stock.
+        $this->mockScrape('', 'invalid', null, 'OutOfStock');
+
+        $url = Url::createFromUrl(self::TEST_URL, productId: $product->id, userId: $this->user->id);
+
+        $this->assertInstanceOf(Url::class, $url);
+        $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
+        Event::assertDispatched(AvailabilityChangedEvent::class);
+    }
+
+    public function test_update_price_marks_out_of_stock_when_page_has_no_title()
+    {
+        $this->setAvailabilityStrategy();
+        $url = Url::factory()->createOne([
+            'url' => self::TEST_URL,
+            'product_id' => Product::factory()->create()->id,
+            'store_id' => $this->store->id,
+        ]);
+        $existing = $url->prices()->create(['price' => 25, 'unit_price' => 25, 'price_factor' => 1, 'store_id' => $this->store->id]);
+
+        $this->mockScrape('', 'invalid', null, 'OutOfStock');
+
+        // Out of stock, not a failed scrape: the latest known price is returned.
+        $this->assertSame($existing->getKey(), $url->updatePrice()?->getKey());
+        $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
+    }
+
+    /**
      * An out-of-stock URL with a price history, on a product that wants back-in-stock
      * alerts. The store reads the <title> element, as auto-created stores can.
      */

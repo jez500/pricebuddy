@@ -60,6 +60,12 @@ class ScrapeUrl
     public const string NOT_FOUND_KEY = 'not_found';
 
     /**
+     * Marks a scrape result whose page could not be fetched or read, eg an error
+     * response or a timeout. Such a result says nothing about the product.
+     */
+    public const string SCRAPE_FAILED_KEY = 'scrape_failed';
+
+    /**
      * Titles that mean "this page does not exist". A bare "404" is deliberately NOT
      * enough: plenty of real products carry it as a model number (eg "Roland SP-404",
      * "Peugeot 404"), so it only counts alongside error wording or as the whole title.
@@ -236,6 +242,8 @@ class ScrapeUrl
                 ]);
                 $this->errorNotification('Error scraping URL check logs');
 
+                $output[self::SCRAPE_FAILED_KEY] = true;
+
                 return $output;
             }
 
@@ -255,6 +263,8 @@ class ScrapeUrl
             $this->errorLog('Error scraping URL', [
                 'error' => $e->getMessage(),
             ]);
+
+            $output[self::SCRAPE_FAILED_KEY] = true;
         }
 
         return $output;
@@ -332,25 +342,22 @@ class ScrapeUrl
     }
 
     /**
-     * Whether a scrape result says what the product's stock is: it found a price, the
-     * page is a soft 404, or it found the product's title on a page that shows it as
-     * unavailable. A failed fetch says nothing about it, so it must not change the stock.
-     *
-     * A failed fetch has no price and usually resolves as InStock. The http scraper does
-     * not flag a 5xx response as an error; it parses the error page, which may still
-     * carry a <title>. A title alone therefore can't tell a product page from an error
-     * page.
+     * Whether a scrape result says what the product's stock is: it found a price, or the
+     * page shows the product as unavailable (including a soft 404). A page that couldn't
+     * be fetched says nothing about it, so it must not change the stock. Nor does a page
+     * with no price that reads as in stock: an in-stock product page has a price, so this
+     * is a broken page or price selector.
      *
      * @param  array<string, mixed>|null  $scrapeResult
      */
     public static function hasStockResult(?array $scrapeResult, ?AvailabilityStrategyDto $availabilityStrategy): bool
     {
-        if (data_get($scrapeResult, self::NOT_FOUND_KEY) || filled(data_get($scrapeResult, 'price'))) {
-            return true;
+        if (blank($scrapeResult) || data_get($scrapeResult, self::SCRAPE_FAILED_KEY)) {
+            return false;
         }
 
-        return filled(data_get($scrapeResult, 'title'))
-            && self::resolveStockStatus($scrapeResult, $availabilityStrategy)->isUnavailable();
+        return filled(data_get($scrapeResult, 'price'))
+            || self::resolveStockStatus($scrapeResult, $availabilityStrategy)->isUnavailable();
     }
 
     public function getStore(): ?Store
