@@ -21,6 +21,7 @@ use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\FontWeight;
@@ -85,7 +86,7 @@ class ProductResource extends Resource
         $components[] = TextInput::make('url')
             ->label('Product URL')
             ->hintIcon(Icons::Help->value, 'The domain of the URL must be in the list of available stores')
-            ->rules([new StoreUrl])
+            ->rules(fn (Get $get): array => [StoreUrl::forVariant((array) $get('variant'))])
             ->live(onBlur: true)
             ->afterStateUpdated(VariantFilterFields::resetOnUrlChange())
             ->columnSpanFull();

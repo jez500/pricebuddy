@@ -443,13 +443,15 @@ class Url extends Model
     }
 
     /**
-     * Whether a submitted variant (from a form or the API) differs from the one tracked.
+     * Whether a submitted variant (from a form or the API) tracks a different variant
+     * from the current one. Order, case and separators don't count, so ["black", "small"]
+     * is the same variant as ["Small", "Black"].
      *
      * @param  array<string, mixed>|null  $variant
      */
     public function variantDiffers(?array $variant): bool
     {
-        return VariantFilterDto::fromArray($variant)?->toArray() != $this->getVariantFilter()?->toArray();
+        return VariantFilterDto::fromArray($variant)?->key() !== $this->getVariantFilter()?->key();
     }
 
     /**
@@ -480,11 +482,20 @@ class Url extends Model
      */
     public function changeVariant(?array $variant): bool
     {
+        $filter = VariantFilterDto::fromArray($variant);
+
+        // The same variant, perhaps spelt differently. Keep the new spelling, but leave
+        // its stock alone so a real back-in-stock alert isn't lost.
         if (! $this->variantDiffers($variant)) {
+            if ($filter?->toArray() != $this->getVariantFilter()?->toArray()) {
+                $this->variant = $filter?->toArray();
+                $this->save();
+                $this->product?->updatePriceCache();
+            }
+
             return true;
         }
 
-        $filter = VariantFilterDto::fromArray($variant);
         $previous = $this->variant;
         $this->variant = $filter?->toArray();
 

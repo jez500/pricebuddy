@@ -13,6 +13,7 @@ use Exception;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 
 /**
@@ -50,14 +51,14 @@ class AddUrlAction extends Action
                 ->live(onBlur: true)
                 ->afterStateUpdated(VariantFilterFields::resetOnUrlChange())
                 ->rules([
-                    fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
+                    fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
                         $urls = AddUrlsToProductAction::parse((string) $value);
 
                         if (count($urls) > AddUrlsToProductAction::MAX_URLS) {
                             $fail(__('Add no more than :max URLs at once.', ['max' => AddUrlsToProductAction::MAX_URLS]));
                         } elseif (count($urls) === 1) {
                             // Many URLs are checked by the queued jobs, because each check scrapes the page.
-                            (new StoreUrl)->validate($attribute, $urls[0], $fail);
+                            StoreUrl::forVariant((array) $get('variant'))->validate($attribute, $urls[0], $fail);
                         }
                     },
                 ]),

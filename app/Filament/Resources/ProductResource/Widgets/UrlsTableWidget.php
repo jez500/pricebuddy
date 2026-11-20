@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Url;
 use App\Rules\StoreUrl;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -63,7 +64,7 @@ class UrlsTableWidget extends BaseWidget
                         TextInput::make('url')
                             ->label('URL')
                             ->required()
-                            ->rules([new StoreUrl])
+                            ->rules(fn (Get $get): array => [StoreUrl::forVariant((array) $get('variant'))])
                             ->live(onBlur: true)
                             ->afterStateUpdated(VariantFilterFields::resetOnUrlChange()),
                         TextInput::make('price_factor')
@@ -74,7 +75,7 @@ class UrlsTableWidget extends BaseWidget
                             ->required(),
                         VariantFilterFields::make(),
                     ])
-                    ->using(function (Url $record, array $data): Url {
+                    ->using(function (Tables\Actions\EditAction $action, Url $record, array $data): Url {
                         $variant = $data['variant'] ?? null;
 
                         // Validate/apply the URL change first so a failed change leaves
@@ -93,7 +94,10 @@ class UrlsTableWidget extends BaseWidget
                                 ]);
                             }
                         } elseif (! $record->changeVariant($variant)) {
+                            // Nothing was changed. Keep the form open with the selection,
+                            // rather than save the rest and report success.
                             self::notifyVariantNotFound();
+                            $action->halt();
                         }
 
                         $record->price_factor = (float) $data['price_factor'];

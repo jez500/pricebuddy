@@ -2,6 +2,7 @@
 
 namespace App\Rules;
 
+use App\Dto\VariantFilterDto;
 use App\Enums\AiFeature;
 use App\Services\AutoCreateStore;
 use App\Services\Helpers\IntegrationHelper;
@@ -13,6 +14,25 @@ use Illuminate\Contracts\Validation\ValidationRule;
 class StoreUrl implements DataAwareRule, ValidationRule
 {
     protected array $data = [];
+
+    /**
+     * The variant the URL will track, if any. See self::forVariant().
+     */
+    protected ?VariantFilterDto $variant = null;
+
+    /**
+     * Validate a URL for the variant it will track, eg the variant field in the same
+     * form. Without one the page as a whole needs a title and a price.
+     *
+     * @param  array<string, mixed>|null  $variant
+     */
+    public static function forVariant(?array $variant): self
+    {
+        $rule = new self;
+        $rule->variant = VariantFilterDto::fromArray($variant);
+
+        return $rule;
+    }
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
@@ -38,7 +58,17 @@ class StoreUrl implements DataAwareRule, ValidationRule
         }
 
         if ($store) {
-            $scrape = ScrapeUrl::new($value)->scrape();
+            // Scrape for the variant the form tracks, so a page whose only prices are on
+            // its variants is judged by the chosen variant's price and stock.
+            $scrape = ScrapeUrl::new($value)->scrape(['variant' => $this->variant]);
+
+            if (data_get($scrape, ScrapeUrl::VARIANT_ERROR_KEY)) {
+                $fail(__('The page lists no variants for ":variant". Check the store\'s variants strategy.', [
+                    'variant' => $this->variant?->label(),
+                ]));
+
+                return;
+            }
 
             $availabilityStrategy = data_get($scrape, 'store.scrape_strategy.availability');
             $isUnavailable = ScrapeUrl::resolveStockStatus($scrape, $availabilityStrategy)->isUnavailable();

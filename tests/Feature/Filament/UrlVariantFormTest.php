@@ -14,9 +14,12 @@ use App\Models\Product;
 use App\Models\Store;
 use App\Models\Url;
 use App\Models\User;
+use App\Rules\StoreUrl;
+use App\Services\Helpers\SettingsHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Once;
 use Livewire\Livewire;
 use Tests\TestCase;
 use Tests\Traits\VariantTrait;
@@ -217,6 +220,125 @@ class UrlVariantFormTest extends TestCase
             ->callFormComponentAction('variant.values', 'detect_variants')
             ->assertFormSet(['variant_options' => [], 'variant_options_url' => null])
             ->assertFormFieldIsHidden('variant_pick');
+    }
+
+    /**
+     * A store whose pages only have prices on their variants: the page price selector
+     * matches nothing.
+     */
+    protected function useVariantOnlyPrices(): void
+    {
+        $this->store->update(['scrape_strategy' => array_merge($this->store->scrape_strategy->toArray(), [
+            'price' => ['type' => 'selector', 'value' => '.no-page-price'],
+        ])]);
+        Cache::flush();
+    }
+
+    public function test_url_check_uses_the_submitted_variant()
+    {
+        $this->useVariantOnlyPrices();
+        $fails = function (array $variant): array {
+            $messages = [];
+            StoreUrl::forVariant($variant)->validate('url', self::URL, function (string $message) use (&$messages): void {
+                $messages[] = $message;
+            });
+
+            return $messages;
+        };
+
+        // The page as a whole has no price, but in-stock Large has one, and out of
+        // stock Small needs none.
+        $this->assertSame([], $fails(['values' => ['Large']]));
+        $this->assertSame([], $fails(['values' => ['Small']]));
+        $this->assertSame(['The url does not contain a valid title or price'], $fails([]));
+    }
+
+    public function test_url_check_rejects_a_variant_the_store_cannot_find()
+    {
+        $strategy = $this->store->scrape_strategy->toArray();
+        unset($strategy['variants']);
+        $this->store->update(['scrape_strategy' => $strategy]);
+        Cache::flush();
+
+        $messages = [];
+        StoreUrl::forVariant(['values' => ['Small']])->validate('url', self::URL, function (string $message) use (&$messages): void {
+            $messages[] = $message;
+        });
+
+        $this->assertSame(['The page lists no variants for "Small". Check the store\'s variants strategy.'], $messages);
+    }
+
+    public function test_edit_forms_accept_a_new_url_priced_only_by_its_variant()
+    {
+        $this->useVariantOnlyPrices();
+
+        Livewire::test(ProductUrlStats::class, ['record' => $this->product])
+            ->callAction('edit', data: [
+                'url' => 'https://example.com/trail-shorts-2',
+                'price_factor' => 1,
+                'variant' => [],
+            ], arguments: ['url' => $this->url->getKey()])
+            ->assertHasActionErrors(['url']);
+
+        Livewire::test(ProductUrlStats::class, ['record' => $this->product])
+            ->callAction('edit', data: [
+                'url' => 'https://example.com/trail-shorts-2',
+                'price_factor' => 1,
+                'variant' => ['values' => ['Large']],
+            ], arguments: ['url' => $this->url->getKey()])
+            ->assertHasNoActionErrors();
+
+        Livewire::test(UrlsTableWidget::class, ['record' => $this->product->fresh()])
+            ->callTableAction('edit', $this->url->fresh(), data: [
+                'url' => 'https://example.com/trail-shorts-3',
+                'price_factor' => 1,
+                'variant' => ['values' => ['Large']],
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $this->url->refresh();
+        $this->assertSame('https://example.com/trail-shorts-3', $this->url->url);
+        $this->assertSame(32.5, (float) $this->url->prices()->latest('id')->first()->price);
+    }
+
+    public function test_a_failed_variant_change_keeps_the_edit_open()
+    {
+        // With AI healing on, the URL check leaves the page to the model, so the
+        // variant change itself is what fails.
+        SettingsHelper::setSetting('integrated_services', ['ai' => [
+            'enabled' => true,
+            'default_provider_id' => 'p1',
+            'providers' => [['id' => 'p1', 'name' => 'Local', 'type' => 'ollama', 'base_url' => 'http://ai.example:11434', 'model' => 'm']],
+        ]]);
+        SettingsHelper::$settings = null;
+        Once::flush();
+
+        $strategy = $this->store->scrape_strategy->toArray();
+        unset($strategy['variants']);
+        $this->store->update(['scrape_strategy' => $strategy]);
+        Cache::flush();
+
+        Livewire::test(ProductUrlStats::class, ['record' => $this->product])
+            ->callAction('edit', data: [
+                'url' => self::URL,
+                'price_factor' => 5,
+                'variant' => ['values' => ['X Small']],
+            ], arguments: ['url' => $this->url->getKey()])
+            ->assertActionHalted('edit')
+            ->assertNotified('Variant not changed');
+
+        Livewire::test(UrlsTableWidget::class, ['record' => $this->product])
+            ->callTableAction('edit', $this->url, data: [
+                'url' => self::URL,
+                'price_factor' => 5,
+                'variant' => ['values' => ['X Small']],
+            ])
+            ->assertTableActionHalted('edit')
+            ->assertNotified('Variant not changed');
+
+        $this->url->refresh();
+        $this->assertNull($this->url->variant);
+        $this->assertSame(1.0, (float) $this->url->price_factor);
     }
 
     public function test_detect_lists_the_page_variants_for_picking()

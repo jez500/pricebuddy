@@ -52,7 +52,8 @@ class VariantFilterDto implements Arrayable, JsonSerializable
         $values = collect($values)
             ->map(static fn ($value): string => is_scalar($value) ? trim((string) $value) : '')
             ->filter(static fn (string $value): bool => VariantMatcher::normalize($value) !== '')
-            ->unique(static fn (string $value): string => VariantMatcher::normalize($value))
+            // Strict, so numeric text such as "01" and "1" stays distinct.
+            ->unique(static fn (string $value): string => VariantMatcher::normalize($value), true)
             ->values()
             ->all();
 
@@ -81,8 +82,9 @@ class VariantFilterDto implements Arrayable, JsonSerializable
      */
     public function key(): string
     {
-        $values = array_values(array_unique(array_map(VariantMatcher::normalize(...), $this->values)));
-        sort($values);
+        $values = array_values(array_unique(array_map(VariantMatcher::normalize(...), $this->values), SORT_STRING));
+        // As text, so "01" and "1" sort the same way whatever order they were given in.
+        sort($values, SORT_STRING);
 
         return (string) json_encode([$values, $this->id], JSON_UNESCAPED_UNICODE);
     }

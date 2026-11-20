@@ -15,6 +15,7 @@ use Filament\Actions\Contracts\HasActions;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Model;
@@ -124,7 +125,7 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
                 TextInput::make('url')
                     ->label('URL')
                     ->required()
-                    ->rules([new StoreUrl])
+                    ->rules(fn (Get $get): array => [StoreUrl::forVariant((array) $get('variant'))])
                     ->live(onBlur: true)
                     ->afterStateUpdated(VariantFilterFields::resetOnUrlChange()),
                 TextInput::make('price_factor')
@@ -135,7 +136,7 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
                     ->required(),
                 VariantFilterFields::make(),
             ])
-            ->action(function ($arguments, $data) {
+            ->action(function (Action $action, $arguments, $data) {
                 $url = Url::find($arguments['url']);
                 $variant = $data['variant'] ?? null;
 
@@ -154,7 +155,10 @@ class ProductUrlStats extends BaseWidget implements HasActions, HasForms
                         return;
                     }
                 } elseif (! $url->changeVariant($variant)) {
+                    // Nothing was changed. Keep the form open with the selection, rather
+                    // than save the rest and report success.
                     UrlsTableWidget::notifyVariantNotFound();
+                    $action->halt();
                 }
 
                 $url->update(['price_factor' => $data['price_factor']]);

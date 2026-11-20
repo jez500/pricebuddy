@@ -157,6 +157,27 @@ class UrlVariantTest extends TestCase
         $this->assertNull($url->fresh()->variant);
     }
 
+    public function test_respelling_the_variant_keeps_its_stock_so_a_restock_still_alerts()
+    {
+        $this->createVariantStore();
+        $this->mockVariantPage();
+        $url = $this->createUrl(['values' => ['Small']]);
+
+        // Small came back in stock, but the next fetch hasn't run yet.
+        $this->setSmallInStock(true);
+        Event::fake([AvailabilityChangedEvent::class]);
+
+        // Re-saving the same variant with different spelling is not a new variant.
+        $this->assertTrue($url->fresh()->changeVariant(['values' => ['small']]));
+        $this->assertSame(['values' => ['small']], $url->fresh()->variant);
+        $this->assertSame(StockStatus::OutOfStock, $url->fresh()->availability);
+        Event::assertNotDispatched(AvailabilityChangedEvent::class);
+
+        // So the next fetch still reports the restock.
+        $url->fresh()->updatePrice();
+        Event::assertDispatched(AvailabilityChangedEvent::class, fn (AvailabilityChangedEvent $event) => $event->isBackInStock());
+    }
+
     public function test_changing_the_variant_keeps_the_old_one_when_the_page_cannot_be_read()
     {
         $this->createVariantStore();

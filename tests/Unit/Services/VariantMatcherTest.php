@@ -200,6 +200,23 @@ class VariantMatcherTest extends TestCase
         $this->assertNotSame($key(['Small']), $key(['Small'], 'SKU-1'));
     }
 
+    public function test_numeric_values_stay_distinct()
+    {
+        $filter = $this->filter(['01', '1']);
+
+        $this->assertSame(['01', '1'], $filter->values);
+        $this->assertSame($filter->key(), $this->filter(['1', '01'])->key());
+        $this->assertNotSame($this->filter(['01'])->key(), $this->filter(['1'])->key());
+
+        // A variant needs both values, so ["01", "2"] is not a match.
+        $variants = collect([
+            new VariantDto('01 / 2', ['01', '2'], StockStatus::InStock),
+            new VariantDto('01 / 1', ['01', '1'], StockStatus::InStock),
+        ]);
+
+        $this->assertSame(['01 / 1'], VariantMatcher::match($variants, $filter)->pluck('label')->all());
+    }
+
     public function test_filter_key_keeps_values_apart()
     {
         $key = fn (array $values, ?string $id = null): string => VariantFilterDto::fromArray(['values' => $values, 'id' => $id])->key();
